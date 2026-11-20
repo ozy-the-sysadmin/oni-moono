@@ -875,6 +875,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.DETAIL"
 msgid "Each second every food item clears and re-adds its spoilage modifiers, its refrigeration tags and its status items. This checks them against the item's temperature, air and storage first and skips the reset when it would leave them the same."
 msgstr ""
 
+#. Row title (fast-building-heat)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.TITLE"
+msgid "Parallel building heat updates"
+msgstr ""
+
+#. The line under the title (fast-building-heat)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.EFFECT"
+msgid "The five-times-a-second heat bookkeeping of every building runs on several cores."
+msgstr ""
+
+#. Tooltip: how it works (fast-building-heat)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.DETAIL"
+msgid "Each building that only adds to its own heat history and warms the tiles under it is handled on a worker thread; the others, and every message to the simulation, run on the main thread in the game's order, so temperatures come out the same."
+msgstr ""
+
 #. Row title (paged-path-grids)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
