@@ -13,11 +13,27 @@ namespace OniMoono.GameTweaks
         /// its index) and freed, once each, highest first. Dropping them in that order leaves the
         /// list as the game's descending walk does: each removal swaps in the list's last entry,
         /// which the walk has already passed, so every place below is untouched.
+        /// A handle has one place, so a handle removed more than once is taken once: a set, not a
+        /// search of `dropping` per handle (that search made the first scan after a load, with
+        /// thousands of freed handles recorded in a node, quadratic: 1.5 s on McBench, session AC).
         public static void FreedPlaces<H>(Dictionary<H, int> place, List<H> removed, Func<H, bool> freed, List<(int Place, H Handle)> dropping)
         {
             dropping.Clear();
-            foreach (var handle in removed)
-                if (place.TryGetValue(handle, out int at) && freed(handle) && !dropping.Contains((at, handle))) dropping.Add((at, handle));
+            if (removed.Count <= 32)
+            {
+                foreach (var handle in removed)
+                    if (place.TryGetValue(handle, out int at) && freed(handle) && !dropping.Contains((at, handle))) dropping.Add((at, handle));
+            }
+            else
+            {
+                var seen = new HashSet<H>(removed.Count, place.Comparer);
+                foreach (var handle in removed)
+                    if (place.TryGetValue(handle, out int at) && !seen.Contains(handle) && freed(handle))
+                    {
+                        seen.Add(handle);
+                        dropping.Add((at, handle));
+                    }
+            }
             dropping.Sort((a, b) => b.Place.CompareTo(a.Place));
         }
 
