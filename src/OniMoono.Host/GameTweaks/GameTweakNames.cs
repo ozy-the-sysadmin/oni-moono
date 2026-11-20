@@ -43,6 +43,7 @@ namespace OniMoono.Host.GameTweaks
             GameTweakNames.DxgiRow => "--dxgi on|off",
             GameTweakNames.StallRepeatsRow => "--stall-repeats on|off",
             GameTweakNames.GcRow => "--gc " + string.Join("|", Choices!),
+            GameTweakNames.FpsCounterRow => "--fps-counter " + string.Join("|", Choices!),
             _ => "--game-tweak " + Id,
         };
     }
@@ -55,7 +56,7 @@ namespace OniMoono.Host.GameTweaks
     internal static class GameTweakNames
     {
         public const string SplashRow = "splash", FrameStatsRow = "frame-stats", LogPathsRow = "log-paths", GpuRow = "gpu", RendererRow = "renderer", DxgiRow = "dxgi", StallRepeatsRow = "stall-repeats",
-            UpdateCheckRow = "update-check", GcRow = "gc";
+            UpdateCheckRow = "update-check", GcRow = "gc", FpsCounterRow = "fps-counter";
         public const string FastSaveCompression = "fast-save-compression", BackgroundSave = "background-save", NoSaveGc = "no-save-gc", PostLoadGc = "post-load-gc",
             FastSerialization = "fast-serialization", FastParticleCollision = "fast-particle-collision", CompactNavLinks = "compact-nav-links",
             PagedPathGrids = "paged-path-grids", FetchByCell = "fetch-by-cell", InstantReachability = "instant-reachability", SoundPiles = "fix-sound-piles", TimelapseSnapshots = "fix-timelapse-snapshots", TableScroll = "fix-table-scroll", LazyTableRefresh = "lazy-table-refresh",
@@ -120,6 +121,11 @@ namespace OniMoono.Host.GameTweaks
                 + "The answer is kept in the oni-moono data folder. Installs from the Steam Workshop ask nothing: Steam updates them. Off: Moono makes no network requests.", IsTweak: false),
             new(FrameStatsRow, General, "Frame stats in the log", "Notes where the frame time goes in Player.log, for reporting slowness.",
                 "Every 60 frames.", IsTweak: false),
+            new(FpsCounterRow, General, "Frame rate counter", "Shows the frame rate in a corner. Click it to see where the frame time goes.",
+                "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; "
+                + "it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. "
+                + "Off: no counter and nothing measured.",
+                IsTweak: false, Choices: EffectiveOptions.FpsCounterChoices),
             new(LogPathsRow, General, "Hide personal paths in the log", "Player.log shows your user folder as %USERPROFILE% or ~ and hides your account IDs and name.",
                 "Mods still get the full text.", IsTweak: false),
             new(GpuRow, General, "Graphics card", "For laptops with two GPUs: which one the game draws with. Needs a restart.",

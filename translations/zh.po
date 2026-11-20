@@ -126,6 +126,74 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.OVERLAPS_TIP"
 msgid "Some mods patch the same code as Moono's tweaks. Open Moono Tweaks to see which."
 msgstr "有些模组修补了与 Moono 调整项相同的代码。打开 Moono 调整项查看是哪些。"
 
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TITLE"
+msgid "Frame time: {0} fps, {1} ms a frame"
+msgstr "帧时间：{0} fps，每帧 {1} 毫秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING"
+msgid "Measuring…"
+msgstr "正在测量…"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EARLY"
+msgid "Input and physics"
+msgstr "输入与物理"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_UPDATE"
+msgid "Game update"
+msgstr "游戏更新"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LATE"
+msgid "Animation and late update"
+msgstr "动画与延后更新"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_POST_LATE"
+msgid "Interface layout"
+msgstr "界面布局"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PARTICLES"
+msgid "Particles"
+msgstr "粒子"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RENDER"
+msgid "Drawing"
+msgstr "绘制"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GUI"
+msgid "Debug interface"
+msgstr "调试界面"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_END_OF_FRAME"
+msgid "End of frame"
+msgstr "帧末尾"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PRESENT"
+msgid "Showing the picture"
+msgstr "显示画面"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OUTSIDE"
+msgid "Between frames"
+msgstr "帧与帧之间"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE"
+msgid "Of these, waiting for the graphics thread"
+msgstr "其中等待图形线程"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GC"
+msgid "Of these, memory cleanup"
+msgstr "其中内存清理"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COUNTS"
+msgid "{0} frames; {1} graphics calls waited for a frame; {2} memory cleanups; longest frame {3} ms"
+msgstr "{0} 帧；每帧等待 {1} 次图形调用；{2} 次内存清理；最长一帧 {3} 毫秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
+msgid "Record 60 s"
+msgstr "记录 60 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
+msgid "Recording…"
+msgstr "正在记录…"
+
 msgctxt "STRINGS.MOONO.TWEAKS.GROUPS.GENERAL"
 msgid "General"
 msgstr "通用"
@@ -161,6 +229,38 @@ msgstr "在 Player.log 中记录帧时间花在哪里，用于反馈卡顿问题
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FRAME_STATS.DETAIL"
 msgid "Every 60 frames."
 msgstr "每 60 帧一次。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.TITLE"
+msgid "Frame rate counter"
+msgstr "帧率计数器"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
+msgid "Shows the frame rate in a corner. Click it to see where the frame time goes."
+msgstr "在屏幕一角显示帧率。点击可查看每帧的时间花在哪里。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
+msgid "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
+msgstr "帧率和帧时间，在游戏主线程上测量。点击它会打开一个面板，显示一帧中每个部分所用的时间；面板只在打开时测量，其“记录”按钮会把 60 秒的测量结果保存到 oni-moono 数据文件夹中的 perf 文件夹。关闭：不显示计数器，也不做任何测量。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_RIGHT"
+msgid "top right"
+msgstr "右上"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_LEFT"
+msgid "top left"
+msgstr "左上"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_RIGHT"
+msgid "bottom right"
+msgstr "右下"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_LEFT"
+msgid "bottom left"
+msgstr "左下"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.OFF"
+msgid "off"
+msgstr "关闭"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.LOG_PATHS.TITLE"
 msgid "Hide personal paths in the log"

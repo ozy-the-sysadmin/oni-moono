@@ -57,6 +57,8 @@ namespace OniMoono.Host
                 GameTweakNames.UpdateCheckRow => (Flag(effective.UpdateCheck), false, Flag(EffectiveOptions.DefaultUpdateCheck)),
                 GameTweakNames.GcRow => (Array.IndexOf(row.Choices!, effective.Gc), effective.GcSource == OptionSource.CommandLine,
                     Array.IndexOf(row.Choices!, EffectiveOptions.DefaultGc)),
+                GameTweakNames.FpsCounterRow => (Array.IndexOf(row.Choices!, effective.FpsCounter), effective.FpsCounterSource == OptionSource.CommandLine,
+                    Array.IndexOf(row.Choices!, EffectiveOptions.DefaultFpsCounter)),
                 var name => (Flag(effective.Tweaks[name].On), effective.Tweaks[name].Source == OptionSource.CommandLine,
                     Flag(EffectiveOptions.DefaultOn(name, GameTweakNames.OffByDefault))),
             };
@@ -78,7 +80,7 @@ namespace OniMoono.Host
             {
                 var tweaks = new Dictionary<string, bool>(StringComparer.Ordinal);
                 bool? splash = null, frameStats = null, hideLogPaths = null, dxgi = null, stallRepeats = null, updateCheck = null;
-                string? gpu = null, renderer = null, gc = null;
+                string? gpu = null, renderer = null, gc = null, fpsCounter = null;
                 for (int i = 0; i < ids.Length; i++)
                 {
                     if (ids[i] == GameTweakNames.SplashRow) splash = values[i] != 0;
@@ -90,9 +92,10 @@ namespace OniMoono.Host
                     else if (ids[i] == GameTweakNames.StallRepeatsRow) stallRepeats = values[i] != 0;
                     else if (ids[i] == GameTweakNames.UpdateCheckRow) updateCheck = values[i] != 0;
                     else if (ids[i] == GameTweakNames.GcRow) gc = rows.First(r => r.Id == GameTweakNames.GcRow).Choices![values[i]];
+                    else if (ids[i] == GameTweakNames.FpsCounterRow) fpsCounter = rows.First(r => r.Id == GameTweakNames.FpsCounterRow).Choices![values[i]];
                     else tweaks[ids[i]] = values[i] != 0;
                 }
-                var next = EffectiveOptions.Apply(saved, GameTweakNames.OffByDefault, tweaks, splash, frameStats, hideLogPaths, gpu, renderer, dxgi, updateCheck, gc, stallRepeats);
+                var next = EffectiveOptions.Apply(saved, GameTweakNames.OffByDefault, tweaks, splash, frameStats, hideLogPaths, gpu, renderer, dxgi, updateCheck, gc, stallRepeats, fpsCounter);
                 try
                 {
                     next.Write(settingsPath);

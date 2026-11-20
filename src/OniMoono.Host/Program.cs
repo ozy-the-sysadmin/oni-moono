@@ -66,7 +66,8 @@ namespace OniMoono.Host
             var settings = PlayerSettings.Read(settingsPath, out var settingsProblem);
             var effective = EffectiveOptions.Resolve(GameTweaks.GameTweakNames.All, GameTweaks.GameTweakNames.ChangingBehaviour,
                 options.GameTweaks, options.Splash, options.FrameStats, settings, options.LogPaths, options.Gpu, options.Renderer, options.Dxgi,
-                GameTweaks.GameTweakNames.OffByDefault, commandLineGc: options.Gc, commandLineStallRepeats: options.StallRepeats);
+                GameTweaks.GameTweakNames.OffByDefault, commandLineGc: options.Gc, commandLineStallRepeats: options.StallRepeats,
+                commandLineFpsCounter: options.FpsCounter);
             // The garbage collection asked for (GcMode): on Linux and macOS a runtime started with
             // the other one starts again in place, before the log opens (which keeps the previous
             // run's log as Player-prev.log).
@@ -243,6 +244,8 @@ namespace OniMoono.Host
                 GameTweaks.GameTweaks.Install(effective.EnabledTweaks.ToHashSet(StringComparer.Ordinal));
                 if (effective.FrameStats) GameTweaks.GameTweaks.InstallFrameStats();
                 if (!options.NoTweaksMenu) MoonoTweaksMenu.Install(effective, settings, settingsPath);
+                Perf.PerfRecorder.Install(options.PerfRecord, effective.EnabledTweaks.Where(GameTweaks.GameTweaks.Available), GameTweaks.GameTweakNames.All, effective.FrameStats);
+                Perf.PerfHud.Install(effective.FpsCounter);
                 StateMachineSaveNames.Install(dataDir, AppContext.BaseDirectory);
                 NativeCrashes.DescribeGame();
                 StartupStats.Mark("host patches installed");

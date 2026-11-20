@@ -155,6 +155,91 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.OVERLAPS_TIP"
 msgid "Some mods patch the same code as Moono's tweaks. Open Moono Tweaks to see which."
 msgstr ""
 
+#. The frame time panel (click the frame rate counter), heading; {0}: frames a second, {1}: milliseconds a frame
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TITLE"
+msgid "Frame time: {0} fps, {1} ms a frame"
+msgstr ""
+
+#. The frame time panel, before its first second is measured
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING"
+msgid "Measuring…"
+msgstr ""
+
+#. The frame time panel: a part of the frame (input, fixed updates)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EARLY"
+msgid "Input and physics"
+msgstr ""
+
+#. The frame time panel: a part of the frame (scripts' Update, the simulation's step)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_UPDATE"
+msgid "Game update"
+msgstr ""
+
+#. The frame time panel: a part of the frame (animators, LateUpdate)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LATE"
+msgid "Animation and late update"
+msgstr ""
+
+#. The frame time panel: a part of the frame (canvases)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_POST_LATE"
+msgid "Interface layout"
+msgstr ""
+
+#. The frame time panel: a part of the frame
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PARTICLES"
+msgid "Particles"
+msgstr ""
+
+#. The frame time panel: a part of the frame (cameras, overlay canvases)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RENDER"
+msgid "Drawing"
+msgstr ""
+
+#. The frame time panel: a part of the frame (OnGUI)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GUI"
+msgid "Debug interface"
+msgstr ""
+
+#. The frame time panel: a part of the frame (WaitForEndOfFrame)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_END_OF_FRAME"
+msgid "End of frame"
+msgstr ""
+
+#. The frame time panel: a part of the frame (present)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PRESENT"
+msgid "Showing the picture"
+msgstr ""
+
+#. The frame time panel: a part of the frame (input polling, frame cap)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OUTSIDE"
+msgid "Between frames"
+msgstr ""
+
+#. The frame time panel: a share of the rows above
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE"
+msgid "Of these, waiting for the graphics thread"
+msgstr ""
+
+#. The frame time panel: a share of the rows above (garbage collection pauses)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GC"
+msgid "Of these, memory cleanup"
+msgstr ""
+
+#. The frame time panel, last line; {0}: frames in the second, {1}: calls a frame, {2}: garbage collections, {3}: milliseconds
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COUNTS"
+msgid "{0} frames; {1} graphics calls waited for a frame; {2} memory cleanups; longest frame {3} ms"
+msgstr ""
+
+#. The frame time panel's button: saves 60 seconds of measurements to a file
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
+msgid "Record 60 s"
+msgstr ""
+
+#. The frame time panel's button while a recording runs
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
+msgid "Recording…"
+msgstr ""
+
 #. Section heading (shown in capitals)
 msgctxt "STRINGS.MOONO.TWEAKS.GROUPS.GENERAL"
 msgid "General"
@@ -198,6 +283,46 @@ msgstr ""
 #. Tooltip: how it works (frame-stats)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FRAME_STATS.DETAIL"
 msgid "Every 60 frames."
+msgstr ""
+
+#. Row title (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.TITLE"
+msgid "Frame rate counter"
+msgstr ""
+
+#. The line under the title (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
+msgid "Shows the frame rate in a corner. Click it to see where the frame time goes."
+msgstr ""
+
+#. Tooltip: how it works (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
+msgid "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_RIGHT"
+msgid "top right"
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_LEFT"
+msgid "top left"
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_RIGHT"
+msgid "bottom right"
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_LEFT"
+msgid "bottom left"
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.OFF"
+msgid "off"
 msgstr ""
 
 #. Row title (log-paths)

@@ -53,7 +53,7 @@ namespace OniMoono.Tests
         [Fact]
         public void ScreenLabelsAreTheCatalogs()
         {
-            var source = string.Join("\n", new[] { "MoonoTweaksMenu.cs", "UpdateBadge.cs", "OverlapBadge.cs" }
+            var source = string.Join("\n", new[] { "MoonoTweaksMenu.cs", "UpdateBadge.cs", "OverlapBadge.cs", "PerfOverlay.cs" }
                 .Select(f => File.ReadAllText(Path.Combine(Translations(), "..", "src", "OniMoono.GameTweaks", f))));
             var asked = new HashSet<string>(StringComparer.Ordinal);
             // The rows' overlap lines name their labels in ModOverlapsCore (`ui(reason)`).

@@ -24,6 +24,17 @@ namespace OniMoono.GameTweaks
         {
             public string Label;
             public long Ticks, Calls, Entries;
+            /// What the windows taken so far held (Take adds each before clearing it).
+            public long TakenTicks, TakenCalls, TakenEntries;
+        }
+
+        /// Every kind since start-up, for the performance recorder: labels, then ticks, calls and
+        /// entries in arrays of the same order (counts that only grow); empty when off.
+        public static (string[] Labels, long[] Ticks, long[] Calls, long[] Entries) Totals()
+        {
+            var kinds = byLabel.Values.ToArray();
+            return (kinds.Select(k => k.Label).ToArray(), kinds.Select(k => k.TakenTicks + k.Ticks).ToArray(),
+                kinds.Select(k => k.TakenCalls + k.Calls).ToArray(), kinds.Select(k => k.TakenEntries + k.Entries).ToArray());
         }
 
         static readonly Dictionary<StateMachineUpdater.BaseUpdateBucket, Kind> byBucket = new Dictionary<StateMachineUpdater.BaseUpdateBucket, Kind>();
@@ -122,7 +133,13 @@ namespace OniMoono.GameTweaks
                 lines.Add(string.Format(c, "bucket profile: {0:F3} ms, {1:F2} calls/frame, {2:F0} entries/call, {3:F2} us/entry: {4}",
                     k.Ticks * ms / frames, (double)k.Calls / frames, k.Calls > 0 ? (double)k.Entries / k.Calls : 0,
                     k.Entries > 0 ? k.Ticks * ms * 1000 / k.Entries : 0, k.Label));
-            foreach (var k in byLabel.Values) k.Ticks = k.Calls = k.Entries = 0;
+            foreach (var k in byLabel.Values)
+            {
+                k.TakenTicks += k.Ticks;
+                k.TakenCalls += k.Calls;
+                k.TakenEntries += k.Entries;
+                k.Ticks = k.Calls = k.Entries = 0;
+            }
             return lines.ToArray();
         }
     }

@@ -20,7 +20,8 @@ namespace OniMoono.Host
     /// who has not chosen otherwise:
     ///
     ///     { "gameTweaks": { "brain-rate": true, "fast-jobs": false }, "splash": "moo", "frameStats": true, "logPaths": "full", "gpu": "discrete", "renderer": "opengl",
-    ///       "dxgi": false, "stallRepeats": false, "updateCheck": false, "gc": "low-memory" }
+    ///       "dxgi": false, "stallRepeats": false, "updateCheck": false, "gc": "low-memory",
+    ///       "fpsCounter": "off" }
     ///
     /// Tweaks no longer known (one removed in an update) are ignored and kept.
     internal sealed class PlayerSettings
@@ -45,6 +46,9 @@ namespace OniMoono.Host
         public bool? UpdateCheck;
         /// "fast" or "low-memory" (GcMode); null when not chosen. OniMoono.exe reads it too.
         public string? Gc;
+        /// The HUD's frame rate counter: its corner, or "off" (EffectiveOptions.FpsCounterChoices);
+        /// null when not chosen.
+        public string? FpsCounter;
 
         public static string PathIn(string persistentDataPath) => Path.Combine(persistentDataPath, "oni-moono", "settings.json");
         /// Where players from before the Moono name (oni-brutal) kept the file.
@@ -128,6 +132,12 @@ namespace OniMoono.Host
                 var value = gc.GetValue<string>();
                 settings.Gc = GcMode.IsChoice(value) ? value : throw new FormatException($"gc \"{value}\" is not one of: {string.Join(", ", GcMode.Choices)}");
             }
+            if (root["fpsCounter"] is JsonNode fpsCounter)
+            {
+                var value = fpsCounter.GetValue<string>();
+                settings.FpsCounter = EffectiveOptions.IsFpsCounter(value) ? value
+                    : throw new FormatException($"fpsCounter \"{value}\" is not one of: {string.Join(", ", EffectiveOptions.FpsCounterChoices)}");
+            }
             return settings;
         }
 
@@ -150,6 +160,7 @@ namespace OniMoono.Host
             if (StallRepeats != null) root["stallRepeats"] = StallRepeats;
             if (UpdateCheck != null) root["updateCheck"] = UpdateCheck;
             if (Gc != null) root["gc"] = Gc;
+            if (FpsCounter != null) root["fpsCounter"] = FpsCounter;
             return indented ? root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n" : root.ToJsonString();
         }
 
@@ -171,7 +182,7 @@ namespace OniMoono.Host
     /// settings file, then the command line. A command line naming any game tweak
     /// (`--game-tweak NAME|-NAME|all|exact|none`, repeatable) sets the whole set of tweaks for the
     /// run, as before the settings file existed; `--splash`, `--frame-stats`, `--log-paths`,
-    /// `--gpu`, `--dxgi`, `--stall-repeats` and `--gc` set theirs.
+    /// `--gpu`, `--dxgi`, `--stall-repeats`, `--gc` and `--fps-counter` set theirs.
     internal sealed class EffectiveOptions
     {
         public readonly IReadOnlyList<string> AllTweaks;
@@ -216,6 +227,13 @@ namespace OniMoono.Host
         public const string DefaultGc = GcMode.Default;
         public string Gc = DefaultGc;
         public OptionSource GcSource;
+        /// The HUD's frame rate counter (Perf.PerfHud): its corner, or "off"; top right unless
+        /// chosen otherwise.
+        public static readonly string[] FpsCounterChoices = ["top-right", "top-left", "bottom-right", "bottom-left", "off"];
+        public const string DefaultFpsCounter = "top-right";
+        public string FpsCounter = DefaultFpsCounter;
+        public OptionSource FpsCounterSource;
+        public static bool IsFpsCounter(string value) => Array.IndexOf(FpsCounterChoices, value) >= 0;
         /// The command line's `--game-tweak` values, in order (empty when it names none).
         public readonly IReadOnlyList<string> CommandLineTweaks;
         /// Names in the settings file that are not tweaks of this player.
@@ -242,7 +260,7 @@ namespace OniMoono.Host
         public static EffectiveOptions Resolve(IReadOnlyList<string> allTweaks, IReadOnlyCollection<string> changing,
             IReadOnlyList<string> commandLineTweaks, string? commandLineSplash, bool commandLineFrameStats, PlayerSettings file,
             string? commandLineLogPaths = null, string? commandLineGpu = null, string? commandLineRenderer = null, bool? commandLineDxgi = null,
-            IReadOnlyCollection<string>? offByDefault = null, string? commandLineGc = null, bool? commandLineStallRepeats = null)
+            IReadOnlyCollection<string>? offByDefault = null, string? commandLineGc = null, bool? commandLineStallRepeats = null, string? commandLineFpsCounter = null)
         {
             var options = new EffectiveOptions(allTweaks, commandLineTweaks);
             foreach (var name in allTweaks)
@@ -270,6 +288,8 @@ namespace OniMoono.Host
             if (file.UpdateCheck != null) (options.UpdateCheck, options.UpdateCheckSource) = (file.UpdateCheck.Value, OptionSource.SettingsFile);
             if (commandLineGc != null) (options.Gc, options.GcSource) = (commandLineGc, OptionSource.CommandLine);
             else if (file.Gc != null) (options.Gc, options.GcSource) = (file.Gc, OptionSource.SettingsFile);
+            if (commandLineFpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (commandLineFpsCounter, OptionSource.CommandLine);
+            else if (file.FpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (file.FpsCounter, OptionSource.SettingsFile);
             return options;
         }
 
@@ -280,12 +300,12 @@ namespace OniMoono.Host
         /// set, shown but not changeable) keep what the file had.
         public static PlayerSettings Apply(PlayerSettings file, IReadOnlyCollection<string> offByDefault,
             IReadOnlyDictionary<string, bool> tweaks, bool? splashMoo, bool? frameStats, bool? hideLogPaths = null, string? gpu = null, string? renderer = null,
-            bool? dxgi = null, bool? updateCheck = null, string? gc = null, bool? stallRepeats = null)
+            bool? dxgi = null, bool? updateCheck = null, string? gc = null, bool? stallRepeats = null, string? fpsCounter = null)
         {
             var result = new PlayerSettings
             {
                 Splash = file.Splash, FrameStats = file.FrameStats, LogPaths = file.LogPaths, Gpu = file.Gpu, Renderer = file.Renderer, Dxgi = file.Dxgi,
-                StallRepeats = file.StallRepeats, UpdateCheck = file.UpdateCheck, Gc = file.Gc
+                StallRepeats = file.StallRepeats, UpdateCheck = file.UpdateCheck, Gc = file.Gc, FpsCounter = file.FpsCounter
             };
             foreach (var (name, on) in file.GameTweaks) result.GameTweaks[name] = on;
             foreach (var (name, on) in tweaks)
@@ -302,6 +322,7 @@ namespace OniMoono.Host
             if (stallRepeats != null) result.StallRepeats = stallRepeats == DefaultStallRepeats ? null : stallRepeats;
             if (updateCheck != null) result.UpdateCheck = updateCheck == DefaultUpdateCheck ? null : updateCheck;
             if (gc != null) result.Gc = gc == DefaultGc ? null : gc;
+            if (fpsCounter != null) result.FpsCounter = fpsCounter == DefaultFpsCounter ? null : fpsCounter;
             return result;
         }
 
@@ -335,6 +356,7 @@ namespace OniMoono.Host
             yield return $"stall repeats {(StallRepeats ? "on" : "off")} ({From(StallRepeatsSource)})";
             yield return $"update check {(UpdateCheck ? "on" : "off")} ({From(UpdateCheckSource)})";
             yield return $"gc {Gc} ({From(GcSource)})";
+            yield return $"fps counter {FpsCounter} ({From(FpsCounterSource)})";
         }
 
         /// Where the renderer choice came from, for the log's renderer line.

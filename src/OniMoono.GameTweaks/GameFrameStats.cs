@@ -154,8 +154,53 @@ namespace OniMoono.GameTweaks
             string Part(int span) => $"{Ms(Ticks[span])} ({PerFrame(Calls[span])})";
         }
 
+        /// What the windows taken so far held (Reset adds each before clearing it), so a reader
+        /// across windows (the performance recorder: Totals) sees counts that only grow.
+        public static readonly long[] TakenTicks = new long[Spans], TakenCalls = new long[Spans], TakenNative = new long[Spans];
+        public static long TakenNativeTicks, TakenNativeCalls, TakenJobWait, TakenFrames, TakenPausedFrames, TakenCappedFrames, TakenSteps;
+
+        /// Since start-up, per span (ticks, calls, SimDLL ticks), then SimDLL on the main thread
+        /// (ticks, calls), the job wait (ticks), frames, paused frames, capped frames and steps.
+        public static long[] Totals()
+        {
+            var all = new long[Spans * 3 + 8];
+            for (int i = 0; i < Spans; i++)
+            {
+                all[i] = TakenTicks[i] + Ticks[i];
+                all[Spans + i] = TakenCalls[i] + Calls[i];
+                all[2 * Spans + i] = TakenNative[i] + Native[i];
+            }
+            int at = 3 * Spans;
+            all[at] = TakenNativeTicks + NativeTicks;
+            all[at + 1] = TakenNativeCalls + NativeCalls;
+            all[at + 2] = TakenJobWait + JobWait;
+            all[at + 3] = TakenFrames + Frames;
+            all[at + 4] = TakenPausedFrames + PausedFrames;
+            all[at + 5] = TakenCappedFrames + CappedFrames;
+            all[at + 6] = TakenSteps + Steps;
+            all[at + 7] = Stopwatch.Frequency;
+            return all;
+        }
+
+        /// The spans' names for Totals, in order.
+        public static readonly string[] SpanNames = { "sim-every-tick", "unsafe-sim-200ms", "step-the-sim", "cell-info", "nav-grids", "path-probes", "brains", "anim-events", "jobs",
+            "bucket-render-every-tick", "bucket-render-200ms", "bucket-render-1000ms", "bucket-sim-every-tick", "bucket-sim-33ms", "bucket-sim-200ms", "bucket-sim-1000ms", "bucket-sim-4000ms" };
+
         public static void Reset()
         {
+            for (int i = 0; i < Spans; i++)
+            {
+                TakenTicks[i] += Ticks[i];
+                TakenCalls[i] += Calls[i];
+                TakenNative[i] += Native[i];
+            }
+            TakenNativeTicks += NativeTicks;
+            TakenNativeCalls += NativeCalls;
+            TakenJobWait += JobWait;
+            TakenFrames += Frames;
+            TakenPausedFrames += PausedFrames;
+            TakenCappedFrames += CappedFrames;
+            TakenSteps += Steps;
             Array.Clear(Ticks, 0, Spans);
             Array.Clear(Calls, 0, Spans);
             Array.Clear(Native, 0, Spans);
