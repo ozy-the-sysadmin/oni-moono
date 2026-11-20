@@ -890,6 +890,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.DETAIL"
 msgid "Each building that only adds to its own heat history and warms the tiles under it is handled on a worker thread; the others, and every message to the simulation, run on the main thread in the game's order, so temperatures come out the same."
 msgstr ""
 
+#. Row title (fast-conversation-pairing)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.TITLE"
+msgid "Conversation partners by proximity"
+msgstr ""
+
+#. The line under the title (fast-conversation-pairing)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.EFFECT"
+msgid "Duplicants look for someone to chat with among those nearby, not the whole colony."
+msgstr ""
+
+#. Tooltip: how it works (fast-conversation-pairing)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.DETAIL"
+msgid "Five times a second the game compares every Duplicant with every other one to start or join conversations. This finds the same first partner for each by looking only at conversations and at Duplicants standing nearby, so the same conversations start in the same order."
+msgstr ""
+
 #. Row title (paged-path-grids)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
