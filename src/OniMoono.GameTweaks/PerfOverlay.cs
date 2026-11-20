@@ -84,7 +84,7 @@ namespace OniMoono.GameTweaks
             back.color = new Color(0.1f, 0.11f, 0.14f, 0.88f);
             var panelRect = (RectTransform)panel.transform;
             panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = anchor;
-            panelRect.sizeDelta = new Vector2(420f, 330f);
+            panelRect.sizeDelta = new Vector2(480f, 330f);  // 420 cut the counts line short at 1440p (session AA, C1)
             panelRect.anchoredPosition = new Vector2(right ? -6f : 6f, top ? -24f : 24f);
             panelText = Label(panel.transform, "Text", 12, TMPro.TextAlignmentOptions.TopLeft);
             var textRect = panelText.rectTransform;
