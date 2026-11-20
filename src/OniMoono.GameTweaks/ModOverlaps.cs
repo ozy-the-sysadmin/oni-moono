@@ -210,7 +210,6 @@ namespace OniMoono.GameTweaks
             Add(FastPlantAbsorbers.Name, FastPlantAbsorbers.Guarded);
             Add(FastSuitChecks.Name, FastSuitChecks.Guarded);
             Add(FastSideScreens.Name, FastSideScreens.Guarded);
-            Add(FastStoragePanel.Name, FastStoragePanel.Guarded);
             Add(FixQuitStall.Name, FixQuitStall.Guarded);
             Add(FastConveyorPaths.Name, () => new[] { FastConveyorPaths.Guarded() });
             Add(FastAnimEvents.Name, FastAnimEvents.Guarded, FastAnimEvents.KindsOf);

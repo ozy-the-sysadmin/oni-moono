@@ -666,18 +666,6 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SIDE_SCREENS.DETAIL"
 msgid "Once opened, these side screens keep updating every frame for the rest of the session, even when hidden. This skips their updates while they are hidden and updates them once when they show again, before they are drawn. Idea from Fast Track."
 msgstr "这些侧边屏幕一旦打开，就会在本次游戏余下的时间里每帧更新，即使被隐藏。此项在它们隐藏时跳过更新，并在它们再次显示、被绘制之前更新一次。思路来自 Fast Track。"
 
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_STORAGE_PANEL.TITLE"
-msgid "Lighter storage contents list"
-msgstr "更轻的储存内容列表"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_STORAGE_PANEL.EFFECT"
-msgid "The details panel redraws a storage's item list once a frame, and not while closed."
-msgstr "详情面板每帧只重绘一次储存的物品列表，关闭时不重绘。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_STORAGE_PANEL.DETAIL"
-msgid "Each item stored or taken redraws the whole list, hundreds of times a frame when a bin fills, and also while the panel is closed. This redraws it once just before the frame is drawn, and once when the panel opens again. The list then shows values as of the drawn frame, a few milliseconds later than the game's."
-msgstr "每存入或取出一件物品都会重绘整个列表，储物箱装满时每帧可达数百次，面板关闭时也是如此。此项在绘制每帧之前重绘一次，并在面板再次打开时重绘一次。列表显示的是所绘制帧时的数值，比游戏的晚几毫秒。"
-
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ANIM_EVENTS.TITLE"
 msgid "Faster animation events"
 msgstr "更快的动画事件"
