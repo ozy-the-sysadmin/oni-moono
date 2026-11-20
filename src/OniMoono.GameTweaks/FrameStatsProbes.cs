@@ -65,25 +65,54 @@ namespace OniMoono.GameTweaks
         /// test runs compare a change with itself switched off in one run. Each window's lines end
         /// with `frame stats ab: FIELD=VALUE` for the value it ran with; the field is then flipped
         /// for the next window.
+        ///
+        /// Several fields separated by `;` (test aid, several tweaks judged in one run): the windows
+        /// take turns, every field false, then the first true, every field false, the second true,
+        /// and so on, so each field's windows have all-false windows on both sides. Each window's
+        /// lines end with `frame stats ab: base` or `frame stats ab: TYPE.FIELD=True`.
         static readonly string abSpec = Environment.GetEnvironmentVariable("ONI_FRAME_STATS_AB");
-        static FieldInfo abField;
-        static bool abResolved;
+        static FieldInfo[] abFields;
+        static string abError;
+        static long abWindow;
 
         static string Flip()
         {
             if (string.IsNullOrEmpty(abSpec)) return null;
-            if (!abResolved)
+            if (abFields == null)
             {
-                abResolved = true;
-                int split = abSpec.LastIndexOf(' ');
-                var type = split > 0 ? Type.GetType(abSpec.Substring(0, split).Trim()) : null;
-                abField = type?.GetField(abSpec.Substring(split + 1), BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-                if (abField == null || abField.FieldType != typeof(bool)) abField = null;
+                var specs = abSpec.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                var found = new System.Collections.Generic.List<FieldInfo>();
+                foreach (var raw in specs)
+                {
+                    string spec = raw.Trim();
+                    int split = spec.LastIndexOf(' ');
+                    var type = split > 0 ? Type.GetType(spec.Substring(0, split).Trim()) : null;
+                    var field = type?.GetField(spec.Substring(split + 1), BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (field == null || field.FieldType != typeof(bool)) abError ??= $"frame stats ab: no static bool field {spec}";
+                    else found.Add(field);
+                }
+                abFields = found.ToArray();
             }
-            if (abField == null) return $"frame stats ab: no static bool field {abSpec}";
-            bool value = (bool)abField.GetValue(null);
-            abField.SetValue(null, !value);
-            return $"frame stats ab: {abField.Name}={value}";
+            if (abError != null) return abError;
+            if (abFields.Length == 1)
+            {
+                var abField = abFields[0];
+                bool value = (bool)abField.GetValue(null);
+                abField.SetValue(null, !value);
+                return $"frame stats ab: {abField.Name}={value}";
+            }
+            // Rotation: even windows run with every field false, odd window 2k+1 with field k % n true.
+            long ran = abWindow++;
+            string label = "frame stats ab: base";
+            if ((ran & 1) == 1)
+            {
+                var field = abFields[(ran >> 1) % abFields.Length];
+                label = $"frame stats ab: {field.DeclaringType?.Name}.{field.Name}={(bool)field.GetValue(null)}";
+            }
+            long next = abWindow;
+            foreach (var field in abFields) field.SetValue(null, false);
+            if ((next & 1) == 1) abFields[(next >> 1) % abFields.Length].SetValue(null, true);
+            return label;
         }
 
         static HarmonyMethod Prefix(string name) => new HarmonyMethod(typeof(FrameStatsProbes), name) { priority = Priority.First };

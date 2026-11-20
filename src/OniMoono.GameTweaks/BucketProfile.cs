@@ -134,9 +134,13 @@ namespace OniMoono.GameTweaks
             lines.Add(string.Format(c, "bucket profile (ms/frame over {0}): all buckets {1:F3} in {2} kinds", frames, total * ms / frames, byLabel.Count));
             var top = byLabel.Values.OrderByDescending(k => k.Ticks).Take(40).ToList();
             // Test runs: ONI_BUCKET_PROFILE_KEEP=TEXT also lists every kind whose label holds TEXT, so a
-            // small bucket being measured is in every window's lines even outside the top 40.
+            // small bucket being measured is in every window's lines even outside the top 40. Several
+            // texts separated by `|`.
             if (!string.IsNullOrEmpty(keep))
-                top.AddRange(byLabel.Values.Where(k => k.Label.IndexOf(keep, StringComparison.Ordinal) >= 0 && !top.Contains(k)));
+            {
+                var texts = keep.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+                top.AddRange(byLabel.Values.Where(k => !top.Contains(k) && texts.Any(t => k.Label.IndexOf(t, StringComparison.Ordinal) >= 0)));
+            }
             foreach (var k in top)
                 lines.Add(string.Format(c, "bucket profile: {0:F3} ms, {1:F2} calls/frame, {2:F0} entries/call, {3:F2} us/entry: {4}",
                     k.Ticks * ms / frames, (double)k.Calls / frames, k.Calls > 0 ? (double)k.Entries / k.Calls : 0,
