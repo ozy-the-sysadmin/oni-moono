@@ -146,7 +146,8 @@ namespace OniMoono.GameTweaks
             list[k] = v;
         }
 
-        static bool Finite(Vector3 p) => !(float.IsNaN(p.x) || float.IsInfinity(p.x) || float.IsNaN(p.y) || float.IsInfinity(p.y)
+        // A NaN z makes the game's distance NaN, which passes its test at any x and y.
+        static bool Finite(Vector3 p) => !(float.IsNaN(p.x) || float.IsInfinity(p.x) || float.IsNaN(p.y) || float.IsInfinity(p.y) || float.IsNaN(p.z)
             || Math.Abs(p.x) > 1e7f || Math.Abs(p.y) > 1e7f);
 
         /// Fills `decisions` with the decisions the game's loop takes on this input, in order.

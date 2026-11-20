@@ -114,7 +114,8 @@ namespace OniMoono.Tests
                 if (odd < 0.02) x = float.NaN;
                 else if (odd < 0.03) y = float.PositiveInfinity;
                 else if (odd < 0.04) x = 3e7f;
-                c.Pos[i] = new Vector3(x, y, -0.1f * (i % 3));
+                float z = odd < 0.05 && odd >= 0.04 ? float.NaN : -0.1f * (i % 3);
+                c.Pos[i] = new Vector3(x, y, z);
                 c.Of[i] = -1;
                 if (c.Valid[i] && convos > 0 && rng.NextDouble() < 0.25)
                 {
