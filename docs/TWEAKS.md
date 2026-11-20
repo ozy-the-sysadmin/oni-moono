@@ -79,6 +79,7 @@ It only shows what it finds. It never turns a tweak on or off. The grades:
   both `Effects.Remove` by effect and by id),
   `fast-side-screens` (the Timer Sensor's and the ribbon bit selector's side screen
   `RenderEveryTick`),
+  `fast-storage-panel` (`SimpleInfoScreen.TriggerRefreshStorage` and `RefreshStoragePanel`),
   `fast-partitioner-events` (the scene partitioner's event, insert, remove and scan; also while
   Fast Track, MoreTek, Colony Performance Fixes or Multiplayer Mod is active), `fast-conduit-sorts`
   (the pipe and rail flows' `Sim200ms`; also while those mods are active),
@@ -348,6 +349,7 @@ All but `post-load-gc` together: autosave freeze ~12 s → ~5 s on a large colon
 - **Update only the table rows in sight** (`lazy-table-refresh`): Consumables, Vitals, Priorities and the other tables update only the rows on screen. The game updates every row of a table in one frame, once a second and each time it opens, which stutters with many Duplicants. Rows out of sight are updated just before they scroll into view instead, so they show values read at that moment. Off while a mod changes how tables update. *On by default; left out of `exact`.*
 - **Tables open sooner** (`fast-table-rows`): Consumables, Vitals and Priorities open much sooner on colonies with many Duplicants. For each cell of a table, the game searches every row and column built so far, and Consumables also goes through every row's scroll bar. This notes a row's cells as the row is built and sets the scroll bars once a row. The table comes out the same.
 - **Hidden side screens sleep** (`fast-side-screens`): The timer and ribbon bit side screens stop updating while closed. Once opened, these side screens keep updating every frame for the rest of the session, even when hidden. This skips their updates while they are hidden and updates them once when they show again, before they are drawn. Idea from Fast Track.
+- **Lighter storage contents list** (`fast-storage-panel`): The details panel redraws a storage's item list once a frame, and not while closed. Each item stored or taken redraws the whole list, hundreds of times a frame when a bin fills, and also while the panel is closed. This redraws it once just before the frame is drawn, and once when the panel opens again. The list then shows values as of the drawn frame, a few milliseconds later than the game's. *Off by default.*
 - **Faster animation events** (`fast-anim-events`): Animations check their sound and effect cues with less work. Keeps a compact copy of what each playing animation's per-frame event check reads.
 - **Faster animation cleanup** (`fast-anim-cleanup`): Removed animations are swept out only where one was removed. The sweep for destroyed animations skips grid chunks that can't hold any.
 - **Parallel animation uploads** (`fast-anim-batches`): Animation data for the graphics card is prepared on several threads. Animation batches write their instance and symbol data on worker threads, the rest in the game's order.

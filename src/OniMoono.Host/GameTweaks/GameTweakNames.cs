@@ -266,6 +266,9 @@ namespace OniMoono.Host.GameTweaks
             new("fast-side-screens", Graphics, "Hidden side screens sleep", "The timer and ribbon bit side screens stop updating while closed.",
                 "Once opened, these side screens keep updating every frame for the rest of the session, even when hidden. "
                 + "This skips their updates while they are hidden and updates them once when they show again, before they are drawn. Idea from Fast Track."),
+            new("fast-storage-panel", Graphics, "Lighter storage contents list", "The details panel redraws a storage's item list once a frame, and not while closed.",
+                "Each item stored or taken redraws the whole list, hundreds of times a frame when a bin fills, and also while the panel is closed. "
+                + "This redraws it once just before the frame is drawn, and once when the panel opens again. The list then shows values as of the drawn frame, a few milliseconds later than the game's.", ChangesBehaviour: true),
 
             new("fast-anim-events", Graphics, "Faster animation events", "Animations check their sound and effect cues with less work.",
                 "Keeps a compact copy of what each playing animation's per-frame event check reads."),
@@ -332,7 +335,7 @@ namespace OniMoono.Host.GameTweaks
         ];
 
         /// The tweaks in src/OniMoono.GameTweaks (named here: options are read before that assembly is loaded).
-        public static readonly string[] Typed = ["off-screen-conveyors", "fast-save-type-checks", "fast-anim-cleanup", "fast-sublimation", "fast-anim-events", "fast-symbol-overrides", "fast-jobs", "fast-offset-tables", InstantReachability, "off-world-fallers", "fast-partitioner-cleanup", "fast-partitioner-events", "fast-conduit-sorts", "fast-anim-batches", "fast-conveyor-paths", "brain-rate", "critter-needs-first", SimStepPace, LowFpsTiming, "path-probe-repair", "fast-load-screen", "fix-load-screen-clicks", "fast-smi-lookups", "fast-save-roots", "trim-anim-lists", SoundPiles, TimelapseSnapshots, TableScroll, FetchByCell, SharedDuplicates, LazyTableRefresh, "fast-table-rows", CompactReports, CompactReportEntries, FastPipeRebuilds, ReleasedSounds, "fast-overlay-removals", "direct-rail-bridges", "fast-rot-refresh", "fast-building-heat", "fast-conversation-pairing", "fast-plant-absorbers", "fast-suit-checks", "fast-side-screens"];
+        public static readonly string[] Typed = ["off-screen-conveyors", "fast-save-type-checks", "fast-anim-cleanup", "fast-sublimation", "fast-anim-events", "fast-symbol-overrides", "fast-jobs", "fast-offset-tables", InstantReachability, "off-world-fallers", "fast-partitioner-cleanup", "fast-partitioner-events", "fast-conduit-sorts", "fast-anim-batches", "fast-conveyor-paths", "brain-rate", "critter-needs-first", SimStepPace, LowFpsTiming, "path-probe-repair", "fast-load-screen", "fix-load-screen-clicks", "fast-smi-lookups", "fast-save-roots", "trim-anim-lists", SoundPiles, TimelapseSnapshots, TableScroll, FetchByCell, SharedDuplicates, LazyTableRefresh, "fast-table-rows", CompactReports, CompactReportEntries, FastPipeRebuilds, ReleasedSounds, "fast-overlay-removals", "direct-rail-bridges", "fast-rot-refresh", "fast-building-heat", "fast-conversation-pairing", "fast-plant-absorbers", "fast-suit-checks", "fast-side-screens", "fast-storage-panel"];
 
         /// Guarded patches of the game that are no Moono Tweaks row and always install, checked as
         /// every tweak is: skip-own-workshop-item (OniMoono.GameTweaks.OwnWorkshopItem),
