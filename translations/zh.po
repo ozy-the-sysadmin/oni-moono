@@ -1042,6 +1042,18 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_TABLE_SCROLL.DETAIL"
 msgid "A bug in the game: each row of a table keeps its scroll position in step with the others. When the rows are laid out again (every second or so while the columns move), one row's columns go back to the start and the game moves every row there. This keeps the table's scroll position when a row is laid out."
 msgstr "游戏的错误：表格的每一行都保存滚动位置，并与其他行保持同步。各行重新布局时（列移动期间每隔一秒左右一次），某一行的列会回到开头，游戏随即把每一行都移到那里。此项在重新布局某一行时保持表格的滚动位置。"
 
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.TITLE"
+msgid "Leave a running colony without a stall"
+msgstr "离开运行中的殖民地不再卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.EFFECT"
+msgid "Quitting or loading while the game runs no longer leaves it stuck stuttering."
+msgstr "在游戏运行时退出或读档，不会再陷入持续卡顿。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.DETAIL"
+msgid "A bug in the game: an object destroyed in the frame the colony is left stays in the save lists, and the scene change throws on it every frame. This drops such entries just before the scene changes."
+msgstr "游戏中的一个错误：在离开殖民地的那一帧被销毁的对象仍留在存档列表中，场景切换每帧都会因它抛出异常。此项在场景切换前移除这些条目。"
+
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.SHARED_DUPLICATES.TITLE"
 msgid "Share identical data"
 msgstr "共享相同的数据"

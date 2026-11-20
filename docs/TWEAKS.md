@@ -80,6 +80,7 @@ It only shows what it finds. It never turns a tweak on or off. The grades:
   `fast-side-screens` (the Timer Sensor's and the ribbon bit selector's side screen
   `RenderEveryTick`),
   `fast-storage-panel` (`SimpleInfoScreen.TriggerRefreshStorage` and `RefreshStoragePanel`),
+  `fix-quit-stall` (`Game.StopBE` or `SaveManager.Unregister`: it then leaves the teardown to the game),
   `fast-partitioner-events` (the scene partitioner's event, insert, remove and scan; also while
   Fast Track, MoreTek, Colony Performance Fixes or Multiplayer Mod is active), `fast-conduit-sorts`
   (the pipe and rail flows' `Sim200ms`; also while those mods are active),
@@ -374,6 +375,7 @@ All but `post-load-gc` together: autosave freeze ~12 s → ~5 s on a large colon
 - **Cap repeated sounds in one tile** (`fix-sound-piles`): Hundreds of critters in one tile no longer freeze the game with their sounds. When more than 3 copies of the same sound start in the same tile in the same frame, the rest are skipped. A big pile of critters sounds quieter; anywhere else this almost never happens. UI and looping sounds are never skipped. *On by default.*
 - **Correct daily colony snapshots** (`fix-timelapse-snapshots`): Colony snapshots saved each cycle no longer get vertical stripes, squeezed lights or stray effects. A bug in the game: the build grid, the lights and the heat, cold and dust effects are set up for the screen's view, which is wider than a snapshot's. With a building picked for placement, the grid draws stripes over the left of the image. This sets them up for the snapshot's view. *On by default.*
 - **Keep table columns where they were scrolled** (`fix-table-scroll`): Scrolled table columns no longer jump back to the first ones every second or so. A bug in the game: each row of a table keeps its scroll position in step with the others. When the rows are laid out again (every second or so while the columns move), one row's columns go back to the start and the game moves every row there. This keeps the table's scroll position when a row is laid out. *On by default.*
+- **Leave a running colony without a stall** (`fix-quit-stall`): Quitting or loading while the game runs no longer leaves it stuck stuttering. A bug in the game: an object destroyed in the frame the colony is left stays in the save lists, and the scene change throws on it every frame. This drops such entries just before the scene changes.
 <!-- tweaks:end -->
 
 ### Incremental path probes

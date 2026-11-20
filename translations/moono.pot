@@ -1395,6 +1395,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_TABLE_SCROLL.DETAIL"
 msgid "A bug in the game: each row of a table keeps its scroll position in step with the others. When the rows are laid out again (every second or so while the columns move), one row's columns go back to the start and the game moves every row there. This keeps the table's scroll position when a row is laid out."
 msgstr ""
 
+#. Row title (fix-quit-stall)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.TITLE"
+msgid "Leave a running colony without a stall"
+msgstr ""
+
+#. The line under the title (fix-quit-stall)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.EFFECT"
+msgid "Quitting or loading while the game runs no longer leaves it stuck stuttering."
+msgstr ""
+
+#. Tooltip: how it works (fix-quit-stall)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FIX_QUIT_STALL.DETAIL"
+msgid "A bug in the game: an object destroyed in the frame the colony is left stays in the save lists, and the scene change throws on it every frame. This drops such entries just before the scene changes."
+msgstr ""
+
 #. The loader mod's dialog in the original game: its title
 msgctxt "STRINGS.MOONO.LOADER.TITLE"
 msgid "Play with Moono?"
