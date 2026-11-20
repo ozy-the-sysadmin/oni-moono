@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test tooling, not shipped: compares the performance recorder's files (schema moono-perf/1,
+       OniMoono.Host.Perf.PerfJson); usage at the top of Program.cs. Built on its own:
+       dotnet build tools/PerfDiff -c Release -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>

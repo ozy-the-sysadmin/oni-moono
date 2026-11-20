@@ -172,6 +172,93 @@ start-up; none is needed to play):
 - `ONI_FMOD_QUARANTINE_MB`, `ONI_MOD_OVERLAPS_IGNORE`, `ONI_TWEAK_TEST_*` and
   `ONI_TWEAK_DESCRIBE` are described in TWEAKS.md, `scripts/e2e.py` and ARCHITECTURE.md.
 
+## The frame rate counter and recordings
+
+**The counter.** **Frame rate counter** (Moono Tweaks, General; `--fps-counter
+top-right|top-left|bottom-right|bottom-left|off`) shows the frame rate and the frame time in a
+corner, from `Time.unscaledDeltaTime`, written twice a second. Clicking it opens the frame time
+panel: the frame's parts (PlayerLoop's phases and the time between frames, which add up to the
+frame), the waits for the graphics thread and the GC's pauses inside them, and counts, refreshed
+every second. The panel measures only while it shows (`FrameWindows`, below); closed, nothing is
+timed. Its **Record 60 s** button writes a recording.
+
+**Recordings** (`--perf-record SPEC` or `ONI_PERF_RECORD=SPEC`; `OniMoono.Host.Perf`): N seconds
+of play into one JSON file each, for comparing builds, tweaks and colonies with
+[tools/PerfDiff](../tools/PerfDiff/Program.cs). The spec is `key=value` pairs separated by `;`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `delay` | 40 | Real seconds of unpaused play after a colony loads before the first recording. Paused time does not count; every load starts the wait again. |
+| `seconds` | 60 | Each recording's length, real seconds. |
+| `count` | 3 | Recordings back to back. |
+| `gap` | 2 | Unpaused seconds before each later recording, and before the first when `speeds` sets one. |
+| `speeds` | unchanged | The speed set before each recording (`3,3,2`); the last one repeats. |
+| `label` | `rec` | In the file names (`perf-LABEL-NN-DATE-TIME.json`) and in each file. |
+| `out` | the oni-moono data folder's `perf/` | Where the files go. |
+| `once` | 1 | 0: armed again after every load. |
+
+The log says `perf record: armed: …`, then `perf record: recording … written to …` and
+`perf record: done`. A colony left during a recording ends it unwritten; the recordings still owed
+wait for the next load.
+
+**What it measures, and what it costs.** A recording opens a frame window (`FrameWindows`, in the
+engine): while one is open PlayerLoop times its phases exactly as with `--frame-stats`, without
+logging, and the window sums every frame it sees whole: the phases, the time outside the loop (the
+host's input poll and frame cap), each frame's time, the main thread's waits that the engine owns
+(the device taking the frame, device calls, texel copies, queued frames; the device thread's wait
+for the presenter apart), and the GC's pauses. The snapshots (game clock, the tweaks' counters, the
+colony, the runtime's GC and JIT counts, the heap) are taken at the frame ends that bound the
+recording, so their cost falls outside its frames and they cover exactly its frames. Nothing in
+the game is patched, so no tweak steps aside for a recording. Costs, by design:
+
+- not armed, panel closed: nothing (the phases' clock reads test `PlayerLoop.Timing` where they
+  tested `FrameStats`);
+- armed and waiting: one call a frame, three reads of the game's state;
+- recording: ten clock reads a frame for the phases, the device waits' clock reads, one GC
+  counter read and a few dozen additions, a few microseconds a frame; the file's text is made
+  between frames and written on the thread pool.
+
+With `--frame-stats` the file also has frame stats' game rows (`game/…`: the sim step, SimDLL,
+state machine buckets by rate, brains, nav grids, path probes, anim events, jobs), and with
+`ONI_BUCKET_PROFILE=1` each bucket kind's ms, calls and objects (`bucket/…`). Those come from
+frame stats' own patches, which cost frame rate and can make tweaks step aside.
+
+**The file (schema `moono-perf/1`).** One JSON object:
+
+| Object | Contents |
+|---|---|
+| `moono` | version (release tag), informational_version, commit, runtime, server_gc |
+| `game` | build, update |
+| `run` | label, index, count, spec, frame_stats, bucket_profile |
+| `display` | width, height, fullscreen_mode, vsync_count, target_frame_rate, focused |
+| `camera`, `world` | x, y, ortho; the active world's id and name |
+| `recording` | seconds_target, frames, wall_s, game_s, speed_setting, speed_reached, paused_frames; with frame stats sim_frames, sim_steps, sim_steps_pf |
+| `frame` | ms_pf, fps, p50/p90/p99/p999_ms, low1_fps and low01_fps (the slowest 1 % and 0.1 % of frames), max_ms, frames over 33/50/100/250 ms |
+| `rows[]` | key, kind, ms, ms_pf, ms_pgs (per game second); rows that count add calls/objects with the same suffixes; max_frame_ms |
+| `gc` | gen0/1/2 collections, pause_ms, pause_ms_pf, frames_with_pause, most_in_a_frame_ms, allocated (MB, KB a frame, MB a second, MB a game second), heap and committed MB |
+| `runtime` | jit_ms, jit_methods, lock_contentions, pool_threads, pool_items |
+| `colony_start`, `colony_end` | duplicants, robots, brains, buildings, pickupables, crops, worlds, cycle, game_time_s |
+| `counters[]` | key `tweak/NAME.COUNTER`, tweak, start, end, total, per_frame, per_gs |
+| `tweaks` | on, off, unavailable (with why) |
+| `mods[]` | title, id of each mod enabled |
+| `check` | frame_ms_pf, phases_sum_ms_pf, unattributed_ms_pf |
+
+Rows: `phase/…` (the nine phases and `phase/outside-loop`, which sum to the frame), `wait/…`
+(inside the phases; `presenter-queue` is the device thread's), `wait/gc-pause`, and with frame
+stats `game/…` and `bucket/…` (inside the phases).
+
+**Tweak counters.** A tweak names its counters with
+`public static void Counters(Action<string, long> counter)` (`counter("skipped", Skipped)`); a
+tweak without one has its public static `long` and `int` fields read as they are named. They are
+read only at a recording's bounds.
+
+**Comparing.** `dotnet run --project tools/PerfDiff -c Release -- -a A-folder -b B-folder` gives
+each measure's mean on both sides with its standard error, the difference and its %, the rows'
+ms per frame sorted by size and the counts sorted by their difference in %.
+`-set FOLDER [-group-by label]` gives each measure's mean and CV over N recordings, and with one
+label a launch the CV within launches and between them. Judge sim rows per game second
+(`ms_pgs`, `calls_pgs`, `objects_pgs`) and frame rows per frame (`ms_pf`).
+
 ## Perf spread on CI's runners
 
 The **Perf spread** workflow (`.github/workflows/perf-spread.yml`, by hand only) measures how
