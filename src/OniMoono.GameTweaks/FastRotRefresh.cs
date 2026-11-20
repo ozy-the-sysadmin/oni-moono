@@ -65,6 +65,18 @@ namespace OniMoono.GameTweaks
         public static long Calls, Skipped, Wrong;
         static long verified;
 
+        /// The work counters the performance recorder snapshots at a recording's start and end
+        /// (OniMoono.Host.Perf.TweakCounters): what the tweak did and what it left to the game.
+        public static void Counters(Action<string, long> counter)
+        {
+            counter("calls", Calls);
+            counter("skipped", Skipped);
+            counter("ran-game", Calls - Skipped);
+            counter("verified", verified);
+            counter("wrong", Wrong);
+            counter("stood-aside", off ? 1 : 0);
+        }
+
         /// The components an item's check reads, looked up once (each is the same object while it lives).
         sealed class Parts
         {
