@@ -68,13 +68,16 @@ namespace OniMoono.GameTweaks
         {
             scaler = GetComponent<CanvasScaler>();
             bool right = corner.EndsWith("right", StringComparison.Ordinal), top = corner.StartsWith("top", StringComparison.Ordinal);
-            var anchor = new Vector2(right ? 1f : 0f, top ? 1f : 0f);
+            // "top-centre" (the default): the middle of the game's top bar, which is empty.
+            bool centre = corner.EndsWith("centre", StringComparison.Ordinal);
+            var anchor = new Vector2(centre ? 0.5f : right ? 1f : 0f, top ? 1f : 0f);
+            float inset = centre ? 0f : right ? -6f : 6f;
 
-            counter = Label(transform, "Counter", 13, TextAnchorFor(right, top));
+            counter = Label(transform, "Counter", 13, centre ? TMPro.TextAlignmentOptions.Top : TextAnchorFor(right, top));
             var rect = counter.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
             rect.sizeDelta = new Vector2(150f, 20f);
-            rect.anchoredPosition = new Vector2(right ? -6f : 6f, top ? -3f : 3f);
+            rect.anchoredPosition = new Vector2(inset, top ? -3f : 3f);
             counter.raycastTarget = true;
             counter.gameObject.AddComponent<PerfClick>().Clicked = Toggle;
 
@@ -85,7 +88,7 @@ namespace OniMoono.GameTweaks
             var panelRect = (RectTransform)panel.transform;
             panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = anchor;
             panelRect.sizeDelta = new Vector2(480f, 330f);  // 420 cut the counts line short at 1440p (session AA, C1)
-            panelRect.anchoredPosition = new Vector2(right ? -6f : 6f, top ? -24f : 24f);
+            panelRect.anchoredPosition = new Vector2(inset, top ? -24f : 24f);
             panelText = Label(panel.transform, "Text", 12, TMPro.TextAlignmentOptions.TopLeft);
             var textRect = panelText.rectTransform;
             textRect.anchorMin = Vector2.zero;

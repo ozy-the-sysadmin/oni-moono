@@ -46,7 +46,7 @@ namespace OniMoono.Host
         public bool? UpdateCheck;
         /// "fast" or "low-memory" (GcMode); null when not chosen. OniMoono.exe reads it too.
         public string? Gc;
-        /// The HUD's frame rate counter: its corner, or "off" (EffectiveOptions.FpsCounterChoices);
+        /// The HUD's frame rate counter: its place, or "off" (EffectiveOptions.FpsCounterChoices);
         /// null when not chosen.
         public string? FpsCounter;
 
@@ -229,8 +229,8 @@ namespace OniMoono.Host
         public OptionSource GcSource;
         /// The HUD's frame rate counter (Perf.PerfHud): its corner, or "off"; top right unless
         /// chosen otherwise.
-        public static readonly string[] FpsCounterChoices = ["top-right", "top-left", "bottom-right", "bottom-left", "off"];
-        public const string DefaultFpsCounter = "top-right";
+        public static readonly string[] FpsCounterChoices = ["top-centre", "top-right", "top-left", "bottom-right", "bottom-left", "off"];
+        public const string DefaultFpsCounter = "top-centre";  // the top bar is empty there; top-right touched the game's buttons (session AA)
         public string FpsCounter = DefaultFpsCounter;
         public OptionSource FpsCounterSource;
         public static bool IsFpsCounter(string value) => Array.IndexOf(FpsCounterChoices, value) >= 0;

@@ -175,8 +175,8 @@ start-up; none is needed to play):
 ## The frame rate counter and recordings
 
 **The counter.** **Frame rate counter** (Moono Tweaks, General; `--fps-counter
-top-right|top-left|bottom-right|bottom-left|off`) shows the frame rate and the frame time in a
-corner, from `Time.unscaledDeltaTime`, written twice a second. Clicking it opens the frame time
+top-centre|top-right|top-left|bottom-right|bottom-left|off`; top centre by default, in the
+empty middle of the game's top bar) shows the frame rate and the frame time, from `Time.unscaledDeltaTime`, written twice a second. Clicking it opens the frame time
 panel: the frame's parts (PlayerLoop's phases and the time between frames, which add up to the
 frame), the waits for the graphics thread and the GC's pauses inside them, and counts, refreshed
 every second. The panel measures only while it shows (`FrameWindows`, below); closed, nothing is

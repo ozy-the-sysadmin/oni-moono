@@ -292,12 +292,17 @@ msgstr ""
 
 #. The line under the title (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
-msgid "Shows the frame rate in a corner. Click it to see where the frame time goes."
+msgid "Shows the frame rate at the top of the screen. Click it to see where the frame time goes."
 msgstr ""
 
 #. Tooltip: how it works (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
 msgid "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_CENTRE"
+msgid "top centre"
 msgstr ""
 
 #. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
