@@ -205,7 +205,6 @@ namespace OniMoono.GameTweaks
             Add(FastSmiLookups.Name, () => new[] { FastSmiLookups.Guarded() });
             Add(FastSaveRoots.Name, () => new[] { FastSaveRoots.Guarded() });
             Add(FastRotRefresh.Name, FastRotRefresh.Guarded);
-            Add(FastBuildingHeat.Name, FastBuildingHeat.Guarded);
             Add(FixQuitStall.Name, FixQuitStall.Guarded);
             Add(FastConveyorPaths.Name, () => new[] { FastConveyorPaths.Guarded() });
             Add(FastAnimEvents.Name, FastAnimEvents.Guarded, FastAnimEvents.KindsOf);

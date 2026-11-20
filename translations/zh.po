@@ -538,18 +538,6 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.DETAIL"
 msgid "Each second every food item clears and re-adds its spoilage modifiers, its refrigeration tags and its status items. This checks them against the item's temperature, air and storage first and skips the reset when it would leave them the same."
 msgstr "每秒每个食物都会清除并重新添加它的腐坏修正、冷藏标签和状态项。此项先根据物品的温度、空气和存放位置检查它们，重置结果不变时就跳过重置。"
 
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.TITLE"
-msgid "Parallel building heat updates"
-msgstr "并行的建筑热量更新"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.EFFECT"
-msgid "The five-times-a-second heat bookkeeping of every building runs on several cores."
-msgstr "每秒五次的所有建筑热量记账在多个核心上运行。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.DETAIL"
-msgid "Each building that only adds to its own heat history and warms the tiles under it is handled on a worker thread; the others, and every message to the simulation, run on the main thread in the game's order, so temperatures come out the same."
-msgstr "只累加自身热量记录并加热其下方格子的建筑在工作线程上处理；其余建筑以及发给模拟的每条消息都按游戏的顺序在主线程上运行，因此温度结果相同。"
-
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
 msgstr "分页的路径网格"
