@@ -562,18 +562,6 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.DETAIL"
 msgid "Five times a second the game compares every Duplicant with every other one to start or join conversations. This finds the same first partner for each by looking only at conversations and at Duplicants standing nearby, so the same conversations start in the same order."
 msgstr "游戏每秒五次将每个复制人与其他所有复制人比较，以开始或加入对话。此项只查看现有对话和站在附近的复制人，为每个复制人找到相同的第一个对象，因此开始的对话及其顺序都相同。"
 
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.TITLE"
-msgid "Quicker plant irrigation checks"
-msgstr "更快的植物灌溉检查"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.EFFECT"
-msgid "Plants stop looking through their whole storage once they have found enough to consume."
-msgstr "植物找到足够的消耗量后，不再查看整个储存。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.DETAIL"
-msgid "Five times a second each irrigated or fertilized plant looks up every item in its storage before taking what it needs. This looks items up only as far as the game's search goes, which takes the same amounts from the same items."
-msgstr "每个需要灌溉或施肥的植物每秒五次在取用所需之前查询其储存中的每一件物品。此项只查询到游戏的搜索所到之处，从相同的物品中取走相同的数量。"
-
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
 msgstr "分页的路径网格"

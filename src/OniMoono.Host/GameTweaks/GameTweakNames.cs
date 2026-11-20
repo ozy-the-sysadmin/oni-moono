@@ -225,9 +225,6 @@ namespace OniMoono.Host.GameTweaks
             new("fast-conversation-pairing", Simulation, "Conversation partners by proximity", "Duplicants look for someone to chat with among those nearby, not the whole colony.",
                 "Five times a second the game compares every Duplicant with every other one to start or join conversations. "
                 + "This finds the same first partner for each by looking only at conversations and at Duplicants standing nearby, so the same conversations start in the same order."),
-            new("fast-plant-absorbers", Simulation, "Quicker plant irrigation checks", "Plants stop looking through their whole storage once they have found enough to consume.",
-                "Five times a second each irrigated or fertilized plant looks up every item in its storage before taking what it needs. "
-                + "This looks items up only as far as the game's search goes, which takes the same amounts from the same items."),
             new(PagedPathGrids, Simulation, "Paged path grids", "Each Duplicant's map of path costs takes memory only where it can walk.",
                 "A Duplicant's path grid covers the whole map. This keeps it in small pages, each made the first time a path probe writes there. "
                 + "The pathfinder reads the same values."),
@@ -329,7 +326,7 @@ namespace OniMoono.Host.GameTweaks
         ];
 
         /// The tweaks in src/OniMoono.GameTweaks (named here: options are read before that assembly is loaded).
-        public static readonly string[] Typed = ["off-screen-conveyors", "fast-save-type-checks", "fast-anim-cleanup", "fast-sublimation", "fast-anim-events", "fast-symbol-overrides", "fast-jobs", "fast-offset-tables", InstantReachability, "off-world-fallers", "fast-partitioner-cleanup", "fast-partitioner-events", "fast-conduit-sorts", "fast-anim-batches", "fast-conveyor-paths", "brain-rate", "critter-needs-first", SimStepPace, LowFpsTiming, "path-probe-repair", "fast-load-screen", "fix-load-screen-clicks", "fast-smi-lookups", "fast-save-roots", "trim-anim-lists", SoundPiles, TimelapseSnapshots, TableScroll, FetchByCell, SharedDuplicates, LazyTableRefresh, "fast-table-rows", CompactReports, CompactReportEntries, FastPipeRebuilds, ReleasedSounds, "fast-overlay-removals", "direct-rail-bridges", "fast-rot-refresh", "fast-building-heat", "fast-conversation-pairing", "fast-plant-absorbers", "fix-quit-stall"];
+        public static readonly string[] Typed = ["off-screen-conveyors", "fast-save-type-checks", "fast-anim-cleanup", "fast-sublimation", "fast-anim-events", "fast-symbol-overrides", "fast-jobs", "fast-offset-tables", InstantReachability, "off-world-fallers", "fast-partitioner-cleanup", "fast-partitioner-events", "fast-conduit-sorts", "fast-anim-batches", "fast-conveyor-paths", "brain-rate", "critter-needs-first", SimStepPace, LowFpsTiming, "path-probe-repair", "fast-load-screen", "fix-load-screen-clicks", "fast-smi-lookups", "fast-save-roots", "trim-anim-lists", SoundPiles, TimelapseSnapshots, TableScroll, FetchByCell, SharedDuplicates, LazyTableRefresh, "fast-table-rows", CompactReports, CompactReportEntries, FastPipeRebuilds, ReleasedSounds, "fast-overlay-removals", "direct-rail-bridges", "fast-rot-refresh", "fast-building-heat", "fast-conversation-pairing", "fix-quit-stall"];
 
         /// Guarded patches of the game that are no Moono Tweaks row and always install, checked as
         /// every tweak is: skip-own-workshop-item (OniMoono.GameTweaks.OwnWorkshopItem),
