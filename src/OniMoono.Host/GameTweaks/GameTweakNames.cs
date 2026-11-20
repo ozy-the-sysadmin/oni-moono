@@ -313,7 +313,7 @@ namespace OniMoono.Host.GameTweaks
                 + "This keeps the table's scroll position when a row is laid out.", OnByDefault: true),
             new("fix-quit-stall", BugFixes, "Leave a running colony without a stall", "Quitting or loading while the game runs no longer leaves it stuck stuttering.",
                 "A bug in the game: an object destroyed in the frame the colony is left stays in the save lists, and the scene change throws on it every frame. "
-                + "This drops such entries just before the scene changes."),
+                + "This drops such entries just before the scene changes.", OnByDefault: true),
         ];
 
         /// The tweaks in src/OniMoono.GameTweaks (named here: options are read before that assembly is loaded).
