@@ -54,6 +54,7 @@ namespace OniMoono.GameTweaks
                 case FastBuildingHeat.Name: FastBuildingHeat.Install(harmony); return true;
                 case FastConversationPairing.Name: FastConversationPairing.Install(harmony); return true;
                 case FastPlantAbsorbers.Name: FastPlantAbsorbers.Install(harmony); return true;
+                case FastSuitChecks.Name: FastSuitChecks.Install(harmony); return true;
                 default: return false;
             }
         }
