@@ -654,6 +654,18 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_TABLE_ROWS.DETAIL"
 msgid "For each cell of a table, the game searches every row and column built so far, and Consumables also goes through every row's scroll bar. This notes a row's cells as the row is built and sets the scroll bars once a row. The table comes out the same."
 msgstr "表格每建立一个单元格，游戏都要搜索已建好的每一行、每一列；饮食表格还会把每一行的滚动条过一遍。此项在建立一行时就记下它的单元格，滚动条每行只设置一次。表格内容相同。"
 
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SIDE_SCREENS.TITLE"
+msgid "Hidden side screens sleep"
+msgstr "隐藏的侧边屏幕休眠"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SIDE_SCREENS.EFFECT"
+msgid "The timer and ribbon bit side screens stop updating while closed."
+msgstr "计时器和信号带位选择侧边屏幕关闭时不再更新。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SIDE_SCREENS.DETAIL"
+msgid "Once opened, these side screens keep updating every frame for the rest of the session, even when hidden. This skips their updates while they are hidden and updates them once when they show again, before they are drawn. Idea from Fast Track."
+msgstr "这些侧边屏幕一旦打开，就会在本次游戏余下的时间里每帧更新，即使被隐藏。此项在它们隐藏时跳过更新，并在它们再次显示、被绘制之前更新一次。思路来自 Fast Track。"
+
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ANIM_EVENTS.TITLE"
 msgid "Faster animation events"
 msgstr "更快的动画事件"
