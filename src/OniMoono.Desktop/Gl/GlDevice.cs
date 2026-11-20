@@ -1394,7 +1394,7 @@ namespace OniMoono.Desktop.Gl
         internal static void WaitForQueuedFrames(QueuedFrames presented, int frame, int interval)
         {
             long waited = presented.WaitFor(frame, QualitySettings.maxQueuedFrames, FramePacing.PeriodTicks * interval, out bool on);
-            if (!PlayerLoop.FrameStats) return;
+            if (!PlayerLoop.Timing) return;
             OniMoono.Engine.FrameStatsWindow.QueuedFrameWait += waited;
             if (on) OniMoono.Engine.FrameStatsWindow.QueuedFrameWaitsOn++;
         }

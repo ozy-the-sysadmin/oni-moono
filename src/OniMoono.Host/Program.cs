@@ -115,7 +115,7 @@ namespace OniMoono.Host
             options.Gpu = effective.Gpu;
             options.Dxgi = effective.Dxgi;
             options.StallRepeats = effective.StallRepeats;
-            OniMoono.Engine.PlayerLoop.FrameStats = effective.FrameStats;
+            OniMoono.Engine.PlayerLoop.FrameStats = OniMoono.Engine.PlayerLoop.Timing = effective.FrameStats;
             // The GPU for laptops with two: before anything loads the OpenGL driver (the window,
             // in Player.Run), whose GPU drivers read the choice as it loads.
             foreach (var line in GpuChoice.Apply(effective.Gpu)) EngineLog.Engine(line);

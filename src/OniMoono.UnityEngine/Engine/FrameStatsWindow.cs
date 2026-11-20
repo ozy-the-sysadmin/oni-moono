@@ -10,7 +10,8 @@ namespace OniMoono.Engine
     /// thread waited for that the engine owns (the device, texel copies), the runtime's GC, JIT,
     /// locks and thread pool over the window, the machine's state (MachineStats), and the lines
     /// of the reports added by the host (the game's update: OniMoono.GameTweaks'
-    /// FrameStatsProbes). The counters are added to only with frame stats on.
+    /// FrameStatsProbes). The counters are added to only with frame stats on or a frame window
+    /// open (PlayerLoop.Timing; FrameWindows reads them per frame).
     internal static class FrameStatsWindow
     {
         /// Main thread, Stopwatch ticks: waiting for the device to take the next frame (the
@@ -28,6 +29,10 @@ namespace OniMoono.Engine
         /// The device's thread waiting for the presenter to take a picture (its queue full), in
         /// Stopwatch ticks; added to with Interlocked.
         public static long PresenterQueueWait;
+
+        /// Counts the windows taken (Take): the counters above start again from 0 at each, which
+        /// FrameWindows' per-frame reads tell by it.
+        public static int Epoch;
 
         /// Reports of the window's wall seconds and frames: lines to log.
         public static readonly List<Func<double, int, string[]>> Reports = new();
@@ -90,6 +95,7 @@ namespace OniMoono.Engine
                 lines.Add(MachineStats.Describe(lastMachine, machine, seconds));
             }
             DeviceFrameWait = DeviceCallWait = DeviceCalls = TexelCopyWait = QueuedFrameWait = QueuedFrameWaitsOn = 0;
+            Epoch++;
             longestGcPause = mostGcPauseInFrame = 0;
             Interlocked.Exchange(ref PresenterQueueWait, 0);
             windowStarted = now;

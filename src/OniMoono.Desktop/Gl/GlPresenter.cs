@@ -241,7 +241,7 @@ namespace OniMoono.Desktop.Gl
             N.glFlush();
             lock (gate)
             {
-                if (queued >= QueueLimit(interval) && OniMoono.Engine.PlayerLoop.FrameStats)
+                if (queued >= QueueLimit(interval) && OniMoono.Engine.PlayerLoop.Timing)
                 {
                     long waiting = GlTimings.Now;
                     while (queued >= QueueLimit(interval) && failure == null) Monitor.Wait(gate);

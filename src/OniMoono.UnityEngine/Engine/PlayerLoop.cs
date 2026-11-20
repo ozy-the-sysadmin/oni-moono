@@ -58,6 +58,9 @@ namespace OniMoono.Engine
 
         /// Diagnostics (`--frame-stats`): average phase times logged every 60 frames.
         public static bool FrameStats;
+        /// Whether the phases (and the engine's waits) are timed: frame stats on, or a frame
+        /// window open (FrameWindows: the performance recorder, the HUD's frame time panel).
+        public static bool Timing;
         static readonly System.Diagnostics.Stopwatch statClock = new();
         static readonly double[] statTotals = new double[9]; // render, gui, end of frame, present, early+fixed, scripts' Update (+starts, coroutines, director), animation+LateUpdate, post-late update (canvases…), particles
         static int statFrames;
@@ -67,7 +70,7 @@ namespace OniMoono.Engine
 
         static void Mark(int phase)
         {
-            if (!FrameStats) return;
+            if (!Timing) return;
             double ms = statClock.Elapsed.TotalMilliseconds;
             statTotals[phase] += ms;
             framePhases[phase] += ms;
@@ -99,7 +102,13 @@ namespace OniMoono.Engine
 
         static void EndStats()
         {
-            if (!FrameStats) return;
+            if (!Timing) return;
+            if (FrameWindows.Any) FrameWindows.Frame(framePhases);
+            if (!FrameStats)
+            {
+                Array.Clear(framePhases);
+                return;
+            }
             // The first frame starts the 600-frame window of FrameStatsWindow's counts.
             if (statWindows == 0 && statFrames == 0) FrameStatsWindow.Take(0);
             FrameStatsWindow.GcFrame();
@@ -175,9 +184,9 @@ namespace OniMoono.Engine
             if (!started) throw new InvalidOperationException("PlayerLoop.Initialize must run first");
             FrameStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
             FrameTimingManager.BeginFrame(FrameStartedAt);
-            if (FrameStats) statClock.Restart();
+            if (Timing) statClock.Restart();
             // The device's texel copies from the last frame finish before scripts can write texels.
-            if (FrameStats)
+            if (Timing)
             {
                 long fence = FrameStatsWindow.Now;
                 Rendering.TexelCopies.Fence();

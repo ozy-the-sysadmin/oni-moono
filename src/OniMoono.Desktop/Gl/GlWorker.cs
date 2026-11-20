@@ -146,7 +146,7 @@ namespace OniMoono.Desktop.Gl
                     Submissions++;
                     return;
                 }
-                if (submitted != null && OniMoono.Engine.PlayerLoop.FrameStats)
+                if (submitted != null && OniMoono.Engine.PlayerLoop.Timing)
                 {
                     long waiting = GlTimings.Now;
                     while (submitted != null && failure == null) Monitor.Wait(gate);
@@ -219,7 +219,7 @@ namespace OniMoono.Desktop.Gl
                 ran = true;
             });
             Submit();
-            if (OniMoono.Engine.PlayerLoop.FrameStats && OniMoono.Engine.Threads.IsMainThread)
+            if (OniMoono.Engine.PlayerLoop.Timing && OniMoono.Engine.Threads.IsMainThread)
             {
                 long waiting = GlTimings.Now;
                 WaitIdle();
