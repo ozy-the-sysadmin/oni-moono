@@ -60,6 +60,8 @@ namespace OniMoono.GameTweaks
                     if (!byLabel.TryGetValue(label, out kind)) byLabel[label] = kind = new Kind { Label = label };
                     byBucket[bucket] = kind;
                 }
+                if (GameFrameStats.SlowTicks > 0 && ticks > GameFrameStats.SlowTicks)
+                    GameFrameStats.Slow?.Invoke($"slow bucket {ticks * 1000.0 / Stopwatch.Frequency:F1} ms, {entries} entries: {kind.Label}");
                 kind.Ticks += ticks;
                 kind.Calls++;
                 kind.Entries += entries;

@@ -55,10 +55,17 @@ namespace OniMoono.GameTweaks
 
         /// The end of a span begun on this thread: one begun without an end (its method threw)
         /// is overwritten by the next Begin.
+        /// Test aid (ONI_SLOW_SPAN_MS, FrameStatsProbes): a span or bucket longer than this many
+        /// ticks is logged through Slow as it ends; 0 = off.
+        public static long SlowTicks;
+        public static Action<string> Slow;
+
         public static void End(int span)
         {
             if (!onMain || started[span] == 0) return;
-            Ticks[span] += Stopwatch.GetTimestamp() - started[span];
+            long took = Stopwatch.GetTimestamp() - started[span];
+            if (SlowTicks > 0 && took > SlowTicks) Slow?.Invoke($"slow span {SpanNames[span]} {took * 1000.0 / Stopwatch.Frequency:F1} ms");
+            Ticks[span] += took;
             Native[span] += NativeTicks - nativeAtStart[span];
             Calls[span]++;
             started[span] = 0;

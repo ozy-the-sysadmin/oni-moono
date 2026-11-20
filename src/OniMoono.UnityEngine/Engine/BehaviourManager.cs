@@ -291,6 +291,15 @@ namespace OniMoono.Engine
             }
         }
 
+        /// Frame stats with a low slow-frame threshold (PlayerLoop.SlowFrameMs): the totals
+        /// restart at every frame that was not slow.
+        public static void DropScriptTimes()
+        {
+            update.Times.Clear();
+            lateUpdate.Times.Clear();
+            fixedUpdate.Times.Clear();
+        }
+
         /// Frame stats: the scripts' update callbacks that took the most wall time since the last
         /// call, as "Type.Phase ms" per frame over the given frames; the totals restart.
         public static string TakeScriptTimes(int frames, int count)

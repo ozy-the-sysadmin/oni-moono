@@ -31,6 +31,13 @@ namespace OniMoono.GameTweaks
             Time(harmony, AccessTools.Method(typeof(Game), "UnsafeSim200ms"), nameof(Sim200msBegin), nameof(Sim200msEnd));
             Time(harmony, AccessTools.Method(typeof(Game), "SimEveryTick"), nameof(SimEveryTickBegin), nameof(SimEveryTickEnd));
             if (Environment.GetEnvironmentVariable("ONI_BUCKET_PROFILE") == "1") BucketProfile.Install(harmony);
+            // Test aid: spans and buckets over ONI_SLOW_SPAN_MS logged as they end, with the frame.
+            if (double.TryParse(Environment.GetEnvironmentVariable("ONI_SLOW_SPAN_MS"), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double slow) && slow > 0)
+            {
+                G.SlowTicks = (long)(slow * System.Diagnostics.Stopwatch.Frequency / 1000);
+                G.Slow = s => global::Debug.Log($"[Moono] frame stats: {s} (frame {UnityEngine.Time.frameCount}, sub-tick {(Game.Instance != null ? Game.Instance.simSubTick : -1)})");
+            }
         }
 
         /// The window's lines (GameFrameStats.Take), with the game's speed setting.

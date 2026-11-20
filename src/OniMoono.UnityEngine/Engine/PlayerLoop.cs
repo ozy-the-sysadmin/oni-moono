@@ -68,6 +68,12 @@ namespace OniMoono.Engine
 
         static readonly double[] framePhases = new double[9];
 
+        /// Frame stats' slow-frame line: frames over this many ms (250; ONI_SLOW_FRAME_MS, a test
+        /// aid for finding stutters). Below 250 each slow frame also gets its scripts' times, and
+        /// the 600-frame script line then covers only the frames since the last slow one.
+        static readonly double SlowFrameMs = double.TryParse(Environment.GetEnvironmentVariable("ONI_SLOW_FRAME_MS"),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var slow) && slow > 0 ? slow : 250;
+
         static void Mark(int phase)
         {
             if (!Timing) return;
@@ -115,8 +121,12 @@ namespace OniMoono.Engine
             // Single slow frames (hitches) are logged with their own breakdown.
             double total = 0;
             foreach (var v in framePhases) total += v;
-            if (total > 250)
+            if (total > SlowFrameMs)
+            {
                 EngineLog.Engine($"slow frame {Time.frameCount} ({total:F0} ms): early+fixed {framePhases[4]:F0}, update {framePhases[5]:F0}, late {framePhases[6]:F0}, post-late {framePhases[7]:F0}, render {framePhases[0]:F0}, gui {framePhases[1]:F0}, end of frame {framePhases[2]:F0}, present {framePhases[3]:F0}");
+                if (SlowFrameMs < 250) EngineLog.Engine($"slow frame {Time.frameCount} scripts (ms): " + BehaviourManager.TakeScriptTimes(1, 8));
+            }
+            else if (SlowFrameMs < 250) BehaviourManager.DropScriptTimes();
             Array.Clear(framePhases);
             if (++statFrames < 60) return;
             double T(int i) => statTotals[i] / 60;
