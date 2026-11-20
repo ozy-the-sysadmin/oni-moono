@@ -101,15 +101,17 @@ namespace OniMoono.GameTweaks
         }
 
         /// Whether this call is the tweak's: not off, its checks done, every item alive.
-        static bool Begin(Storage storage, float dt)
+        static bool Begin(Storage storage, float dt, out bool failed)
         {
+            failed = false;
             if ((Calls++ & 0xFFF) == 0)
             {
                 if (off = Foreign()) return false;
                 if (verify && Calls > 1) global::Debug.Log($"{Name}: {Calls} calls, {verified} checked, {Wrong} wrong");
             }
             // The preconditions are the game's own method (a null storage, a bad dt).
-            if (!PlantElementAbsorber.CheckPreConditions(storage, dt)) return false;
+            // Its answer is the game's (false), without the game's method logging it again.
+            if (!PlantElementAbsorber.CheckPreConditions(storage, dt)) return !(failed = true);
             var list = storage.items;
             for (int i = 0; i < list.Count; i++)
                 if (list[i] == null) return false;
@@ -139,7 +141,13 @@ namespace OniMoono.GameTweaks
         {
             __state = default;
             if (!__runOriginal || off || Bypass) return __runOriginal;
-            if (!Begin(storage, dt)) return true;
+            if (!Begin(storage, dt, out bool failed))
+            {
+                if (!failed || verify) return true;
+                Planned++;
+                __result = false;
+                return false;
+            }
             var commands = verify ? mine : consumeCommands;
             if (verify) mine.Clear();
             bool result = Plan(localInfo.massConsumptionRate * dt, localInfo.tag, commands);
@@ -159,7 +167,13 @@ namespace OniMoono.GameTweaks
         {
             __state = default;
             if (!__runOriginal || off || Bypass) return __runOriginal;
-            if (!Begin(storage, dt)) return true;
+            if (!Begin(storage, dt, out bool failed))
+            {
+                if (!failed || verify) return true;
+                Planned++;
+                __result = false;
+                return false;
+            }
             var commands = verify ? mine : consumeCommands;
             bool result = false;
             for (int i = 0; i < consumedElements.Length; i++)
