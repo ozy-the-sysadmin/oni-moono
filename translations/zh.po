@@ -526,6 +526,18 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SAVE_ROOTS.DETAIL"
 msgid "When an item is stored, the game takes it out of its list of things to save by comparing it with every item of its kind; this compares references instead, which finds the same entry."
 msgstr "物品被存放时，游戏会把它与每一个同类物品逐一比较，以将它从待保存列表中取出；此项改为比较引用，找到的是同一个条目。"
 
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.TITLE"
+msgid "Faster spoilage checks"
+msgstr "更快的食物腐坏检查"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.EFFECT"
+msgid "Food no longer resets its spoilage modifiers and status every second when they would stay the same."
+msgstr "食物的腐坏修正和状态没有变化时，不再每秒重置一次。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.DETAIL"
+msgid "Each second every food item clears and re-adds its spoilage modifiers, its refrigeration tags and its status items. This checks them against the item's temperature, air and storage first and skips the reset when it would leave them the same."
+msgstr "每秒每个食物都会清除并重新添加它的腐坏修正、冷藏标签和状态项。此项先根据物品的温度、空气和存放位置检查它们，重置结果不变时就跳过重置。"
+
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
 msgstr "分页的路径网格"

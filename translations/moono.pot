@@ -860,6 +860,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_SAVE_ROOTS.DETAIL"
 msgid "When an item is stored, the game takes it out of its list of things to save by comparing it with every item of its kind; this compares references instead, which finds the same entry."
 msgstr ""
 
+#. Row title (fast-rot-refresh)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.TITLE"
+msgid "Faster spoilage checks"
+msgstr ""
+
+#. The line under the title (fast-rot-refresh)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.EFFECT"
+msgid "Food no longer resets its spoilage modifiers and status every second when they would stay the same."
+msgstr ""
+
+#. Tooltip: how it works (fast-rot-refresh)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_ROT_REFRESH.DETAIL"
+msgid "Each second every food item clears and re-adds its spoilage modifiers, its refrigeration tags and its status items. This checks them against the item's temperature, air and storage first and skips the reset when it would leave them the same."
+msgstr ""
+
 #. Row title (paged-path-grids)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"

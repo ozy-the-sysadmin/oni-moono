@@ -50,6 +50,7 @@ namespace OniMoono.GameTweaks
                 case FastOverlayRemovals.Name: FastOverlayRemovals.Install(harmony); return true;
                 case FastTableRows.Name: FastTableRows.Install(harmony); return true;
                 case DirectRailBridges.Name: DirectRailBridges.Install(harmony); return true;
+                case FastRotRefresh.Name: FastRotRefresh.Install(harmony); return true;
                 default: return false;
             }
         }
