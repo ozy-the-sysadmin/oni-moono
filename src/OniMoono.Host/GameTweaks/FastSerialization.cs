@@ -43,7 +43,7 @@ namespace OniMoono.Host.GameTweaks
     [GameMember(GameUse.Uses, "System.Collections.Generic.List`1<KSerialization.SerializationTemplate/SerializationProperty> KSerialization.SerializationTemplate::serializableProperties")]
     [GameMember(GameUse.Uses, "System.Type KSerialization.SerializationTemplate::serializableType")]
     [GameMember(GameUse.Uses, "KSerialization.SerializationTypeInfo KSerialization.TypeInfo::info")]
-    internal static class FastSerialization
+    internal static partial class FastSerialization
     {
         public const string Name = GameTweakNames.FastSerialization;
 
@@ -124,6 +124,7 @@ namespace OniMoono.Host.GameTweaks
             writeSingle = (Action<BinaryWriter, float>)writeSingleFast.CreateDelegate(typeof(Action<BinaryWriter, float>));
             harmony.Patch(AccessTools.Method(templateType, "SerializeData", [typeof(object), typeof(BinaryWriter)]),
                 prefix: new HarmonyMethod(typeof(FastSerialization), nameof(SerializeData)));
+            InstallWarm(harmony);
         }
 
         /// SerializationTemplate.SerializeData(object, BinaryWriter), in the template's order.
@@ -131,6 +132,7 @@ namespace OniMoono.Host.GameTweaks
         {
             if (!Enabled) return true;
             var plan = plans.GetValue(__instance, MakePlan);
+            if (warming) return WarmFields(plan, obj, writer);
             plan.OnSerializing?.Invoke(obj, null);
             plan.Fields(obj, writer);
             if (plan.PropertiesWriter != null && !BypassGarbage) plan.PropertiesWriter(obj, writer);
@@ -155,7 +157,7 @@ namespace OniMoono.Host.GameTweaks
         static Exception Failure(string kind, string member, string typeName, Exception cause)
         {
             string text = $"Error occurred while serializing {kind} {member} on template {typeName}";
-            gameLogError.Invoke(null, [text]);
+            if (!warming) gameLogError.Invoke(null, [text]);
             return new ArgumentException(text, cause);
         }
 
