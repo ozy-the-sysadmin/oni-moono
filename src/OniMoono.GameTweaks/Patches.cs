@@ -55,7 +55,6 @@ namespace OniMoono.GameTweaks
                 case FastConversationPairing.Name: FastConversationPairing.Install(harmony); return true;
                 case FastPlantAbsorbers.Name: FastPlantAbsorbers.Install(harmony); return true;
                 case FastSuitChecks.Name: FastSuitChecks.Install(harmony); return true;
-                case FastSideScreens.Name: FastSideScreens.Install(harmony); return true;
                 case FixQuitStall.Name: FixQuitStall.Install(harmony); return true;
                 default: return false;
             }
