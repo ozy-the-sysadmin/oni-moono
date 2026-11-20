@@ -905,6 +905,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.DETAIL"
 msgid "Five times a second the game compares every Duplicant with every other one to start or join conversations. This finds the same first partner for each by looking only at conversations and at Duplicants standing nearby, so the same conversations start in the same order."
 msgstr ""
 
+#. Row title (fast-plant-absorbers)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.TITLE"
+msgid "Quicker plant irrigation checks"
+msgstr ""
+
+#. The line under the title (fast-plant-absorbers)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.EFFECT"
+msgid "Plants stop looking through their whole storage once they have found enough to consume."
+msgstr ""
+
+#. Tooltip: how it works (fast-plant-absorbers)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_PLANT_ABSORBERS.DETAIL"
+msgid "Five times a second each irrigated or fertilized plant looks up every item in its storage before taking what it needs. This looks items up only as far as the game's search goes, which takes the same amounts from the same items."
+msgstr ""
+
 #. Row title (paged-path-grids)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
