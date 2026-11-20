@@ -213,14 +213,22 @@ namespace OniMoono.Host.Perf
 
                 j.WriteStartArray("counters"u8);
                 var before = r.Start.Counters.GroupBy(c => c.Key).ToDictionary(g => g.Key, g => g.First().Value);
-                foreach (var (key, tweak, value) in r.End.Counters)
+                foreach (var (key, tweak, value, gauge) in r.End.Counters)
                 {
                     long total = value - before.GetValueOrDefault(key);
                     j.WriteStartObject();
                     j.WriteString("key"u8, key);
                     j.WriteString("tweak"u8, tweak);
+                    // A gauge (a level, not a count), or a count that went down, has no rate.
+                    bool level = gauge || total < 0;
+                    j.WriteString("kind"u8, level ? "gauge" : "count");
                     j.WriteNumber("start"u8, before.GetValueOrDefault(key));
                     j.WriteNumber("end"u8, value);
+                    if (level)
+                    {
+                        j.WriteEndObject();
+                        continue;
+                    }
                     j.WriteNumber("total"u8, total);
                     Num("per_frame", total / (double)frames);
                     if (gameS > 0) Num("per_gs", total / gameS);

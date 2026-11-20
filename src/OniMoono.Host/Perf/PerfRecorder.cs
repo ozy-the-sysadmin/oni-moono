@@ -52,6 +52,8 @@ namespace OniMoono.Host.Perf
         static bool subscribed;
         /// Re-armed after the recordings (once=0): the wait starts at the next load.
         static bool needLoad;
+        /// The files' writes on the thread pool, chained (main thread only).
+        static System.Threading.Tasks.Task writes = System.Threading.Tasks.Task.CompletedTask;
 
         /// What the recorder says about itself (for the panel).
         public static string State => stage switch
@@ -229,7 +231,8 @@ namespace OniMoono.Host.Perf
                 BeginWarmUp();
                 return;
             }
-            EngineLog.Engine($"perf record: done, {written} file(s) written");
+            int count = written;
+            writes = writes.ContinueWith(_ => EngineLog.Engine($"perf record: done, {count} file(s) written"), System.Threading.Tasks.TaskScheduler.Default);
             if (spec.Once)
             {
                 Finish();
@@ -256,7 +259,7 @@ namespace OniMoono.Host.Perf
             public long Timestamp;
             public DateTime Utc;
             public double GameTime;
-            public List<(string Key, string Tweak, long Value)> Counters = [];
+            public List<(string Key, string Tweak, long Value, bool Gauge)> Counters = [];
             public string[] ColonyKeys = [];
             public double[] ColonyValues = [];
             public long[]? Game;
@@ -310,10 +313,12 @@ namespace OniMoono.Host.Perf
                     Game = game!,
                 };
                 byte[] json = PerfJson.Write(record);
-                string dir = spec.Out ?? Path.Combine(EngineConfig.PersistentDataPath, "oni-moono", "perf");
+                // Full path: the data folder comes with '/' (Unity's style), the spec's with '\'.
+                string dir = Path.GetFullPath(spec.Out ?? Path.Combine(EngineConfig.PersistentDataPath, "oni-moono", "perf"));
                 string path = Path.Combine(dir, $"perf-{spec.Label}-{index + 1:D2}-{start.Utc.ToLocalTime():yyyyMMdd-HHmmss}.json");
                 written++;
-                System.Threading.Tasks.Task.Run(() =>
+                // One write after the other, so that their log lines (and "done", Next) come in order.
+                writes = writes.ContinueWith(_ =>
                 {
                     try
                     {
@@ -325,7 +330,7 @@ namespace OniMoono.Host.Perf
                     {
                         EngineLog.Engine($"perf record: {path} could not be written: {e.Message}");
                     }
-                });
+                }, System.Threading.Tasks.TaskScheduler.Default);
             }
             catch (Exception e)
             {
