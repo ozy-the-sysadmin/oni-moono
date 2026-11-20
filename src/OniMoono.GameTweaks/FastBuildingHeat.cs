@@ -241,13 +241,19 @@ namespace OniMoono.GameTweaks
             m.GetDataLists(out var headers, out var payloads);
             for (int i = range.Start; i < range.End; i++)
             {
+                int mark = range.Messages.Count, made = range.NewLists.Count;
                 try
                 {
                     Entry(m, headers, payloads, i, range);
                 }
                 catch (Exception)
                 {
-                    // The game's run of this entry, in order, throws as the game's loop would.
+                    // The game's run of this entry, in order, throws as the game's loop would;
+                    // the messages it buffered are dropped so they are not sent twice. Reads come
+                    // first, so only a corrupt averages list (the game throwing every 200 ms) can
+                    // throw after a sample was added.
+                    range.Messages.RemoveRange(mark, range.Messages.Count - mark);
+                    range.NewLists.RemoveRange(made, range.NewLists.Count - made);
                     range.Left.Add(i);
                 }
             }
