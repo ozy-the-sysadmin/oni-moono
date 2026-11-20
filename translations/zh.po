@@ -550,18 +550,6 @@ msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_BUILDING_HEAT.DETAIL"
 msgid "Each building that only adds to its own heat history and warms the tiles under it is handled on a worker thread; the others, and every message to the simulation, run on the main thread in the game's order, so temperatures come out the same."
 msgstr "只累加自身热量记录并加热其下方格子的建筑在工作线程上处理；其余建筑以及发给模拟的每条消息都按游戏的顺序在主线程上运行，因此温度结果相同。"
 
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.TITLE"
-msgid "Conversation partners by proximity"
-msgstr "按距离寻找交谈对象"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.EFFECT"
-msgid "Duplicants look for someone to chat with among those nearby, not the whole colony."
-msgstr "复制人只在附近的复制人中寻找聊天对象，而不是整个殖民地。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FAST_CONVERSATION_PAIRING.DETAIL"
-msgid "Five times a second the game compares every Duplicant with every other one to start or join conversations. This finds the same first partner for each by looking only at conversations and at Duplicants standing nearby, so the same conversations start in the same order."
-msgstr "游戏每秒五次将每个复制人与其他所有复制人比较，以开始或加入对话。此项只查看现有对话和站在附近的复制人，为每个复制人找到相同的第一个对象，因此开始的对话及其顺序都相同。"
-
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.PAGED_PATH_GRIDS.TITLE"
 msgid "Paged path grids"
 msgstr "分页的路径网格"

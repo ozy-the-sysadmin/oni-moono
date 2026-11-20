@@ -52,7 +52,6 @@ namespace OniMoono.GameTweaks
                 case DirectRailBridges.Name: DirectRailBridges.Install(harmony); return true;
                 case FastRotRefresh.Name: FastRotRefresh.Install(harmony); return true;
                 case FastBuildingHeat.Name: FastBuildingHeat.Install(harmony); return true;
-                case FastConversationPairing.Name: FastConversationPairing.Install(harmony); return true;
                 case FixQuitStall.Name: FixQuitStall.Install(harmony); return true;
                 default: return false;
             }

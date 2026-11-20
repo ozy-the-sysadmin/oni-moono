@@ -138,8 +138,6 @@
     <Compile Include="../../src/OniMoono.GameTweaks/GridRemovalCore.cs" Link="GameTweaks/GridRemovalCore.cs" />
     <!-- The fast-conduit-sorts game tweak's replay (SortReplayTests). -->
     <Compile Include="../../src/OniMoono.GameTweaks/SortReplayCore.cs" Link="GameTweaks/SortReplayCore.cs" />
-    <!-- The fast-conversation-pairing game tweak's planner (ConversationPairingTests). -->
-    <Compile Include="../../src/OniMoono.GameTweaks/ConversationPairingCore.cs" Link="GameTweaks/ConversationPairingCore.cs" />
     <!-- The direct-rail-bridges game tweak's hand-off (RailHandOffTests). -->
     <Compile Include="../../src/OniMoono.GameTweaks/RailHandOffCore.cs" Link="GameTweaks/RailHandOffCore.cs" />
     <!-- The fast-load-screen game tweak's header memo and read-ahead (HeaderReadsTests). -->
