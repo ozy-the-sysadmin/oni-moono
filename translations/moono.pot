@@ -272,7 +272,7 @@ msgstr ""
 
 #. Colony tab, the card's gain; {0}: stutters a minute now, {1} and {2}: measured before and after
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_GAIN"
-msgid "Would remove most of the {0} small stutters a minute (in our tests: {1} a minute down to about {2})."
+msgid "Would remove most of the {0} stutters a minute that come from waiting for the simulation (in our tests: {1} a minute down to about {2})."
 msgstr ""
 
 #. Colony tab, the card's side effect
@@ -285,9 +285,9 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_HEADING"
 msgid "Nothing to gain here"
 msgstr ""
 
-#. Colony tab, under Nothing to gain here before anything was judged
+#. Colony tab, under Nothing to gain here when no other rule has a line
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_NONE"
-msgid "Nothing checked yet."
+msgid "No other check has a measured gain yet."
 msgstr ""
 
 #. Colony tab, under Nothing to gain here
@@ -758,6 +758,11 @@ msgstr ""
 #. A stutter's cause
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT"
 msgid "Waiting for the simulation step"
+msgstr ""
+
+#. Hitches tab, the by-cause table's short name for waiting for the simulation step
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT_SHORT"
+msgid "Waiting for simulation"
 msgstr ""
 
 #. A freeze's cause when the game reports none

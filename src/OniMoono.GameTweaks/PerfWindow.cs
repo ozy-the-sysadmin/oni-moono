@@ -166,6 +166,7 @@ namespace OniMoono.GameTweaks
         double[] gcLast;
         double gcLastAt;
         double[] gcRates = new double[3];
+        bool gcRated;
         double allocPerFrame = double.NaN;
 
         internal void Update(float dt)
@@ -206,6 +207,7 @@ namespace OniMoono.GameTweaks
                 else if (now - gcLastAt >= 10)
                 {
                     for (int g = 0; g < 3; g++) gcRates[g] = (engineNow[3 + g] - gcLast[3 + g]) * 60 / (now - gcLastAt);
+                    gcRated = true;
                     gcLast = (double[])engineNow.Clone();
                     gcLastAt = now;
                 }
@@ -662,7 +664,8 @@ namespace OniMoono.GameTweaks
             {
                 double waits = s[12] + s[13] + s[14] + s[15];
                 double busy = Math.Max(0, wall - s[11] - waits) / wall;
-                threads.Add((Ui("PERF_THREADS_MAIN"), (100 * busy).ToString("F0", C) + "%", busy > 0.85 ? PerfUi.Warn : PerfUi.Ink));
+                // An uncapped game keeps it near 100 %: not a warning in itself.
+                threads.Add((Ui("PERF_THREADS_MAIN"), (100 * busy).ToString("F0", C) + "%", PerfUi.Ink));
                 threads.Add((Ui("PERF_THREADS_WAIT_GRAPHICS"), (100 * waits / wall).ToString("F0", C) + "%", PerfUi.Ink));
             }
             if (GameFrameStats.Enabled && GameFrameStats.Frames > 0)
@@ -675,7 +678,7 @@ namespace OniMoono.GameTweaks
             {
                 memory.Add((Ui("PERF_MEMORY_IN_USE"), Gb(engineNow[0]) + " " + Ui("PERF_GB"), PerfUi.Ink));
                 if (!double.IsNaN(allocPerFrame)) memory.Add((Ui("PERF_MEMORY_PER_FRAME"), (allocPerFrame / 1024).ToString("F0", C) + " " + Ui("PERF_KB"), PerfUi.Ink));
-                memory.Add((Ui("PERF_MEMORY_CLEANUPS"), gcLastAt > 0 && gcRates[0] + gcRates[1] + gcRates[2] >= 0
+                memory.Add((Ui("PERF_MEMORY_CLEANUPS"), gcRated
                     ? string.Format(C, Ui("PERF_CLEANUPS_VALUE"), Math.Round(gcRates[0]), Math.Round(gcRates[2])) : "–", PerfUi.Ink));
             }
             memory.Add((Ui("PERF_MEMORY_LONGEST"), Ms(track.LongestGcMs, "F0"), PerfUi.Ink));
