@@ -57,8 +57,8 @@ namespace OniMoono.Host
                 GameTweakNames.UpdateCheckRow => (Flag(effective.UpdateCheck), false, Flag(EffectiveOptions.DefaultUpdateCheck)),
                 GameTweakNames.GcRow => (Array.IndexOf(row.Choices!, effective.Gc), effective.GcSource == OptionSource.CommandLine,
                     Array.IndexOf(row.Choices!, EffectiveOptions.DefaultGc)),
-                GameTweakNames.FpsCounterRow => (Array.IndexOf(row.Choices!, effective.FpsCounter), effective.FpsCounterSource == OptionSource.CommandLine,
-                    Array.IndexOf(row.Choices!, EffectiveOptions.DefaultFpsCounter)),
+                GameTweakNames.FpsCounterRow => (Flag(effective.FpsCounter != "off"), effective.FpsCounterSource == OptionSource.CommandLine,
+                    Flag(EffectiveOptions.DefaultFpsCounter != "off")),
                 var name => (Flag(effective.Tweaks[name].On), effective.Tweaks[name].Source == OptionSource.CommandLine,
                     Flag(EffectiveOptions.DefaultOn(name, GameTweakNames.OffByDefault))),
             };
@@ -92,7 +92,7 @@ namespace OniMoono.Host
                     else if (ids[i] == GameTweakNames.StallRepeatsRow) stallRepeats = values[i] != 0;
                     else if (ids[i] == GameTweakNames.UpdateCheckRow) updateCheck = values[i] != 0;
                     else if (ids[i] == GameTweakNames.GcRow) gc = rows.First(r => r.Id == GameTweakNames.GcRow).Choices![values[i]];
-                    else if (ids[i] == GameTweakNames.FpsCounterRow) fpsCounter = rows.First(r => r.Id == GameTweakNames.FpsCounterRow).Choices![values[i]];
+                    else if (ids[i] == GameTweakNames.FpsCounterRow) fpsCounter = values[i] != 0 ? "on" : "off";
                     else tweaks[ids[i]] = values[i] != 0;
                 }
                 var next = EffectiveOptions.Apply(saved, GameTweakNames.OffByDefault, tweaks, splash, frameStats, hideLogPaths, gpu, renderer, dxgi, updateCheck, gc, stallRepeats, fpsCounter);

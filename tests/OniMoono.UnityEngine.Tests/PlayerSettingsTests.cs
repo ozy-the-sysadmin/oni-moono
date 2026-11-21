@@ -247,32 +247,36 @@ namespace OniMoono.Tests
             file.GameTweaks["fast-b"] = false;
             Assert.Equal(["game tweaks on (default): fast-a", "game tweaks off (default): slow-c, off-d", "game tweaks off (the settings file): fast-b",
                           "splash moo (default)", "frame stats off (default)", "log paths hidden (default)", "gpu default (default)", "renderer auto (default)",
-                          "dxgi on (default)", "stall repeats on (default)", "update check on (default)", "gc fast (default)", "fps counter top-centre (default)"],
+                          "dxgi on (default)", "stall repeats on (default)", "update check on (default)", "gc fast (default)", "fps counter on (default)"],
                 Resolve(file).Describe().ToArray());
             file.UpdateCheck = false;
             Assert.Equal(["game tweaks from the command line (--game-tweak none): none", "splash none (the command line)", "frame stats on (the command line)",
                            "log paths full (the command line)", "gpu default (default)", "renderer auto (default)", "dxgi on (default)", "stall repeats on (default)",
-                           "update check off (the settings file)", "gc fast (default)", "fps counter top-centre (default)"],
+                           "update check off (the settings file)", "gc fast (default)", "fps counter on (default)"],
                 Resolve(file, ["none"], "none", true, "full").Describe().ToArray());
         }
 
         // ----- The frame rate counter -----
 
         [Fact]
-        public void FpsCounterIsTopCentreUnlessTheFileOrTheCommandLineSaysOtherwise()
+        public void FpsCounterIsOnUnlessTheFileOrTheCommandLineSaysOtherwise()
         {
             var o = EffectiveOptions.Resolve(All, Changing, [], null, false, new PlayerSettings());
-            Assert.Equal(("top-centre", OptionSource.Default), (o.FpsCounter, o.FpsCounterSource));
+            Assert.Equal(("on", OptionSource.Default), (o.FpsCounter, o.FpsCounterSource));
             var file = PlayerSettings.Parse("""{ "fpsCounter": "off" }""");
             o = EffectiveOptions.Resolve(All, Changing, [], null, false, file);
             Assert.Equal(("off", OptionSource.SettingsFile), (o.FpsCounter, o.FpsCounterSource));
+            o = EffectiveOptions.Resolve(All, Changing, [], null, false, file, commandLineFpsCounter: "on");
+            Assert.Equal(("on", OptionSource.CommandLine), (o.FpsCounter, o.FpsCounterSource));
+            // An earlier build's corners mean on: the badge is now dragged and keeps its place.
+            Assert.Equal("on", PlayerSettings.Parse("""{ "fpsCounter": "top-left" }""").FpsCounter);
             o = EffectiveOptions.Resolve(All, Changing, [], null, false, file, commandLineFpsCounter: "bottom-left");
-            Assert.Equal(("bottom-left", OptionSource.CommandLine), (o.FpsCounter, o.FpsCounterSource));
+            Assert.Equal(("on", OptionSource.CommandLine), (o.FpsCounter, o.FpsCounterSource));
             Assert.Throws<FormatException>(() => PlayerSettings.Parse("""{ "fpsCounter": "middle" }"""));
-            // The default is dropped from the file, any other choice kept.
-            Assert.Null(EffectiveOptions.Apply(file, Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "top-centre").FpsCounter);
-            Assert.Equal("top-left", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "top-left").FpsCounter);
-            Assert.Contains("\"fpsCounter\": \"top-left\"", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "top-left").ToJson());
+            // The default is dropped from the file, off kept.
+            Assert.Null(EffectiveOptions.Apply(file, Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "on").FpsCounter);
+            Assert.Equal("off", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "off").FpsCounter);
+            Assert.Contains("\"fpsCounter\": \"off\"", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "off").ToJson());
         }
 
         // ----- Windows: presenting through DXGI -----

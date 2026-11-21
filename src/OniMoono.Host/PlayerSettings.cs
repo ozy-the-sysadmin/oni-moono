@@ -46,7 +46,8 @@ namespace OniMoono.Host
         public bool? UpdateCheck;
         /// "fast" or "low-memory" (GcMode); null when not chosen. OniMoono.exe reads it too.
         public string? Gc;
-        /// The HUD's frame rate counter: its place, or "off" (EffectiveOptions.FpsCounterChoices);
+        /// The HUD's frame rate counter: "on" or "off" (EffectiveOptions.FpsCounterChoices; a corner
+        /// written by an earlier build reads as "on");
         /// null when not chosen.
         public string? FpsCounter;
 
@@ -135,7 +136,7 @@ namespace OniMoono.Host
             if (root["fpsCounter"] is JsonNode fpsCounter)
             {
                 var value = fpsCounter.GetValue<string>();
-                settings.FpsCounter = EffectiveOptions.IsFpsCounter(value) ? value
+                settings.FpsCounter = EffectiveOptions.IsFpsCounter(value) ? EffectiveOptions.FpsCounterOf(value)
                     : throw new FormatException($"fpsCounter \"{value}\" is not one of: {string.Join(", ", EffectiveOptions.FpsCounterChoices)}");
             }
             return settings;
@@ -227,13 +228,16 @@ namespace OniMoono.Host
         public const string DefaultGc = GcMode.Default;
         public string Gc = DefaultGc;
         public OptionSource GcSource;
-        /// The HUD's frame rate counter (Perf.PerfHud): its corner, or "off"; top right unless
-        /// chosen otherwise.
-        public static readonly string[] FpsCounterChoices = ["top-centre", "top-right", "top-left", "bottom-right", "bottom-left", "off"];
-        public const string DefaultFpsCounter = "top-centre";  // the top bar is empty there; top-right touched the game's buttons (session AA)
+        /// The HUD's frame rate counter (Perf.PerfHud): "on" or "off"; on unless chosen otherwise.
+        public static readonly string[] FpsCounterChoices = ["on", "off"];
+        public const string DefaultFpsCounter = "on";
         public string FpsCounter = DefaultFpsCounter;
         public OptionSource FpsCounterSource;
-        public static bool IsFpsCounter(string value) => Array.IndexOf(FpsCounterChoices, value) >= 0;
+        /// The corners an earlier build offered: each now means "on" (the badge is dragged where
+        /// the player wants it and keeps its place, OniMoono.GameTweaks.PerfOverlay).
+        static readonly string[] fpsCounterCorners = ["top-centre", "top-right", "top-left", "bottom-right", "bottom-left"];
+        public static bool IsFpsCounter(string value) => Array.IndexOf(FpsCounterChoices, value) >= 0 || Array.IndexOf(fpsCounterCorners, value) >= 0;
+        public static string FpsCounterOf(string value) => value == "off" ? "off" : "on";
         /// The command line's `--game-tweak` values, in order (empty when it names none).
         public readonly IReadOnlyList<string> CommandLineTweaks;
         /// Names in the settings file that are not tweaks of this player.
@@ -288,7 +292,7 @@ namespace OniMoono.Host
             if (file.UpdateCheck != null) (options.UpdateCheck, options.UpdateCheckSource) = (file.UpdateCheck.Value, OptionSource.SettingsFile);
             if (commandLineGc != null) (options.Gc, options.GcSource) = (commandLineGc, OptionSource.CommandLine);
             else if (file.Gc != null) (options.Gc, options.GcSource) = (file.Gc, OptionSource.SettingsFile);
-            if (commandLineFpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (commandLineFpsCounter, OptionSource.CommandLine);
+            if (commandLineFpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (FpsCounterOf(commandLineFpsCounter), OptionSource.CommandLine);
             else if (file.FpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (file.FpsCounter, OptionSource.SettingsFile);
             return options;
         }
