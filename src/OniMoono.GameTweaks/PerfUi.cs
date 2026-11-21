@@ -21,12 +21,32 @@ namespace OniMoono.GameTweaks
             Bad = Hex("EF6B5B"), Accent = Hex("62C8E8"), Sim = Hex("62C8E8"), Anim = Hex("B58CF0"), Draw = Hex("F0A24A"),
             UiColour = Hex("7FD66B"), Other = Hex("8087A0"), GainInk = Hex("CFE9C9"), ButtonBack = Hex("4A5170"), ButtonRule = Hex("6B7396"),
             Go = Hex("3F7A3A"), GoRule = Hex("62A85B"), Line = new Color(1, 1, 1, 0.063f), BadgeBack = new Color32(0x20, 0x24, 0x2F, 0xE6);
+        /// The Frame tab's waits row (waiting for the screen or the graphics card): a dim slate.
+        internal static readonly Color Wait = Hex("596079");
+        /// The badge's outline under the pointer.
+        internal static readonly Color RuleHover = Hex("8A91AE");
         internal const string InkHex = "E9EBF2", MutedHex = "A3A9BD", GoodHex = "7FD66B", WarnHex = "F0C64A", BadHex = "EF6B5B";
 
         internal static Color Hex(string hex)
         {
             ColorUtility.TryParseHtmlString("#" + hex, out var c);
             return c;
+        }
+
+        /// The game's own button sounds (KButton's ButtonSoundPlayer defaults: HUD_Click_Open when
+        /// pressed, HUD_Mouseover when the pointer enters).
+        internal const string ClickSound = "HUD_Click_Open", HoverSound = "HUD_Mouseover";
+
+        /// Plays one of the game's interface sounds; nothing when the game's sound is not up.
+        internal static void Sound(string name)
+        {
+            try
+            {
+                KFMOD.PlayUISound(GlobalAssets.GetSound(name));
+            }
+            catch (Exception)
+            {
+            }
         }
 
         /// The light's colour: green, yellow, red.
@@ -151,8 +171,13 @@ namespace OniMoono.GameTweaks
         readonly List<RawImage> pictures = new List<RawImage>();
         int boxUsed, textUsed, buttonUsed, pictureUsed, order;
         readonly LocText measure;
-        /// A button was clicked during this build: the window builds again next frame.
+        /// A button was clicked during this build: the window builds again at once.
         internal bool Clicked;
+        /// A button of this builder was clicked since the last build (set by the event system's
+        /// click, before the window's LateUpdate): the window builds at once, so the click's
+        /// result shows in the same frame. `ClickFrame`: the frame of the newest click (tests).
+        internal bool PendingClick;
+        internal int ClickFrame = -1;
 
         internal PerfUi(RectTransform root)
         {
@@ -165,6 +190,13 @@ namespace OniMoono.GameTweaks
         {
             boxUsed = textUsed = buttonUsed = pictureUsed = order = 0;
             Clicked = false;
+            PendingClick = false;
+        }
+
+        void OnButtonClick()
+        {
+            PendingClick = true;
+            ClickFrame = Time.frameCount;
         }
 
         internal void End()
@@ -245,12 +277,23 @@ namespace OniMoono.GameTweaks
             measure.textWrappingMode = TextWrappingModes.Normal;
         }
 
-        /// A button with a label; true once after it was clicked.
+        PerfButton NextButton()
+        {
+            if (buttonUsed == buttons.Count)
+            {
+                var made = PerfButton.Make(root);
+                made.Clicked = OnButtonClick;
+                buttons.Add(made);
+            }
+            return buttons[buttonUsed++];
+        }
+
+        /// A button with a label; true once after it was clicked. It lightens under the pointer
+        /// and darkens while pressed, with the game's button sounds.
         internal bool Button(float x, float y, float w, float h, string label, Color back, Color rule, float size = 14f)
         {
-            if (buttonUsed == buttons.Count) buttons.Add(PerfButton.Make(root));
-            var b = buttons[buttonUsed++];
-            b.Set(back, rule, label, size);
+            var b = NextButton();
+            b.Set(back, rule, label, size, 0.10f, true);
             Place(b.Rect, x, y, w, h);
             Order(b.transform);
             if (b.Clicks == 0) return false;
@@ -259,12 +302,13 @@ namespace OniMoono.GameTweaks
             return true;
         }
 
-        /// A clickable area with no look (a list row, a table row); true once after a click.
-        internal bool Area(float x, float y, float w, float h, out Vector2 at)
+        /// A clickable area with no look of its own (a tab, a list row, a table row); true once
+        /// after a click. Under the pointer it gets a faint highlight (`hover`: its strength; the
+        /// graph's is fainter), and the game's sounds when `sounds`.
+        internal bool Area(float x, float y, float w, float h, out Vector2 at, float hover = 0.06f, bool sounds = true)
         {
-            if (buttonUsed == buttons.Count) buttons.Add(PerfButton.Make(root));
-            var b = buttons[buttonUsed++];
-            b.Set(new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), "", 12f);
+            var b = NextButton();
+            b.Set(new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), "", 12f, hover, sounds);
             Place(b.Rect, x, y, w, h);
             Order(b.transform);
             at = b.At;
@@ -272,6 +316,23 @@ namespace OniMoono.GameTweaks
             b.Clicks = 0;
             Clicked = true;
             return true;
+        }
+
+        /// The buttons and areas shown now, for the test runs: their order, label, centre in
+        /// screen pixels from the top left, and state (hover, pressed).
+        internal string Describe()
+        {
+            var parts = new List<string>();
+            var corners = new Vector3[4];
+            for (int i = 0; i < buttonUsed && i < buttons.Count; i++)
+            {
+                var b = buttons[i];
+                if (!b.gameObject.activeInHierarchy) continue;
+                b.Rect.GetWorldCorners(corners);
+                float cx = (corners[0].x + corners[2].x) / 2, cy = Screen.height - (corners[0].y + corners[2].y) / 2;
+                parts.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}@{2:F0},{3:F0}{4}", i, b.LabelText, cx, cy, b.StateText));
+            }
+            return string.Join(";", parts);
         }
 
         internal RawImage Picture(float x, float y, float w, float h, Texture texture)
@@ -292,15 +353,20 @@ namespace OniMoono.GameTweaks
         }
     }
 
-    /// A button of the window: a rounded panel, its outline and a label; counts its clicks and
-    /// where the last one landed (local units from the top left).
-    internal sealed class PerfButton : MonoBehaviour, IPointerClickHandler
+    /// A button of the window: a rounded panel, its outline, a highlight and a label; counts its
+    /// clicks and where the last one landed (local units from the top left). The highlight shows
+    /// at once, without the window building again: lighter under the pointer, darker while
+    /// pressed.
+    internal sealed class PerfButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
     {
         internal int Clicks;
         internal Vector2 At;
         internal RectTransform Rect;
-        Image back, rule;
+        internal System.Action Clicked;
+        Image back, rule, highlight;
         LocText label;
+        bool over, down, sounds = true;
+        float hover = 0.08f;
 
         internal static PerfButton Make(Transform parent)
         {
@@ -314,6 +380,8 @@ namespace OniMoono.GameTweaks
             b.back.raycastTarget = true;
             b.rule = PerfUi.NewImage(go.transform, "Rule", PerfUi.Round4Ring, Color.white);
             Stretch(b.rule.rectTransform);
+            b.highlight = PerfUi.NewImage(go.transform, "Highlight", PerfUi.Round4, new Color(1, 1, 1, 0));
+            Stretch(b.highlight.rectTransform);
             b.label = PerfUi.NewText(go.transform, "Label");
             Stretch(b.label.rectTransform);
             b.label.alignment = TextAlignmentOptions.Center;
@@ -327,8 +395,17 @@ namespace OniMoono.GameTweaks
             r.offsetMin = r.offsetMax = Vector2.zero;
         }
 
-        internal void Set(Color backColour, Color ruleColour, string text, float size)
+        internal string LabelText => label.text;
+        internal string StateText => down ? " pressed" : over ? " hover" : "";
+
+        internal void Set(Color backColour, Color ruleColour, string text, float size, float hoverAlpha, bool playSounds)
         {
+            sounds = playSounds;
+            if (hover != hoverAlpha)
+            {
+                hover = hoverAlpha;
+                ShowState();
+            }
             if (back.color != backColour) back.color = backColour;
             if (rule.color != ruleColour) rule.color = ruleColour;
             var font = PerfUi.Title;
@@ -343,6 +420,48 @@ namespace OniMoono.GameTweaks
             Clicks++;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, e.position, e.pressEventCamera, out var local))
                 At = new Vector2(local.x, -local.y);
+            Clicked?.Invoke();
+        }
+
+        public void OnPointerEnter(PointerEventData e)
+        {
+            over = true;
+            ShowState();
+            if (sounds) PerfUi.Sound(PerfUi.HoverSound);
+        }
+
+        public void OnPointerExit(PointerEventData e)
+        {
+            over = false;
+            down = false;
+            ShowState();
+        }
+
+        public void OnPointerDown(PointerEventData e)
+        {
+            if (e.button != PointerEventData.InputButton.Left) return;
+            down = true;
+            ShowState();
+            if (sounds) PerfUi.Sound(PerfUi.ClickSound);
+        }
+
+        public void OnPointerUp(PointerEventData e)
+        {
+            down = false;
+            ShowState();
+        }
+
+        void OnDisable()
+        {
+            over = down = false;
+            if (highlight != null) ShowState();
+        }
+
+        /// Pressed: a dark veil; under the pointer: a light one.
+        void ShowState()
+        {
+            var c = down ? new Color(0, 0, 0, 0.22f) : over ? new Color(1, 1, 1, hover) : new Color(1, 1, 1, 0);
+            if (highlight.color != c) highlight.color = c;
         }
     }
 }

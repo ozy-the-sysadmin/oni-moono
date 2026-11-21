@@ -208,6 +208,23 @@ namespace OniMoono.GameTweaks
             }
         }
 
+        /// The cases of SteppedAside (ModOverlaps' records, as the log's overlap table lists them):
+        /// one per tweak, method and mod.
+        public static List<Overlap> Adjusted()
+        {
+            var list = new List<Overlap>();
+            try
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var o in ModOverlaps.Found)
+                    if (o.Grade == OverlapGrade.StepsAside && seen.Add(o.Tweak + "|" + o.Method + "|" + o.Mod)) list.Add(o);
+            }
+            catch (Exception)
+            {
+            }
+            return list;
+        }
+
         /// The game's worker threads (its job manager's, the main thread not counted).
         public static int Workers()
         {

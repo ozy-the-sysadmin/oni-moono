@@ -86,6 +86,11 @@ namespace OniMoono.GameTweaks
         /// stutters in the last 10 s.
         public double KeepUp = double.NaN, Speed, MedianMs, Stutters10s;
 
+        /// With vsync, the time a picture is shown (the display's refresh period times the swap
+        /// interval, ms) while the engine knows it; 0 without vsync or an unknown period. Set each
+        /// frame by the overlay (OniMoono.Engine.FramePacing.PacedPeriodMs).
+        public double RefreshMs;
+
         /// The badge's rate: frames over the last half second.
         public double Fps { get; private set; }
         double fpsMs; int fpsFrames;
@@ -237,7 +242,7 @@ namespace OniMoono.GameTweaks
             if (notPlay) bits |= FLoading;
             if (f.GcMs > LongestGcMs && f.InColony && !notPlay) LongestGcMs = f.GcMs;
 
-            double over = Math.Max(StutterMs, 2 * MedianMs);
+            double over = StutterThreshold();
             bool stutter = play && f.Ms >= over && f.Ms < FreezeMs && prevMs < over;
             bool freeze = f.InColony && !notPlay && f.Ms >= FreezeMs;
             prevMs = f.Ms;
@@ -273,6 +278,18 @@ namespace OniMoono.GameTweaks
                 nextCheck = f.Now + 0.5;
                 Check(f);
             }
+        }
+
+        /// A stutter's length: 20 ms or twice the median frame. With vsync and frames at the
+        /// refresh rate, a frame that misses its refresh lasts two refreshes, which twice the median
+        /// (itself a refresh, in 0.25 ms bins) would put on either side of the line at random: any
+        /// frame over 1.75 refreshes counts then (a picture shown twice). Frames at the refresh rate
+        /// themselves never count, so vsync holding the rate is no stutter.
+        public double StutterThreshold()
+        {
+            double over = Math.Max(StutterMs, 2 * MedianMs);
+            if (RefreshMs > 0 && MedianMs > 0 && Math.Abs(MedianMs - RefreshMs) <= 0.1 * RefreshMs) over = Math.Max(StutterMs, 1.75 * RefreshMs);
+            return over;
         }
 
         void LogSlow(in PerfFrame f, PerfCause cause, bool loading, bool stutter, bool freeze)
@@ -573,12 +590,13 @@ namespace OniMoono.GameTweaks
             public int PerMinute(int n) => PlaySeconds >= 1 ? (int)Math.Round(n * 60.0 / PlaySeconds) : 0;
         }
 
-        /// The last `n` whole seconds (a minute by default): the one source of every "a minute".
+        /// The last `n` whole seconds (a minute by default), none from before RestartMinute: the
+        /// one source of every "a minute".
         public Rate LastMinute(int n = 60)
         {
             var r = new Rate();
             double playMs = 0;
-            for (int i = seconds.Count - 1; i >= 0 && i >= seconds.Count - n; i--)
+            for (int i = seconds.Count - 1; i >= 0 && i >= seconds.Count - n && i >= rateFrom; i--)
             {
                 var s = seconds[i];
                 r.Stutters += s.Stutters;
@@ -589,6 +607,20 @@ namespace OniMoono.GameTweaks
             }
             r.PlaySeconds = playMs / 1000;
             return r;
+        }
+
+        int rateFrom;
+        /// When the rates last started again (RestartMinute; Now's clock), NaN before.
+        public double RestartedAt = double.NaN;
+
+        /// The Colony tab's Scan again: every "a minute" (the verdict's stutters, Right now, the
+        /// advice, the Hitches tab's stutters box) counts from the next whole second, so a change
+        /// the player just made is measured alone. The session's totals, the light and the graph
+        /// are not reset.
+        public void RestartMinute()
+        {
+            rateFrom = seconds.Count + 1;
+            RestartedAt = Now;
         }
 
         /// The newest frame's end (seconds, PerfFrame.Now's clock: the host's frame clock): the

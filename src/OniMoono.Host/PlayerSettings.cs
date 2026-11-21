@@ -21,7 +21,7 @@ namespace OniMoono.Host
     ///
     ///     { "gameTweaks": { "brain-rate": true, "fast-jobs": false }, "splash": "moo", "frameStats": true, "logPaths": "full", "gpu": "discrete", "renderer": "opengl",
     ///       "dxgi": false, "stallRepeats": false, "updateCheck": false, "gc": "low-memory",
-    ///       "fpsCounter": "off" }
+    ///       "fpsCounter": "off", "vsync": "off" }
     ///
     /// Tweaks no longer known (one removed in an update) are ignored and kept.
     internal sealed class PlayerSettings
@@ -50,6 +50,9 @@ namespace OniMoono.Host
         /// written by an earlier build reads as "on");
         /// null when not chosen.
         public string? FpsCounter;
+        /// Vertical sync: "game-default" (the game's quality settings) or "off" (uncapped;
+        /// EffectiveOptions.VSyncChoices); null when not chosen.
+        public string? VSync;
 
         public static string PathIn(string persistentDataPath) => Path.Combine(persistentDataPath, "oni-moono", "settings.json");
         /// Where players from before the Moono name (oni-brutal) kept the file.
@@ -139,6 +142,12 @@ namespace OniMoono.Host
                 settings.FpsCounter = EffectiveOptions.IsFpsCounter(value) ? EffectiveOptions.FpsCounterOf(value)
                     : throw new FormatException($"fpsCounter \"{value}\" is not one of: {string.Join(", ", EffectiveOptions.FpsCounterChoices)}");
             }
+            if (root["vsync"] is JsonNode vsync)
+            {
+                var value = vsync.GetValue<string>();
+                settings.VSync = Array.IndexOf(EffectiveOptions.VSyncChoices, value) >= 0 ? value
+                    : throw new FormatException($"vsync \"{value}\" is not one of: {string.Join(", ", EffectiveOptions.VSyncChoices)}");
+            }
             return settings;
         }
 
@@ -162,6 +171,7 @@ namespace OniMoono.Host
             if (UpdateCheck != null) root["updateCheck"] = UpdateCheck;
             if (Gc != null) root["gc"] = Gc;
             if (FpsCounter != null) root["fpsCounter"] = FpsCounter;
+            if (VSync != null) root["vsync"] = VSync;
             return indented ? root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n" : root.ToJsonString();
         }
 
@@ -183,7 +193,7 @@ namespace OniMoono.Host
     /// settings file, then the command line. A command line naming any game tweak
     /// (`--game-tweak NAME|-NAME|all|exact|none`, repeatable) sets the whole set of tweaks for the
     /// run, as before the settings file existed; `--splash`, `--frame-stats`, `--log-paths`,
-    /// `--gpu`, `--dxgi`, `--stall-repeats`, `--gc` and `--fps-counter` set theirs.
+    /// `--gpu`, `--dxgi`, `--stall-repeats`, `--gc`, `--fps-counter` and `--vsync-count` set theirs.
     internal sealed class EffectiveOptions
     {
         public readonly IReadOnlyList<string> AllTweaks;
@@ -238,6 +248,19 @@ namespace OniMoono.Host
         static readonly string[] fpsCounterCorners = ["top-centre", "top-right", "top-left", "bottom-right", "bottom-left"];
         public static bool IsFpsCounter(string value) => Array.IndexOf(FpsCounterChoices, value) >= 0 || Array.IndexOf(fpsCounterCorners, value) >= 0;
         public static string FpsCounterOf(string value) => value == "off" ? "off" : "on";
+        /// Vertical sync (OniMoono.Engine.VSync): "game-default" follows the game's quality settings
+        /// (vsync on), "off" presents uncapped; game default unless chosen otherwise. The command
+        /// line's `--vsync-count N` wins (VSyncCount: N, any interval; shown as "off" for 0).
+        public const string VSyncGame = "game-default", VSyncOff = "off";
+        public static readonly string[] VSyncChoices = [VSyncGame, VSyncOff];
+        public const string DefaultVSync = VSyncGame;
+        public string VSync = DefaultVSync;
+        public OptionSource VSyncSource;
+        /// `--vsync-count N` (null without it).
+        public int? VSyncCount;
+        /// The swap interval chosen over the game's (OniMoono.Engine.VSync.Override): the command
+        /// line's, 0 for "off", else -1 (the game's quality settings).
+        public int VSyncOverride => VSyncCount ?? (VSync == VSyncOff ? 0 : -1);
         /// The command line's `--game-tweak` values, in order (empty when it names none).
         public readonly IReadOnlyList<string> CommandLineTweaks;
         /// Names in the settings file that are not tweaks of this player.
@@ -264,7 +287,8 @@ namespace OniMoono.Host
         public static EffectiveOptions Resolve(IReadOnlyList<string> allTweaks, IReadOnlyCollection<string> changing,
             IReadOnlyList<string> commandLineTweaks, string? commandLineSplash, bool commandLineFrameStats, PlayerSettings file,
             string? commandLineLogPaths = null, string? commandLineGpu = null, string? commandLineRenderer = null, bool? commandLineDxgi = null,
-            IReadOnlyCollection<string>? offByDefault = null, string? commandLineGc = null, bool? commandLineStallRepeats = null, string? commandLineFpsCounter = null)
+            IReadOnlyCollection<string>? offByDefault = null, string? commandLineGc = null, bool? commandLineStallRepeats = null, string? commandLineFpsCounter = null,
+            int? commandLineVSyncCount = null)
         {
             var options = new EffectiveOptions(allTweaks, commandLineTweaks);
             foreach (var name in allTweaks)
@@ -294,6 +318,12 @@ namespace OniMoono.Host
             else if (file.Gc != null) (options.Gc, options.GcSource) = (file.Gc, OptionSource.SettingsFile);
             if (commandLineFpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (FpsCounterOf(commandLineFpsCounter), OptionSource.CommandLine);
             else if (file.FpsCounter != null) (options.FpsCounter, options.FpsCounterSource) = (file.FpsCounter, OptionSource.SettingsFile);
+            if (commandLineVSyncCount != null)
+            {
+                options.VSyncCount = Math.Clamp(commandLineVSyncCount.Value, 0, 4);
+                (options.VSync, options.VSyncSource) = (options.VSyncCount == 0 ? VSyncOff : VSyncGame, OptionSource.CommandLine);
+            }
+            else if (file.VSync != null) (options.VSync, options.VSyncSource) = (file.VSync, OptionSource.SettingsFile);
             return options;
         }
 
@@ -304,12 +334,12 @@ namespace OniMoono.Host
         /// set, shown but not changeable) keep what the file had.
         public static PlayerSettings Apply(PlayerSettings file, IReadOnlyCollection<string> offByDefault,
             IReadOnlyDictionary<string, bool> tweaks, bool? splashMoo, bool? frameStats, bool? hideLogPaths = null, string? gpu = null, string? renderer = null,
-            bool? dxgi = null, bool? updateCheck = null, string? gc = null, bool? stallRepeats = null, string? fpsCounter = null)
+            bool? dxgi = null, bool? updateCheck = null, string? gc = null, bool? stallRepeats = null, string? fpsCounter = null, string? vsync = null)
         {
             var result = new PlayerSettings
             {
                 Splash = file.Splash, FrameStats = file.FrameStats, LogPaths = file.LogPaths, Gpu = file.Gpu, Renderer = file.Renderer, Dxgi = file.Dxgi,
-                StallRepeats = file.StallRepeats, UpdateCheck = file.UpdateCheck, Gc = file.Gc, FpsCounter = file.FpsCounter
+                StallRepeats = file.StallRepeats, UpdateCheck = file.UpdateCheck, Gc = file.Gc, FpsCounter = file.FpsCounter, VSync = file.VSync
             };
             foreach (var (name, on) in file.GameTweaks) result.GameTweaks[name] = on;
             foreach (var (name, on) in tweaks)
@@ -327,6 +357,7 @@ namespace OniMoono.Host
             if (updateCheck != null) result.UpdateCheck = updateCheck == DefaultUpdateCheck ? null : updateCheck;
             if (gc != null) result.Gc = gc == DefaultGc ? null : gc;
             if (fpsCounter != null) result.FpsCounter = fpsCounter == DefaultFpsCounter ? null : fpsCounter;
+            if (vsync != null) result.VSync = vsync == DefaultVSync ? null : vsync;
             return result;
         }
 
@@ -361,6 +392,7 @@ namespace OniMoono.Host
             yield return $"update check {(UpdateCheck ? "on" : "off")} ({From(UpdateCheckSource)})";
             yield return $"gc {Gc} ({From(GcSource)})";
             yield return $"fps counter {FpsCounter} ({From(FpsCounterSource)})";
+            yield return VSyncCount != null ? $"vsync count {VSyncCount} (the command line)" : $"vsync {VSync} ({From(VSyncSource)})";
         }
 
         /// Where the renderer choice came from, for the log's renderer line.

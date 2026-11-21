@@ -61,6 +61,9 @@ namespace OniMoono.GameTweaks
         internal static string[][] Choices;
         internal static string SettingsPath;
         internal static Func<string[], int[], string> Save;
+        /// A row that applies while the game runs (vertical sync): `ApplyLive(id, value)` applies
+        /// it now and returns true; false for a row that needs the restart.
+        internal static Func<string, int, bool> ApplyLive;
         /// The frame rate counter, when it runs, puts its badge back at the top centre
         /// (PerfOverlay.ResetPosition; the Reset position button).
         internal static System.Action CounterReset;
@@ -89,13 +92,15 @@ namespace OniMoono.GameTweaks
         /// `choices`) is given as keys ("" for none) into `keys`, whose English is `englishTexts`;
         /// `resolveTexts` gives every key's text from a .po's strings (key to text, English where
         /// it has none), read from the folder `translations`. `version`: the header's version label
-        /// (null for none).
+        /// (null for none). `applyLive`: ApplyLive.
         public static void Install(Harmony harmony, string[] ids, string[] groups, string[] titles, string[] effects,
             string[] details, string[] gains, string[] notes, bool[] changesGameplay, bool[] bugFixes, string[][] choices, int[] running, int[] defaults, bool[] locked,
             bool[] unavailable, string settingsPath, Func<string[], int[], string> save,
-            string[] keys, string[] englishTexts, Func<Dictionary<string, string>, string[]> resolveTexts, string translations, string version)
+            string[] keys, string[] englishTexts, Func<Dictionary<string, string>, string[]> resolveTexts, string translations, string version,
+            Func<string, int, bool> applyLive)
         {
             Version = version;
+            ApplyLive = applyLive;
             Ids = ids;
             groupKeys = groups;
             titleKeys = titles;
@@ -839,9 +844,30 @@ namespace OniMoono.GameTweaks
                 {
                     shown[i] = (shown[i] + 1) % MoonoTweaksMenu.Choices[i].Length;
                     ShowChoice(i);
+                    Live(i);
                     Refresh();
                 };
             }
+        }
+
+        /// A row that applies while the game runs (MoonoTweaksMenu.ApplyLive): applied and saved
+        /// now, so it asks for no restart.
+        void Live(int i)
+        {
+            if (MoonoTweaksMenu.ApplyLive == null || MoonoTweaksMenu.Running[i] == shown[i]) return;
+            bool applied;
+            try
+            {
+                applied = MoonoTweaksMenu.ApplyLive(MoonoTweaksMenu.Ids[i], shown[i]);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Moono] Moono Tweaks: " + MoonoTweaksMenu.Ids[i] + " could not be applied now: " + e.Message);
+                return;
+            }
+            if (!applied) return;
+            MoonoTweaksMenu.Running[i] = shown[i];
+            SaveShown();
         }
 
         /// A row's tooltip on another of its parts, set up and placed as `like` (at the pointer).
@@ -991,6 +1017,7 @@ namespace OniMoono.GameTweaks
                 shown[i] = MoonoTweaksMenu.Defaults[i];
                 if (choiceButtons[i] != null) ShowChoice(i);
                 else toggles[i].ChangeState(shown[i]);
+                Live(i);
             }
             Refresh();
         }

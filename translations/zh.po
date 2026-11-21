@@ -427,8 +427,8 @@ msgid "Between frames"
 msgstr "帧之间"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_WAIT_GRAPHICS"
-msgid "Waiting for graphics"
-msgstr "等待显卡"
+msgid "Waiting for graphics results"
+msgstr "等待显卡返回结果"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_GC"
 msgid "Memory clean-up"
@@ -539,8 +539,8 @@ msgid "Active"
 msgstr "生效中"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_STEPPED"
-msgid "Stepped aside for a mod"
-msgstr "为模组让步"
+msgid "Adjusted for your mods"
+msgstr "为你的模组调整"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF"
 msgid "Switched off by you"
@@ -581,10 +581,6 @@ msgstr "已复制"
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
 msgid "RECORD 60 S"
 msgstr "记录 60 秒"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
-msgid "RECORDING…"
-msgstr "记录中…"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_LOAD"
 msgid "Loading"
@@ -1701,3 +1697,131 @@ msgstr "Moono 找到了 {0} 个《缺氧》安装。要玩这个位置的吗？\
 msgctxt "STRINGS.MOONO.START.CHOOSE_DIALOG"
 msgid "Moono found {0} installs of Oxygen Not Included. Which one should it play (kept for later starts)?"
 msgstr "Moono 找到了 {0} 个《缺氧》安装。要玩哪一个？（以后启动也会用它）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_SCREEN_TEXT"
+msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up with speed {2}."
+msgstr "{0} fps，已达到你的 {1} Hz 屏幕能显示的上限，游戏也跟得上 {2} 档速度。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_SCREEN_ROOM_TEXT"
+msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up with speed {2}. There is room to spare: the game's own work takes about {3}% of each frame."
+msgstr "{0} fps，已达到你的 {1} Hz 屏幕能显示的上限，游戏也跟得上 {2} 档速度。还有余量：游戏自身的工作只占每帧约 {3}% 的时间。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_REMEASURING_TEXT"
+msgid "Measuring again since you pressed Scan again: {0} s of play so far."
+msgstr "自你点击“重新扫描”后重新测量中：目前已测 {0} 秒游戏时间。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_VSYNC"
+msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, set \"Vertical sync\" to Off in Moono Tweaks (main menu); a {0} Hz screen still shows only {0} pictures a second."
+msgstr "帧率：垂直同步把它保持在屏幕的 {0} Hz，这是屏幕能显示的上限。想看游戏实际能跑多快，可在 Moono 调整项（主菜单）中把“垂直同步”设为关闭；{0} Hz 的屏幕每秒仍只能显示 {0} 张画面。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_SCREEN"
+msgid "Your screen ({0} Hz)"
+msgstr "你的屏幕（{0} Hz）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNING"
+msgid "SCANNING…"
+msgstr "扫描中…"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNED"
+msgid "SCANNED"
+msgstr "已扫描"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT_SCANNED"
+msgid "Counted {0}; stutters and advice measured from then on. Advice is shown only where the gain was measured."
+msgstr "{0}已重新统计；卡顿和建议从那时起重新测量。只显示收益经过测量的建议。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_JUST_NOW"
+msgid "just now"
+msgstr "刚刚"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_SCREEN"
+msgid "Waiting for the screen (vsync)"
+msgstr "等待屏幕（垂直同步）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_GPU"
+msgid "Waiting for the graphics card"
+msgstr "等待显卡"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_EITHER"
+msgid "Waiting for the screen or graphics card"
+msgstr "等待屏幕或显卡"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE_FRAME"
+msgid "Graphics thread taking the next frame"
+msgstr "图形线程接收下一帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_QUEUED"
+msgid "Pictures queued for the screen"
+msgstr "排队等待显示的画面"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WAIT_SCREEN"
+msgid "Main thread waiting for the screen"
+msgstr "主线程等待屏幕"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_VSYNC"
+msgid "Vertical sync"
+msgstr "垂直同步"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_OFF"
+msgid "Off"
+msgstr "关闭"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_ON"
+msgid "On"
+msgstr "开启"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_ON_HZ"
+msgid "On, {0} Hz"
+msgstr "开启，{0} Hz"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ADJUSTED_NOTE"
+msgid "This is normal: where a mod changes the same part of the game, Moono's speed-up leaves that part as the original game has it, so the mod keeps working."
+msgstr "这很正常：当某个模组修改了游戏的同一部分时，Moono 的加速会让这一部分保持原版游戏的做法，以便该模组继续正常工作。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ADJUSTED_ITEM"
+msgid "{0}: {1} runs as in the original game because {2} changes it. {3}"
+msgstr "{0}：{1} 按原版游戏的方式运行，因为 {2} 修改了它。{3}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF_ITEM"
+msgid "{0}: {1}"
+msgstr "{0}：{1}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_NOT_MEASURED"
+msgid "Effect not measured."
+msgstr "影响未经测量。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_GAIN"
+msgid "measured gain when on: {0}."
+msgstr "开启时测得的收益：{0}。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_COLONY_SUMMARY"
+msgid "Effect: the colony summary is written during the autosave pause again, about 0.1 s more per save on a late-game colony (measured 100 to 126 ms)."
+msgstr "影响：殖民地摘要重新在自动存档暂停期间写入，后期殖民地每次存档约多 0.1 秒（实测 100 至 126 毫秒）。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING_LEFT"
+msgid "RECORDING… {0} S"
+msgstr "录制中… {0} 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_SAVED"
+msgid "SAVED"
+msgstr "已保存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.TITLE"
+msgid "Vertical sync"
+msgstr "垂直同步"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.EFFECT"
+msgid "Off: the real frame rate, but the picture may tear. A 60 Hz screen shows at most 60 fps. No restart."
+msgstr "关闭：显示真实帧率，但画面可能撕裂。60 Hz 屏幕最多只显示 60 fps。无需重启。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.DETAIL"
+msgid "Game default: as the original game, each picture waits for the screen's next refresh, so the frame rate stops at the screen's refresh rate (60 on a 60 Hz screen). Off: pictures are shown as soon as they are ready; the frame rate counter shows how fast the game really runs, the picture may tear (a line where two pictures meet) and the graphics card works harder. The game runs the same either way. Game default also follows a mod that changes the game's vertical sync."
+msgstr "游戏默认：与原版游戏相同，每张画面都等待屏幕的下一次刷新，所以帧率止于屏幕的刷新率（60 Hz 屏幕上为 60）。关闭：画面一准备好就显示；帧率计数器显示游戏的真实运行速度，画面可能撕裂（两张画面交接处出现一条线），显卡负担也更重。两种设置下游戏本身的运行完全相同。游戏默认也会遵从修改游戏垂直同步的模组。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.VSYNC.GAME_DEFAULT"
+msgid "game default"
+msgstr "游戏默认"
+
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.VSYNC.OFF"
+msgid "off"
+msgstr "关闭"

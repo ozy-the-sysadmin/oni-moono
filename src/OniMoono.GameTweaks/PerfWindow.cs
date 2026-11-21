@@ -68,8 +68,11 @@ namespace OniMoono.GameTweaks
             PerfUi.Place(bar.rectTransform, 2, 2, Width - 4, TitleHeight - 2);
             bar.raycastTarget = true;
             bar.gameObject.AddComponent<PerfPress>().Pressed = () => overlay.BeginPress(rect, null);
+            // Centred in the bar (2 to TitleHeight from the top): TMP's default is the top of its
+            // rectangle, where the title face's ascender reached above the bar.
             title = PerfUi.NewText(go.transform, "Title");
-            PerfUi.Place(title.rectTransform, 14, 0, 400, TitleHeight);
+            PerfUi.Place(title.rectTransform, 14, 2, 400, TitleHeight - 2);
+            title.alignment = TextAlignmentOptions.MidlineLeft;
             title.characterSpacing = 4f;
             cr.SetAsLastSibling();
             var content = new GameObject("Body", typeof(RectTransform));
@@ -96,6 +99,7 @@ namespace OniMoono.GameTweaks
             tab = 0;
             expanded = -1;
             selected = null;
+            tweaksOpen = 0;
             rect.gameObject.SetActive(true);
             Measure();
             Build();
@@ -121,11 +125,14 @@ namespace OniMoono.GameTweaks
             Clamp();
         }
 
+        /// Inside the screen, `Margin` from its edges (as the badge, a little wider).
+        const float Margin = 8f;
+
         void Clamp()
         {
             var canvas = overlay.CanvasSize;
-            topLeft.x = Mathf.Clamp(topLeft.x, 2, Math.Max(2, canvas.x - Width - 2));
-            topLeft.y = Mathf.Clamp(topLeft.y, 2, Math.Max(2, canvas.y - height - 2));
+            topLeft.x = Mathf.Clamp(topLeft.x, Margin, Math.Max(Margin, canvas.x - Width - Margin));
+            topLeft.y = Mathf.Clamp(topLeft.y, Margin, Math.Max(Margin, canvas.y - height - Margin));
             var pos = new Vector2(topLeft.x, -topLeft.y);
             if (rect.anchoredPosition != pos) rect.anchoredPosition = pos;
         }
@@ -169,6 +176,15 @@ namespace OniMoono.GameTweaks
         bool gcRated;
         double allocPerFrame = double.NaN;
 
+        // Scan again: 1 the click's frame ("Scanning…"), 2 scanned (the label says so for a while).
+        int scanState;
+        float scannedFor;
+        // Record 60 s: when it was started (realtime), and how long the button says it is saved.
+        float recordStarted = -1f, recordSavedFor;
+        /// The frame a click's result was built in (tests: the click-to-picture latency in
+        /// frames, with PerfUi.ClickFrame).
+        internal int ClickBuiltFrame = -1, ClickFrame = -1;
+
         internal void Update(float dt)
         {
             elapsed += dt;
@@ -178,15 +194,66 @@ namespace OniMoono.GameTweaks
                 copied = null;
                 dirty = true;
             }
+            if (scanState == 2 && (scannedFor -= dt) <= 0)
+            {
+                scanState = 0;
+                dirty = true;
+            }
+            if (recordSavedFor > 0 && (recordSavedFor -= dt) <= 0) dirty = true;
+            if (scanState == 1)
+            {
+                // The frame after the click showed "Scanning…": count and measure again now.
+                Scan();
+                dirty = true;
+            }
             if (elapsed >= 1f)
             {
                 elapsed = 0f;
                 Sample();
                 dirty = true;
             }
-            if (!dirty && !ui.Clicked && !chrome.Clicked) return;
+            if (!dirty) return;
             dirty = false;
-            Build();
+            BuildSettled();
+        }
+
+        /// After the event system has sent this frame's clicks (PerfOverlay.LateUpdate): a click
+        /// is acted on and its result built now, so it shows in this very frame. A click handled
+        /// inside a build (a tab, a row) builds again at once, at most a few times.
+        internal void AfterInput()
+        {
+            if (!open || (!ui.PendingClick && !chrome.PendingClick)) return;
+            BuildSettled();
+        }
+
+        /// Builds until no click is left to act on (a click handled inside a build, a tab or a
+        /// row, changes what the next build shows), at most a few times; notes a click's frames.
+        void BuildSettled()
+        {
+            bool click = ui.PendingClick || chrome.PendingClick;
+            int clickFrame = Math.Max(ui.ClickFrame, chrome.ClickFrame);
+            for (int pass = 0; pass < 3 && open; pass++)
+            {
+                Build();
+                if (!ui.Clicked && !chrome.Clicked) break;
+                click = true;
+            }
+            if (!click) return;
+            ClickFrame = clickFrame;
+            ClickBuiltFrame = Time.frameCount;
+        }
+
+        /// Scan again: the colony counted again, the engine's sums read now, and every "a minute"
+        /// measured from here (PerfTrack.RestartMinute), so a change just made is judged alone.
+        void Scan()
+        {
+            counts = PerfReads.Colony();
+            countsAge = 0f;
+            PerfOverlay.Track.RestartMinute();
+            Sample();
+            elapsed = 0f;
+            scanState = 2;
+            scannedFor = 2f;
         }
 
         /// Once a second: the engine's sums, its memory numbers, the colony's counts (every 5 s on
@@ -279,7 +346,9 @@ namespace OniMoono.GameTweaks
             title.fontSize = 18f;
             title.text = Ui("PERF_WINDOW_TITLE");
             chrome.Begin();
-            if (chrome.Button(Width - 34, 4, 26, 24, "×", new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), 22f)) Close();
+            // Centred in the bar (2 to TitleHeight), as the title.
+            const float closeSize = 24f;
+            if (chrome.Button(Width - 8 - closeSize, 2 + (TitleHeight - 2 - closeSize) / 2, closeSize, closeSize, "×", new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), 22f)) Close();
             chrome.Box(0, TitleHeight, Width, TabsHeight, PerfUi.Panel2);
             chrome.Box(0, TitleHeight + TabsHeight - 1, Width, 1, PerfUi.Rule);
             string[] names = { Ui("PERF_TAB_COLONY"), Ui("PERF_TAB_FRAME"), Ui("PERF_TAB_HITCHES") };
@@ -288,21 +357,35 @@ namespace OniMoono.GameTweaks
             {
                 float w = chrome.Width(names[i], 15f, PerfUi.Title) + 32;
                 bool on = i == tab;
-                if (on) chrome.Box(x, TitleHeight + TabsHeight - 4, w, 3, PerfUi.Accent);
-                chrome.Text(x, TitleHeight, w, TabsHeight - 2, names[i], 15f, on ? Color.white : PerfUi.Muted, TextAlignmentOptions.Center, PerfUi.Title);
-                if (chrome.Area(x, TitleHeight, w, TabsHeight, out _) && tab != i)
+                // The active tab: lit, underlined in the accent, its name white.
+                if (on)
                 {
-                    tab = i;
-                    expanded = -1;
-                    selected = null;
-                    countsAge = 99f;
-                    Measure();
-                    Sample();
+                    chrome.Box(x, TitleHeight, w, TabsHeight - 1, new Color(1, 1, 1, 0.07f));
+                    chrome.Box(x, TitleHeight + TabsHeight - 4, w, 3, PerfUi.Accent);
                 }
+                chrome.Text(x, TitleHeight, w, TabsHeight - 2, names[i], 15f, on ? Color.white : PerfUi.Muted, TextAlignmentOptions.Center, PerfUi.Title);
+                if (chrome.Area(x, TitleHeight, w, TabsHeight, out _) && tab != i) SwitchTab(i);
                 x += w;
             }
             chrome.End();
             if (!open) Measure();
+        }
+
+        /// Another tab: what it measures switched now; its numbers from the last second, or
+        /// "Measuring…" where it needs its own (they fill in at the next second).
+        void SwitchTab(int i)
+        {
+            tab = i;
+            expanded = -1;
+            selected = null;
+            tweaksOpen = 0;
+            countsAge = 99f;
+            Measure();
+            if (tab == 0 && countsAge >= 5f)
+            {
+                counts = PerfReads.Colony();
+                countsAge = 0f;
+            }
         }
 
         // Common pieces.
@@ -364,13 +447,25 @@ namespace OniMoono.GameTweaks
         }
 
         /// The footer's buttons, right-aligned; with y < 0 only their width.
+        /// Record 60 s: while it records, the seconds left; then "Saved" for a few seconds.
         float RecordButton(float y, float right)
         {
             bool busy = PerfOverlay.Recording != null && PerfOverlay.Recording();
-            string label = busy ? Ui("PERF_RECORDING") : Ui("PERF_RECORD");
-            float w = ui.Width(label, 14f, PerfUi.Title) + 26;
-            if (y >= 0 && ui.Button(right - w, y, w, 26, label, PerfUi.Go, PerfUi.GoRule) && !busy && PerfOverlay.Record != null)
+            if (!busy && recordStarted >= 0)
+            {
+                recordStarted = -1f;
+                recordSavedFor = 4f;
+            }
+            string label = busy ? string.Format(C, Ui("PERF_RECORDING_LEFT"), Math.Max(0, 60 - (int)(Time.realtimeSinceStartup - Math.Max(0f, recordStarted))).ToString(C))
+                : recordSavedFor > 0 ? Ui("PERF_RECORD_SAVED") : Ui("PERF_RECORD");
+            float w = Math.Max(ui.Width(Ui("PERF_RECORD"), 14f, PerfUi.Title), ui.Width(string.Format(C, Ui("PERF_RECORDING_LEFT"), "60"), 14f, PerfUi.Title)) + 26;
+            if (y >= 0 && ui.Button(right - w, y, w, 26, label, busy ? PerfUi.ButtonBack : PerfUi.Go, busy ? PerfUi.ButtonRule : PerfUi.GoRule) && !busy && PerfOverlay.Record != null)
+            {
                 global::Debug.Log("[Moono] perf record: " + PerfOverlay.Record());
+                recordStarted = Time.realtimeSinceStartup;
+                recordSavedFor = 0f;
+                lastRecordingRead = false;
+            }
             return w;
         }
 
@@ -394,6 +489,9 @@ namespace OniMoono.GameTweaks
             int speed = PerfReads.Speed();
             int stutters = last.PerMinute(last.Stutters), simWaits = last.PerMinute(last.SimWaits), unknown = last.PerMinute(last.Unknown);
             int light = track.Light;
+            var screen = ScreenLimit(inColony && !paused);
+            // Scan again starts every "a minute" afresh: until 10 s of play are measured, say so.
+            bool remeasuring = !double.IsNaN(track.RestartedAt) && last.PlaySeconds < 10;
             string verdictTitle, verdictText;
             Color back, rule, ink;
             if (!inColony)
@@ -417,13 +515,20 @@ namespace OniMoono.GameTweaks
             else if (light == 1)
             {
                 verdictTitle = Ui("PERF_VERDICT_STUTTERING");
-                verdictText = string.Format(C, Ui("PERF_VERDICT_STUTTERING_TEXT"), Fps(track.Fps), stutters);
+                verdictText = remeasuring ? string.Format(C, Ui("PERF_VERDICT_REMEASURING_TEXT"), Math.Floor(last.PlaySeconds).ToString("F0", C))
+                    : string.Format(C, Ui("PERF_VERDICT_STUTTERING_TEXT"), Fps(track.Fps), stutters);
                 (back, rule, ink) = (PerfUi.Hex("3A331F"), PerfUi.Hex("7A6A3D"), PerfUi.Hex("E6DCC4"));
             }
             else
             {
                 verdictTitle = Ui("PERF_VERDICT_GOOD");
-                verdictText = string.Format(C, Ui("PERF_VERDICT_GOOD_TEXT"), Fps(track.Fps), speed);
+                // Held at the screen's refresh rate by vsync: as fast as the screen shows, with the
+                // main thread's measured spare time when the engine timed it.
+                verdictText = screen.Limited
+                    ? double.IsNaN(screen.BusyShare) ? string.Format(C, Ui("PERF_VERDICT_SCREEN_TEXT"), Fps(track.Fps), Hz(screen.Hz), speed)
+                    : string.Format(C, Ui("PERF_VERDICT_SCREEN_ROOM_TEXT"), Fps(track.Fps), Hz(screen.Hz), speed, Math.Round(100 * screen.BusyShare).ToString("F0", C))
+                    : string.Format(C, Ui("PERF_VERDICT_GOOD_TEXT"), Fps(track.Fps), speed);
+                if (remeasuring) verdictText += " " + string.Format(C, Ui("PERF_VERDICT_REMEASURING_TEXT"), Math.Floor(last.PlaySeconds).ToString("F0", C));
                 (back, rule, ink) = (PerfUi.Hex("1F3A2A"), PerfUi.Hex("3D7A52"), PerfUi.Hex("C4DCCB"));
             }
             float textW = Width - 2 * Pad - 24 - 18;
@@ -454,6 +559,8 @@ namespace OniMoono.GameTweaks
                 Utilities = counts.Utilities,
             };
             var (cards, nothing) = PerfAdvice.Evaluate(state, Ui);
+            // The frame rate, held by vsync: nothing to gain, and where to see the uncapped number.
+            if (screen.Limited) nothing.Insert(0, string.Format(C, Ui("PERF_NOTHING_VSYNC"), Hz(screen.Hz)));
             float ly = Section(Pad, y, LeftWidth, Ui("PERF_ADVICE_HEADING"));
             Color[] icons = { PerfUi.UiColour, PerfUi.Anim, PerfUi.Draw, PerfUi.Sim };
             if (cards.Count == 0)
@@ -494,11 +601,12 @@ namespace OniMoono.GameTweaks
                     keeps ? PerfUi.Good : PerfUi.Bad));
             }
             else nowLines.Add((string.Format(C, Ui("PERF_NOW_KEEPS_UP"), speed), "–", PerfUi.Ink));
-            nowLines.Add((Ui("PERF_NOW_STUTTERS"), inColony ? string.Format(C, Ui("PERF_PER_MINUTE"), stutters) : "–", inColony && !paused && light == 1 ? PerfUi.Warn : PerfUi.Ink));
+            nowLines.Add((Ui("PERF_NOW_STUTTERS"), !inColony ? "–" : remeasuring ? Ui("PERF_MEASURING") : string.Format(C, Ui("PERF_PER_MINUTE"), stutters),
+                inColony && !paused && light == 1 && !remeasuring ? PerfUi.Warn : PerfUi.Ink));
             nowLines.Add((Ui("PERF_NOW_AUTOSAVE"), double.IsNaN(track.LastSaveMs) ? Ui("PERF_NONE_YET") : Seconds(track.LastSaveMs), PerfUi.Ink));
             if (engineNow != null && engineNow[1] > 0)
                 nowLines.Add((Ui("PERF_NOW_MEMORY"), string.Format(C, Ui("PERF_GB_OF"), Gb(engineNow[0]), Gb(engineNow[1]).Replace(".0", "")), PerfUi.Ink));
-            nowLines.Add((Ui("PERF_NOW_HELD_BACK"), HeldBack(inColony && !paused), PerfUi.Ink));
+            nowLines.Add((Ui("PERF_NOW_HELD_BACK"), HeldBack(inColony && !paused, screen), PerfUi.Ink));
             float ry = Side(RightX, y, RightWidth, Ui("PERF_NOW_HEADING"), nowLines);
             string colonyHeading = counts.Cycle > 0 ? string.Format(C, Ui("PERF_COLONY_HEADING_CYCLE"), counts.Cycle.ToString("N0", C)) : Ui("PERF_COLONY_HEADING");
             ry = Side(RightX, ry, RightWidth, colonyHeading, new List<(string, string, Color)>
@@ -511,13 +619,42 @@ namespace OniMoono.GameTweaks
                 (Ui("PERF_COLONY_ASTEROIDS"), Count(counts.Asteroids), PerfUi.Ink),
             });
             y = Math.Max(ly, ry - 8) + 6;
-            return Foot(y, Ui("PERF_COLONY_FOOT"), fy =>
+            // After Scan again: when, and that the minute is measured from then.
+            string foot = double.IsNaN(track.RestartedAt) ? Ui("PERF_COLONY_FOOT")
+                : string.Format(C, Ui("PERF_COLONY_FOOT_SCANNED"), now - track.RestartedAt < 2 ? Ui("PERF_JUST_NOW") : Ago(now - track.RestartedAt));
+            return Foot(y, foot, fy =>
             {
-                string label = Ui("PERF_SCAN_AGAIN");
-                float w = ui.Width(label, 14f, PerfUi.Title) + 26;
-                if (fy >= 0 && ui.Button(Width - Pad - w, fy, w, 26, label, PerfUi.ButtonBack, PerfUi.ButtonRule)) countsAge = 99f;
+                string label = scanState == 1 ? Ui("PERF_SCANNING") : scanState == 2 ? Ui("PERF_SCANNED") : Ui("PERF_SCAN_AGAIN");
+                float w = Math.Max(ui.Width(Ui("PERF_SCAN_AGAIN"), 14f, PerfUi.Title), Math.Max(ui.Width(Ui("PERF_SCANNING"), 14f, PerfUi.Title), ui.Width(Ui("PERF_SCANNED"), 14f, PerfUi.Title))) + 26;
+                bool done = scanState == 2;
+                if (fy >= 0 && ui.Button(Width - Pad - w, fy, w, 26, label, done ? PerfUi.Go : PerfUi.ButtonBack, done ? PerfUi.GoRule : PerfUi.ButtonRule) && scanState != 1)
+                    scanState = 1;
                 return w;
             });
+        }
+
+        static string Hz(double hz) => Math.Round(hz).ToString("F0", C);
+
+        /// What vsync does to the frame rate now, from the engine (not from the frame rate alone):
+        /// `Limited` when vsync is on with the display's refresh period known, the frames of the
+        /// last seconds come at that period (within 4 %), the main thread spent at least a tenth
+        /// of the time waiting for the picture to be taken (the device's next frame, the queued
+        /// pictures) and was busy less than 90 % of the time. `BusyShare`: the main thread's busy
+        /// share then (NaN when not timed); `Hz`: the pictures a second the screen shows.
+        (bool Limited, double Hz, double BusyShare, bool On) ScreenLimit(bool running)
+        {
+            int interval = PerfOverlay.VSyncInterval?.Invoke() ?? 0;
+            double refresh = PerfOverlay.RefreshMs();
+            if (interval <= 0 || refresh <= 0) return (false, 0, double.NaN, interval > 0);
+            double hz = 1000.0 / refresh;
+            if (!running || takes.Count == 0) return (false, hz, double.NaN, true);
+            var s = Sums();
+            if (s[1] <= 0 || s[0] <= 0) return (false, hz, double.NaN, true);
+            double fps = s[0] * 1000 / s[1];
+            double waitShare = (s[12] + s[15]) / s[1];
+            double busy = Math.Max(0, s[1] - s[11] - (s[12] + s[13] + s[14] + s[15])) / s[1];
+            bool limited = Math.Abs(fps - hz) <= 0.04 * hz && waitShare >= 0.1 && busy < 0.9;
+            return (limited, hz, busy, true);
         }
 
         float Fine(float x, float y, float w, string text)
@@ -528,16 +665,18 @@ namespace OniMoono.GameTweaks
             return y + h + 16;
         }
 
-        /// What limits the frame rate, from the engine's waits over the last seconds: the main
-        /// thread waiting for queued frames (a frame rate cap or vsync), for the graphics thread,
-        /// or neither (the processor).
-        string HeldBack(bool running)
+        /// What limits the frame rate, from the engine's waits over the last seconds: the screen
+        /// (vsync holds the frame rate at its refresh rate, ScreenLimit), the main thread waiting
+        /// for queued frames or sleeping between frames (a frame rate cap), for the graphics
+        /// thread, or neither (the processor).
+        string HeldBack(bool running, (bool Limited, double Hz, double BusyShare, bool On) screen)
         {
             if (!running || takes.Count == 0) return "–";
+            if (screen.Limited) return string.Format(C, Ui("PERF_HELD_SCREEN"), Hz(screen.Hz));
             var s = Sums();
             if (s[1] <= 0) return "–";
-            double queued = s[12 + 3] / s[1], device = (s[12] + s[13] + s[14]) / s[1];
-            if (queued > 0.2) return Ui("PERF_HELD_LIMIT");
+            double queued = s[12 + 3] / s[1], device = (s[12] + s[13] + s[14]) / s[1], outside = s[11] / s[1];
+            if (queued > 0.2 || outside > 0.2) return Ui("PERF_HELD_LIMIT");
             if (device > 0.25) return Ui("PERF_HELD_GRAPHICS");
             return Ui("PERF_HELD_PROCESSOR");
         }
@@ -548,14 +687,37 @@ namespace OniMoono.GameTweaks
         // end of frame 2, present 3, early+fixed 4, update 5, late 6, post-late 7, particles 8;
         // 9 the time between frames).
         static readonly int[][] RowPhases = { new[] { 5 }, new[] { 6 }, new[] { 0, 3, 2 }, new[] { 7, 1 }, new[] { 4, 8, 9 } };
-        static readonly Color[] RowColours = { PerfUi.Sim, PerfUi.Anim, PerfUi.Draw, PerfUi.UiColour, PerfUi.Other };
+        static readonly Color[] RowColours = { PerfUi.Sim, PerfUi.Anim, PerfUi.Draw, PerfUi.UiColour, PerfUi.Other, PerfUi.Wait };
+        /// The sixth row: the main thread waiting for its picture to be taken (the device's next
+        /// frame and, with vsync, the queued pictures), which happens inside "Showing the picture"
+        /// and is taken out of Drawing: with vsync it is the screen's pace, not drawing work.
+        const int WaitRow = 5, Rows = 6;
 
-        static string RowName(int row) => row switch
+        /// The rows' time (ms, summed over the window): Drawing without the waits, then the waits.
+        static double[] RowMs(double[] s)
+        {
+            var rows = new double[Rows];
+            for (int r = 0; r < 5; r++)
+                foreach (int p in RowPhases[r]) rows[r] += PhaseMs(s, p);
+            double waits = Math.Min(PhaseMs(s, 3), s[12] + s[15]);
+            rows[2] -= waits;
+            rows[WaitRow] = waits;
+            return rows;
+        }
+
+        /// The waits' row name: the screen when vsync holds the frame rate, the graphics card
+        /// without vsync, either with vsync but frames slower than the screen.
+        string WaitRowName() => !screenNow.On ? Ui("PERF_ROW_WAIT_GPU") : screenNow.Limited ? Ui("PERF_ROW_WAIT_SCREEN") : Ui("PERF_ROW_WAIT_EITHER");
+
+        (bool Limited, double Hz, double BusyShare, bool On) screenNow;
+
+        string RowName(int row) => row switch
         {
             0 => Ui("PERF_ROW_UPDATE"),
             1 => Ui("PERF_ROW_LATE"),
             2 => Ui("PERF_ROW_DRAWING"),
             3 => Ui("PERF_ROW_INTERFACE"),
+            WaitRow => WaitRowName(),
             _ => Ui("PERF_ROW_ELSE"),
         };
 
@@ -582,6 +744,7 @@ namespace OniMoono.GameTweaks
             var sum = track.Summarize(10, now);
             var s = Sums();
             double frames = Math.Max(1, s[0]), wall = s[1];
+            screenNow = ScreenLimit(PerfGame.InColony() && !PerfGame.Paused());
             float ly = Headlines(Pad, y, LeftWidth, new List<(string, string, string)>
             {
                 (Ui("PERF_KV_AVERAGE"), sum.Frames > 0 ? sum.MeanMs.ToString("F1", C) : "–", Ui("PERF_MS")),
@@ -597,13 +760,11 @@ namespace OniMoono.GameTweaks
             else
             {
                 // The strip, then the rows.
-                double[] rowMs = new double[5];
-                for (int r = 0; r < 5; r++)
-                    foreach (int p in RowPhases[r]) rowMs[r] += PhaseMs(s, p);
+                double[] rowMs = RowMs(s);
                 double total = rowMs.Sum();
                 float x = Pad;
                 ui.Box(Pad, ly, LeftWidth, 16, PerfUi.Panel2, PerfUi.Round4);
-                for (int r = 0; r < 5; r++)
+                for (int r = 0; r < Rows; r++)
                 {
                     float w = (float)(LeftWidth * rowMs[r] / Math.Max(1e-9, total));
                     if (w >= 1) ui.Box(x, ly, w, 16, RowColours[r]);
@@ -611,11 +772,13 @@ namespace OniMoono.GameTweaks
                 }
                 ly += 16 + 10;
                 double top = rowMs.Max();
-                for (int r = 0; r < 5; r++)
+                for (int r = 0; r < Rows; r++)
                 {
                     const float rh = 25f;
                     bool isOpen = expanded == r;
-                    if (ui.Area(Pad, ly, LeftWidth, rh, out _))
+                    // The open row is lit; every row lights under the pointer (PerfUi.Area).
+                    if (isOpen) ui.Box(Pad - 4, ly, LeftWidth + 8, rh, new Color(1, 1, 1, 0.06f), PerfUi.Round4);
+                    if (ui.Area(Pad - 4, ly, LeftWidth + 8, rh, out _))
                     {
                         expanded = isOpen ? -1 : r;
                         Measure();
@@ -639,8 +802,8 @@ namespace OniMoono.GameTweaks
                     ui.Box(Pad, ly - 1, LeftWidth, 1, PerfUi.Line);
                 }
                 ly += 6;
-                double waits = s[12] + s[13] + s[14] + s[15];
-                ly = SubRow(ly, Ui("PERF_SUB_WAIT_GRAPHICS"), (waits / frames).ToString("F2", C) + " " + Ui("PERF_MS"));
+                // Waits for the graphics thread's results (left inside the rows they happen in).
+                ly = SubRow(ly, Ui("PERF_SUB_WAIT_GRAPHICS"), ((s[13] + s[14]) / frames).ToString("F2", C) + " " + Ui("PERF_MS"));
                 ly = SubRow(ly, Ui("PERF_SUB_GC"), (s[18] / frames).ToString("F2", C) + " " + Ui("PERF_MS"));
                 if (expanded == 0)
                 {
@@ -666,8 +829,11 @@ namespace OniMoono.GameTweaks
                 double busy = Math.Max(0, wall - s[11] - waits) / wall;
                 // An uncapped game keeps it near 100 %: not a warning in itself.
                 threads.Add((Ui("PERF_THREADS_MAIN"), (100 * busy).ToString("F0", C) + "%", PerfUi.Ink));
-                threads.Add((Ui("PERF_THREADS_WAIT_GRAPHICS"), (100 * waits / wall).ToString("F0", C) + "%", PerfUi.Ink));
+                // With vsync holding the rate, the main thread mostly waits for the screen.
+                threads.Add((screenNow.Limited ? Ui("PERF_THREADS_WAIT_SCREEN") : Ui("PERF_THREADS_WAIT_GRAPHICS"), (100 * waits / wall).ToString("F0", C) + "%", PerfUi.Ink));
             }
+            threads.Add((Ui("PERF_THREADS_VSYNC"), !screenNow.On ? Ui("PERF_VSYNC_OFF")
+                : screenNow.Hz > 0 ? string.Format(C, Ui("PERF_VSYNC_ON_HZ"), Hz(screenNow.Hz)) : Ui("PERF_VSYNC_ON"), PerfUi.Ink));
             if (GameFrameStats.Enabled && GameFrameStats.Frames > 0)
                 threads.Add((Ui("PERF_THREADS_SIM"), (GameFrameStats.NativeTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency / GameFrameStats.Frames).ToString("F2", C) + " " + Ui("PERF_MS"), PerfUi.Ink));
             int workers = PerfReads.Workers();
@@ -683,14 +849,7 @@ namespace OniMoono.GameTweaks
             }
             memory.Add((Ui("PERF_MEMORY_LONGEST"), Ms(track.LongestGcMs, "F0"), PerfUi.Ink));
             ry = Side(RightX, ry, RightWidth, Ui("PERF_MEMORY_HEADING"), memory);
-            int stepped = PerfReads.SteppedAside();
-            int active = Math.Max(0, PerfOverlay.TweaksOn.Length - stepped);
-            ry = Side(RightX, ry, RightWidth, Ui("PERF_TWEAKS_HEADING"), new List<(string, string, Color)>
-            {
-                (Ui("PERF_TWEAKS_ACTIVE"), string.Format(C, Ui("PERF_OF_N"), active, PerfOverlay.TweaksAll), PerfUi.Good),
-                (Ui("PERF_TWEAKS_STEPPED"), stepped.ToString(C), stepped > 0 ? PerfUi.Warn : PerfUi.Ink),
-                (Ui("PERF_TWEAKS_OFF"), PerfOverlay.TweaksSwitchedOff.ToString(C), PerfUi.Ink),
-            });
+            ry = TweaksPanel(RightX, ry, RightWidth);
             y = Math.Max(ly, ry - 8) + 6;
             string note = Comparison(s, frames);
             return Foot(y, note, fy =>
@@ -699,9 +858,104 @@ namespace OniMoono.GameTweaks
                 float rw = RecordButton(fy, right);
                 string label = copied ?? Ui("PERF_COPY_REPORT");
                 float cw = ui.Width(Ui("PERF_COPY_REPORT"), 14f, PerfUi.Title) + 26;
-                if (fy >= 0 && ui.Button(right - rw - 8 - cw, fy, cw, 26, label, PerfUi.ButtonBack, PerfUi.ButtonRule)) CopyReport();
+                bool justCopied = copied != null;
+                if (fy >= 0 && ui.Button(right - rw - 8 - cw, fy, cw, 26, label, justCopied ? PerfUi.Go : PerfUi.ButtonBack, justCopied ? PerfUi.GoRule : PerfUi.ButtonRule)) CopyReport();
                 return rw + 8 + cw;
             });
+        }
+
+        // The Tweaks panel's open list: 0 none, 1 adjusted for mods, 2 switched off by you.
+        int tweaksOpen;
+
+        /// The Tweaks panel: tweaks on, those adjusted for the player's mods and those the player
+        /// switched off, the last two opening (a click) to what each one is, in plain words, with
+        /// its effect where it was measured. Neutral colours: adjusting for a mod is normal.
+        float TweaksPanel(float x, float y, float w)
+        {
+            const float line = 24f, itemSize = 12f;
+            var adjusted = PerfReads.Adjusted();
+            int stepped = PerfReads.SteppedAside();
+            var off = PerfOverlay.TweaksSwitchedOff;
+            var lines = new List<(string Label, string Value, int List, int Count)>
+            {
+                (Ui("PERF_TWEAKS_ACTIVE"), string.Format(C, Ui("PERF_OF_N"), PerfOverlay.TweaksOn.Length, PerfOverlay.TweaksAll), 0, 0),
+                (Ui("PERF_TWEAKS_STEPPED"), stepped.ToString(C), 1, stepped),
+                (Ui("PERF_TWEAKS_OFF"), off.Length.ToString(C), 2, off.Length),
+            };
+            if (tweaksOpen == 1 && stepped == 0 || tweaksOpen == 2 && off.Length == 0) tweaksOpen = 0;
+            // The open list's items (and its note), measured first for the panel's height.
+            var items = new List<string>();
+            if (tweaksOpen == 1)
+            {
+                items.Add(Ui("PERF_TWEAKS_ADJUSTED_NOTE"));
+                foreach (var o in adjusted) items.Add(AdjustedText(o));
+            }
+            else if (tweaksOpen == 2)
+                foreach (var id in off)
+                {
+                    string title = TweakTitle(id, out string gain);
+                    items.Add(string.Format(C, Ui("PERF_TWEAKS_OFF_ITEM"), title, gain.Length > 0 ? string.Format(C, Ui("PERF_EFFECT_GAIN"), gain) : Ui("PERF_EFFECT_NOT_MEASURED")));
+                }
+            float tw = w - 24;
+            var heights = items.ConvertAll(t => ui.Height(t, itemSize, tw));
+            float listH = 0;
+            foreach (var hh in heights) listH += hh + 6;
+            float h = 9 + 20 + lines.Count * line + (items.Count > 0 ? listH + 4 : 0) + 6;
+            ui.Box(x, y, w, h, PerfUi.Panel2, PerfUi.Round6);
+            ui.Text(x + 12, y + 7, w - 24, 18, Ui("PERF_TWEAKS_HEADING").ToUpperInvariant(), 13.5f, PerfUi.Muted, TextAlignmentOptions.MidlineLeft, PerfUi.Title);
+            float ly = y + 29;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var (label, value, list, count) = lines[i];
+                bool opens = count > 0;
+                bool isOpen = opens && tweaksOpen == list;
+                if (isOpen) ui.Box(x + 6, ly, w - 12, line, new Color(1, 1, 1, 0.06f), PerfUi.Round4);
+                if (opens && ui.Area(x + 6, ly, w - 12, line, out _)) tweaksOpen = isOpen ? 0 : list;
+                string shown = opens ? value + "<color=#" + PerfUi.MutedHex + ">  " + (isOpen ? "−" : "+") + "</color>" : value;
+                float vw = ui.Width(shown, 13f) + 2;
+                ui.Text(x + 12, ly, w - 24 - vw - 10, line, label, 13f, PerfUi.Muted, TextAlignmentOptions.MidlineLeft, null, false, true);
+                ui.Text(x + w - 12 - vw, ly, vw, line, "<b>" + shown + "</b>", 13f, PerfUi.Ink, TextAlignmentOptions.MidlineRight);
+                ly += line;
+                if (isOpen)
+                {
+                    float iy = ly + 2;
+                    for (int k = 0; k < items.Count; k++)
+                    {
+                        ui.Text(x + 12, iy, tw, heights[k], items[k], itemSize, k == 0 && tweaksOpen == 1 ? PerfUi.Muted : PerfUi.Ink, TextAlignmentOptions.TopLeft, null, true);
+                        iy += heights[k] + 6;
+                    }
+                    ly = iy + 2;
+                }
+                if (i < lines.Count - 1) ui.Box(x + 12, ly - 1, w - 24, 1, PerfUi.Line);
+            }
+            return y + h + 8;
+        }
+
+        /// One case of a speed-up adjusted for a mod, in plain words: which speed-up, which part,
+        /// which mod, and the effect where it was measured (ColonySummaryWrite's 100-126 ms a save
+        /// on a late-game colony), else "effect not measured".
+        static string AdjustedText(Overlap o)
+        {
+            string title = TweakTitle(o.Tweak, out _);
+            string effect = o.Tweak == "background-save" && o.Method == "RetireColonyUtility.SaveColonySummaryData"
+                ? Ui("PERF_EFFECT_COLONY_SUMMARY") : Ui("PERF_EFFECT_NOT_MEASURED");
+            return string.Format(C, Ui("PERF_TWEAKS_ADJUSTED_ITEM"), title, o.Method, ModOverlapsCore.StripTags(o.Mod), effect);
+        }
+
+        /// A tweak's title in the game's language (the Moono Tweaks rows), and its measured gain
+        /// ("" for none); its name when the menu is off.
+        static string TweakTitle(string id, out string gain)
+        {
+            gain = "";
+            var ids = MoonoTweaksMenu.Ids;
+            if (ids != null && MoonoTweaksMenu.Titles != null)
+                for (int i = 0; i < ids.Length; i++)
+                    if (ids[i] == id)
+                    {
+                        gain = MoonoTweaksMenu.Gains != null && i < MoonoTweaksMenu.Gains.Length ? MoonoTweaksMenu.Gains[i] ?? "" : "";
+                        return MoonoTweaksMenu.Titles[i];
+                    }
+            return id;
         }
 
         float SubRow(float y, string name, string value)
@@ -735,6 +989,11 @@ namespace OniMoono.GameTweaks
                 double outside = Math.Max(0, rowMs / frames - bucketsMs / framesSeen);
                 lines.Add((Ui("PERF_DRILL_NOT_IN_BUCKETS"), outside.ToString("F2", C), "", "", ""));
                 if (kinds.Count == 0) lines.Clear();
+            }
+            else if (row == WaitRow)
+            {
+                lines.Add((Ui("PERF_WAIT_DEVICE_FRAME"), (s[12] / frames).ToString("F2", C), "–", "–", "–"));
+                lines.Add((Ui("PERF_WAIT_QUEUED"), (s[15] / frames).ToString("F2", C), "–", "–", "–"));
             }
             else
             {
@@ -873,7 +1132,7 @@ namespace OniMoono.GameTweaks
                 ui.Box(lx - 3, ly + 3, nw + 6, 16, new Color(0.06f, 0.07f, 0.1f, 0.85f), PerfUi.Round4);
                 ui.Text(lx, ly + 4, nw, 14, name, 11.5f, PerfUi.Ink);
             }
-            if (ui.Area(Pad, ly, LeftWidth, GraphH, out var at) && inRange.Count > 0)
+            if (ui.Area(Pad, ly, LeftWidth, GraphH, out var at, 0.03f, false) && inRange.Count > 0)
             {
                 double clickedAge = (LeftWidth - at.x) / LeftWidth * window;
                 selected = inRange.OrderBy(f => Math.Abs((now - f.At) - clickedAge)).First();
@@ -909,8 +1168,13 @@ namespace OniMoono.GameTweaks
             foreach (var f in list)
             {
                 bool isSel = selected == f;
-                if (ui.Area(Pad, ly, LeftWidth, 26, out _)) selected = isSel ? null : f;
-                if (isSel) ui.Box(Pad - 4, ly + 1, LeftWidth + 8, 24, new Color(1, 1, 1, 0.06f), PerfUi.Round4);
+                // The selected freeze: lit, with the accent bar at its left (as the graph's label).
+                if (isSel)
+                {
+                    ui.Box(Pad - 4, ly + 1, LeftWidth + 8, 24, new Color(1, 1, 1, 0.10f), PerfUi.Round4);
+                    ui.Box(Pad - 4, ly + 3, 3, 20, PerfUi.Accent);
+                }
+                if (ui.Area(Pad - 4, ly + 1, LeftWidth + 8, 24, out _)) selected = isSel ? null : f;
                 ui.Text(Pad, ly, 70, 26, Ago(now - f.At), 13.5f, PerfUi.Muted);
                 string what = f.Paused ? string.Format(C, Ui("PERF_WHILE_PAUSED"), CauseName(f.Cause)) : CauseName(f.Cause);
                 ui.Text(Pad + 82, ly, LeftWidth - 82 - 90, 26, what, 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineLeft, null, false, true);
@@ -1123,8 +1387,13 @@ namespace OniMoono.GameTweaks
                     foreach (int p in RowPhases[row])
                         if (RowPhases[row].Length > 1) r.Append(string.Format(C, "    {0}: {1:F2} ms\n", PhaseName(p), PhaseMs(s, p) / frames));
                 }
-                r.Append(string.Format(C, "  waiting for graphics {0:F2} ms, GC {1:F2} ms a frame\n", (s[12] + s[13] + s[14] + s[15]) / frames, s[18] / frames));
+                r.Append(string.Format(C, "  waiting for graphics {0:F2} ms (the device's next frame {1:F2}, queued pictures {2:F2}, results {3:F2}), GC {4:F2} ms a frame\n",
+                    (s[12] + s[13] + s[14] + s[15]) / frames, s[12] / frames, s[15] / frames, (s[13] + s[14]) / frames, s[18] / frames));
             }
+            var screen = ScreenLimit(PerfGame.InColony() && !PerfGame.Paused());
+            r.Append(string.Format(C, "Vertical sync: {0}, refresh {1}, held by the screen: {2}{3}\n", screen.On ? "on (interval " + (PerfOverlay.VSyncInterval?.Invoke() ?? 0) + ")" : "off",
+                screen.Hz > 0 ? screen.Hz.ToString("F2", C) + " Hz" : "unknown", screen.Limited ? "yes" : "no",
+                double.IsNaN(screen.BusyShare) ? "" : string.Format(C, ", main thread busy {0:F0}%", 100 * screen.BusyShare)));
             if (PerfBuckets.On)
                 foreach (var k in PerfBuckets.Kinds.Where(k => k.Calls > 0).OrderByDescending(k => k.Ticks).Take(15))
                     r.Append(string.Format(C, "    bucket {0}: {1:F1} ms in all, {2} calls, {3} objects, longest {4:F2} ms\n", k.Label, PerfBuckets.TicksToMs(k.Ticks), k.Calls, k.Entries, PerfBuckets.TicksToMs(k.MaxTicks)));
@@ -1143,8 +1412,10 @@ namespace OniMoono.GameTweaks
             r.Append(string.Format(C, "Loading: start to menu {0:F1} s, colony {1:F1} s, first frame {2:F0} ms, first save {3:F0} ms\n",
                 track.StartToMenuMs / 1000, track.LoadMs / 1000, track.FirstFrameMs, track.FirstSaveMs));
             if (engineNow != null) r.Append(string.Format(C, "Memory: {0:F1} GB in use of {1:F1} GB\n", engineNow[0] / 1073741824.0, engineNow[1] / 1073741824.0));
-            r.Append(string.Format(C, "Tweaks: {0} on of {1}, {2} stepped aside, {3} switched off\n", PerfOverlay.TweaksOn.Length, PerfOverlay.TweaksAll, PerfReads.SteppedAside(), PerfOverlay.TweaksSwitchedOff));
+            r.Append(string.Format(C, "Tweaks: {0} on of {1}, {2} adjusted for mods, {3} switched off\n", PerfOverlay.TweaksOn.Length, PerfOverlay.TweaksAll, PerfReads.SteppedAside(), PerfOverlay.TweaksSwitchedOff.Length));
             r.Append("Tweaks on: ").Append(string.Join(", ", PerfOverlay.TweaksOn)).Append('\n');
+            foreach (var o in PerfReads.Adjusted()) r.Append(string.Format(C, "  adjusted: {0} | {1} | {2}\n", o.Tweak, o.Method, o.Mod));
+            if (PerfOverlay.TweaksSwitchedOff.Length > 0) r.Append("Switched off: ").Append(string.Join(", ", PerfOverlay.TweaksSwitchedOff)).Append('\n');
             if (track.LoadFrames.Count > 0)
                 r.Append("Last load's frames in the colony (ms, GC, JIT; phases): ").Append(string.Join(", ", track.LoadFrames.Select(LoadLine))).Append('\n');
             r.Append("Newest slow frames (s ago, ms, cause; what the engine and the game reported):\n");
@@ -1233,6 +1504,18 @@ namespace OniMoono.GameTweaks
                     Sample();
                     Build();
                     return "ok height=" + height.ToString("F0", C);
+                case "buttons":
+                    // What a click at each place would hit: the chrome's (close, tabs), then the tab's.
+                    return "ok chrome " + chrome.Describe() + " | body " + ui.Describe();
+                case "latency":
+                {
+                    // The newest click (PerfButton's click, through the event system) and the frame its
+                    // result was built in; the screen shows that frame's canvases.
+                    var screen = ScreenLimit(PerfGame.InColony() && !PerfGame.Paused());
+                    return string.Format(C, "ok click_frame={0} built_frame={1} frames={2} now_frame={3} tab={4} expanded={5} range={6} selected={7} tweaks_open={8} scan={9} copied={10} recording={11} vsync_on={12} hz={13:F2} screen_limited={14} busy={15:F2} held={16}",
+                        ClickFrame, ClickBuiltFrame, ClickBuiltFrame - ClickFrame, Time.frameCount, TabName, expanded, range, selected != null ? selected.Cause + " " + selected.Ms.ToString("F0", C) : "none",
+                        tweaksOpen, scanState, copied != null, recordStarted >= 0, screen.On, screen.Hz, screen.Limited, screen.BusyShare, HeldBack(true, screen));
+                }
                 default:
                     return "unknown " + verb;
             }

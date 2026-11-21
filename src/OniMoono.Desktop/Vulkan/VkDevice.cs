@@ -79,8 +79,6 @@ namespace OniMoono.Desktop.Vulkan
     /// presents from its own thread.
     internal sealed unsafe partial class VkDevice : RenderDevice, IResourceWork
     {
-        /// Diagnostics (--vsync-count N): the swap interval whatever QualitySettings says.
-        public static int SwapIntervalOverride = -1;
 
         readonly GlfwPlatform platform;
         readonly VkContext vk;
@@ -614,7 +612,8 @@ namespace OniMoono.Desktop.Vulkan
         }
 
         /// Hands the frame to the device thread, which submits it and gives the back buffer to
-        /// the presenter with QualitySettings.vSyncCount as the swap interval.
+        /// the presenter with VSync.Interval (QualitySettings.vSyncCount unless the player chose)
+        /// as the swap interval.
         public override void Present()
         {
             if (deviceLost && !quitRequested)
@@ -624,7 +623,7 @@ namespace OniMoono.Desktop.Vulkan
                                + $"under Renderer in Moono Tweaks, or start the game with --renderer opengl. The log is {EngineLog.FilePath ?? Application.consoleLogPath}.");
                 PlayerLoop.RequestQuit(1);
             }
-            int interval = SwapIntervalOverride >= 0 ? SwapIntervalOverride : QualitySettings.vSyncCount;
+            int interval = OniMoono.Engine.VSync.Interval;
             // The window's size: the frame, drawn at the rendering size (smaller in a fullscreen
             // window the game asked a smaller resolution of), is stretched over it.
             int width = platform.WindowFramebufferWidth, height = platform.WindowFramebufferHeight;

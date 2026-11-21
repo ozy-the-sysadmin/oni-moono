@@ -73,10 +73,6 @@ namespace OniMoono.Desktop.Gl
         /// first few times, with the frame), from a debug context.
         public static bool DebugOutput;
 
-        /// Diagnostics (--vsync-count N): the swap interval whatever QualitySettings says; -1 for
-        /// QualitySettings.vSyncCount.
-        public static int SwapIntervalOverride = -1;
-
         static readonly System.Collections.Concurrent.ConcurrentDictionary<uint, int> debugCounts = new();
 
         [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
@@ -1345,11 +1341,11 @@ namespace OniMoono.Desktop.Gl
         public override bool UploadInBackground(TextureNative texture) => GlBackgroundUploads.Queue(texture);
 
         /// Hands the frame to the GL thread, which presents it through the presenter with
-        /// QualitySettings.vSyncCount as the swap interval.
+        /// VSync.Interval (QualitySettings.vSyncCount unless the player chose) as the swap interval.
         public override void Present()
         {
             if (GlWarmup.Enabled) GlWarmup.Publish();
-            int interval = SwapIntervalOverride >= 0 ? SwapIntervalOverride : QualitySettings.vSyncCount;
+            int interval = OniMoono.Engine.VSync.Interval;
             // The window's size: the frame, drawn at the rendering size (smaller in a fullscreen
             // window the game asked a smaller resolution of), is stretched over it.
             int width = platform.WindowFramebufferWidth, height = platform.WindowFramebufferHeight;

@@ -29,8 +29,9 @@ namespace OniMoono.Host.Perf
         static double lastPause = -1, lastJit = -1;
         static readonly double msPerTick = 1000.0 / Stopwatch.Frequency;
 
-        /// Program, after the tweaks are in. `fpsCounter`: "on" or "off" (EffectiveOptions).
-        public static void Install(string fpsCounter, string settingsPath, string[] tweaksOn, int tweaksAll, int switchedOff)
+        /// Program, after the tweaks are in. `fpsCounter`: "on" or "off" (EffectiveOptions);
+        /// `switchedOff`: the tweaks on by default that the player turned off.
+        public static void Install(string fpsCounter, string settingsPath, string[] tweaksOn, int tweaksAll, string[] switchedOff)
         {
             if (fpsCounter == "off") return;
             try
@@ -43,7 +44,8 @@ namespace OniMoono.Host.Perf
                     (Action<bool>)Timing, (Func<double[]>)Take, (Func<string>)(() => PerfRecorder.Arm(PanelRecording)), (Func<bool>)(() => PerfRecorder.Busy),
                     (Func<double[]>)EngineNumbers, (Func<string[]?>)LastRecording, tweaksOn, tweaksAll, switchedOff,
                     ui.Select(u => u.Name).ToArray(), ui.Select(u => u.English).ToArray(), now - sinceStart,
-                    new HarmonyLib.Harmony("OniMoono.Host.PerfMonitor")]);
+                    new HarmonyLib.Harmony("OniMoono.Host.PerfMonitor"),
+                    (Func<int>)(() => VSync.Interval), (Func<double>)(() => FramePacing.PacedPeriodMs)]);
                 create = overlay.GetMethod("TryCreate")!.CreateDelegate<Func<bool>>();
                 frame = overlay.GetMethod("Frame")!.CreateDelegate<Action<double, double, double, double>>();
                 PlayerLoop.FrameStart += Create;

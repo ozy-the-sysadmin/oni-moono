@@ -186,7 +186,9 @@ reaches the world (the game's tools ignore clicks over any UI). The light (`Perf
   (frames over 1 s left out) it advanced more than 5 % fewer game seconds than the speed asks;
 - **yellow**: it stutters: 6 or more unpaused frames in the last 10 s that took 20 ms or more,
   twice the median or more, right after a normal frame (a run of slow frames is a low rate, not
-  stutters);
+  stutters). With vsync and frames at the refresh rate (the engine knows the period while it
+  presents through DXGI), a stutter is a frame of 1.75 refreshes or more (a picture shown twice):
+  vsync holding the rate at 60 is never one;
 - **green** otherwise, and always while paused or outside a colony.
 
 A state starts after two checks in a row (they run every half second); red ends after two clear
@@ -208,6 +210,38 @@ timelapse or preview picture from the Timelapser's state, a GC pause from the ru
 zero-time wait for the simulation step from `Game.simSubTick`/`simDt`; otherwise Unknown), what a
 selected freeze was made of (GC, the main thread's JIT, the save's preview frames, the background
 write), the session's totals by cause, the time lost per hour and the loading times.
+
+A click's result is built in the same frame: the event system's clicks are acted on in the
+overlay's `LateUpdate`, before the canvases are laid out, so a tab, a row, a range, a freeze and
+every button show their result on the next picture; numbers that need a second of measuring show
+the last second's or "Measuring…". Buttons and rows light under the pointer, darken while pressed
+and play the game's button sounds (`HUD_Mouseover`, `HUD_Click_Open`); Copy report says Copied,
+Record 60 s counts down and says Saved. **Scan again** counts the colony now and starts every
+"a minute" afresh (`PerfTrack.RestartMinute`: the verdict's stutters, Right now, the advice and the
+Hitches stutters box), so a change the player just made is judged alone; the light and the
+session's totals go on.
+
+**Vertical sync.** When vsync holds the frame rate (`PerfWindow.ScreenLimit`: vsync on with the
+display's refresh period known, the frames of the last seconds at that period within 4 %, the main
+thread waiting at least a tenth of the time for its picture to be taken and busy under 90 %),
+Colony's verdict says the game runs as fast as the screen can show, with the main thread's
+measured busy share as the room to spare, "Held back by" reads "Your screen (60 Hz)" and "Nothing to
+gain here" points at the **Vertical sync** row of Moono Tweaks for the uncapped number. Frame shows
+the main thread's waits for its picture (the device's next frame and the queued pictures, inside
+"Showing the picture") as their own row, "Waiting for the screen (vsync)" (without vsync: "Waiting
+for the graphics card"), so Drawing holds only drawing work, and Threads says whether vsync is on.
+
+**Vertical sync** (Moono Tweaks, General; `--vsync-count N` wins): *Game default* presents with the
+game's `QualitySettings.vSyncCount` (its quality level has vsync on; a mod that sets it is
+followed), *Off* with a swap interval of 0. It applies while the game runs (`OniMoono.Engine.VSync`:
+the devices read the interval at every present; Vulkan remakes its swapchain, DXGI and OpenGL take
+it per present). The game itself has no vsync option.
+
+**Tweaks adjusted for your mods.** Frame's Tweaks panel counts the speed-ups that leave a part of
+the game as the original has it because a mod patches it (`ModOverlaps`' "steps aside" records,
+the same as the log's overlap table) and those the player switched off; each opens to the cases in
+plain words, with the effect where it was measured (background saving's colony summary: 100 to
+126 ms a save on a late-game colony) and "Effect not measured" otherwise.
 
 **What the counter and window cost.** Counter off: nothing is installed. Counter on: one call a
 frame at the frame's start (a few field reads of the game's state into a ring of frames) and the

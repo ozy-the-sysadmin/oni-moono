@@ -31,8 +31,6 @@ namespace OniMoono.Host
             else
             {
                 OniMoono.Desktop.Gl.GlDevice.DebugOutput = options.GlDebug;
-                OniMoono.Desktop.Gl.GlDevice.SwapIntervalOverride = options.VSyncCount;
-                OniMoono.Desktop.Vulkan.VkDevice.SwapIntervalOverride = options.VSyncCount;
                 OniMoono.Desktop.Vulkan.VkContext.Validation = options.VulkanValidation;
                 OniMoono.Desktop.Gl.GlGpuProfile.Enabled = options.GpuProfile;
                 OniMoono.Desktop.Gl.GlBindless.Disabled = options.NoBindless;
@@ -275,7 +273,8 @@ namespace OniMoono.Host
 
         static string Size(int width, int height) => width > 0 && height > 0 ? $"{width}x{height}" : "monitor-sized";
 
-        /// Frame pacing as in Unity's desktop player: with vSync the swap paces frames (the
+        /// Frame pacing as in Unity's desktop player: with vSync (VSync.Interval: the game's
+        /// unless the player chose otherwise) the swap paces frames (the
         /// presenter's wait for the previous frame), otherwise Application.targetFrameRate when
         /// set, otherwise none. Without a display there is no swap; frames are paced at
         /// targetFrameRate or 60 Hz. --max-frame-rate bounds the rate in any case. The cap is
@@ -283,7 +282,7 @@ namespace OniMoono.Host
         static void Throttle(Stopwatch clock, double frameStart, bool display, int maxFrameRate)
         {
             int target = PlayerLoop.TargetFrameRate;
-            if (display && QualitySettings.vSyncCount > 0) target = 0;
+            if (display && VSync.Interval > 0) target = 0;
             else if (!display && target <= 0) target = 60;
             if (maxFrameRate > 0 && (target <= 0 || target > maxFrameRate)) target = maxFrameRate;
             // (Called without a cap too: the next capped frame then counts from its own start.)

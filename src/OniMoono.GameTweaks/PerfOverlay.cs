@@ -36,8 +36,12 @@ namespace OniMoono.GameTweaks
         internal static Func<bool> Recording;
         internal static Func<double[]> Engine;
         internal static Func<string[]> LastRecording;
-        internal static string[] TweaksOn = Array.Empty<string>();
-        internal static int TweaksAll, TweaksSwitchedOff;
+        internal static string[] TweaksOn = Array.Empty<string>(), TweaksSwitchedOff = Array.Empty<string>();
+        internal static int TweaksAll;
+        /// The swap interval the devices present with (0: vsync off), and the display's refresh
+        /// period (ms) while vsynced pictures are presented and it is known, else 0.
+        internal static Func<int> VSyncInterval;
+        internal static Func<double> PacedPeriodMs;
         static Dictionary<string, string> english = new Dictionary<string, string>(StringComparer.Ordinal);
 
         internal static readonly PerfTrack Track = new PerfTrack();
@@ -50,12 +54,15 @@ namespace OniMoono.GameTweaks
         /// recording's phases (`lastRecording`: name, age in seconds, then "phase=ms" pairs; null
         /// for none); the tweaks on, the tweak count, the default-on tweaks the player turned off;
         /// the window's strings' names and English (TweakStrings.Ui), used when the Moono Tweaks
-        /// menu is off; the start-up time on the frame clock (seconds); and the Harmony the look
-        /// inside "Game update" patches with (PerfBuckets).
+        /// menu is off; the start-up time on the frame clock (seconds); the Harmony the look
+        /// inside "Game update" patches with (PerfBuckets); the swap interval and the paced
+        /// refresh period (OniMoono.Engine.VSync, FramePacing.PacedPeriodMs).
         public static void Install(string positionFile, Action<bool> timing, Func<double[]> take, Func<string> record, Func<bool> recording,
-            Func<double[]> engine, Func<string[]> lastRecording, string[] tweaksOn, int tweaksAll, int tweaksSwitchedOff,
-            string[] uiNames, string[] uiEnglish, double startedAt, HarmonyLib.Harmony harmony)
+            Func<double[]> engine, Func<string[]> lastRecording, string[] tweaksOn, int tweaksAll, string[] tweaksSwitchedOff,
+            string[] uiNames, string[] uiEnglish, double startedAt, HarmonyLib.Harmony harmony, Func<int> vsyncInterval, Func<double> pacedPeriodMs)
         {
+            VSyncInterval = vsyncInterval;
+            PacedPeriodMs = pacedPeriodMs;
             PositionFile = positionFile;
             Timing = timing;
             Take = take;
@@ -65,7 +72,7 @@ namespace OniMoono.GameTweaks
             LastRecording = lastRecording;
             TweaksOn = tweaksOn ?? Array.Empty<string>();
             TweaksAll = tweaksAll;
-            TweaksSwitchedOff = tweaksSwitchedOff;
+            TweaksSwitchedOff = tweaksSwitchedOff ?? Array.Empty<string>();
             english = new Dictionary<string, string>(StringComparer.Ordinal);
             for (int i = 0; i < uiNames.Length; i++) english[uiNames[i]] = uiEnglish[i];
             PerfReads.SimStepPaceOn = Array.IndexOf(TweaksOn, PerfAdvice.SimStepPace) >= 0;
@@ -83,6 +90,7 @@ namespace OniMoono.GameTweaks
         {
             long start = Stopwatch.GetTimestamp();
             var f = PerfReads.Frame(now, ms, gcMs, jitMs);
+            Track.RefreshMs = RefreshMs();
             Track.Add(f);
             // Outside a colony (menus, between scenes) and until a load settles, the engine's frame
             // window times each frame's phases (it counts only from the second frame after it
@@ -102,6 +110,15 @@ namespace OniMoono.GameTweaks
         }
 
         static bool loadTiming, windowTiming;
+
+        /// How long a picture is shown with vsync (the refresh period times the swap interval,
+        /// ms), 0 without vsync or while the period is not known.
+        internal static double RefreshMs()
+        {
+            int interval = VSyncInterval?.Invoke() ?? 0;
+            double period = interval > 0 ? PacedPeriodMs?.Invoke() ?? 0 : 0;
+            return period > 0 ? period * interval : 0;
+        }
 
         /// The window's Colony and Frame tabs keep the engine's frame window open; so does a load
         /// settling. One window serves both.
@@ -166,7 +183,14 @@ namespace OniMoono.GameTweaks
             counter = PerfUi.NewText(go.transform, "Rate");
             counter.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
             counter.fontSize = 15f;
-            go.AddComponent<PerfPress>().Pressed = () => BeginPress(badge, null);
+            var press = go.AddComponent<PerfPress>();
+            press.Pressed = () => BeginPress(badge, null);
+            press.Hover = on =>
+            {
+                badgeHover = on;
+                if (pressed != badge) badgeRing.color = on ? PerfUi.RuleHover : PerfUi.Rule;
+                if (on) PerfUi.Sound(PerfUi.HoverSound);
+            };
             badgeWidth = Mathf.Ceil(TextWidth("<b>888</b> <size=12>fps</size>") + 9 + 8 + 9 + 11);
             LayoutBadge();
             place = ReadPlace();
@@ -307,6 +331,7 @@ namespace OniMoono.GameTweaks
         // ---- Pressing: the badge (drag or click) and the window's title bar (drag) ----
 
         RectTransform pressed;
+        bool badgeHover;
         System.Action clicked;
         Vector2 pressMouse, pressCentre;
         bool dragging;
@@ -347,11 +372,15 @@ namespace OniMoono.GameTweaks
             // Released.
             var target = pressed;
             pressed = null;
-            badgeRing.color = PerfUi.Rule;
+            badgeRing.color = badgeHover ? PerfUi.RuleHover : PerfUi.Rule;
             if (target == badge)
             {
                 if (dragging) WritePlace();
-                else ToggleWindow();
+                else
+                {
+                    PerfUi.Sound(PerfUi.ClickSound);
+                    ToggleWindow();
+                }
             }
             else if (!dragging) clicked?.Invoke();
         }
@@ -388,6 +417,16 @@ namespace OniMoono.GameTweaks
                 window.Update(Time.unscaledDeltaTime);
                 RefreshTicks += Stopwatch.GetTimestamp() - w;
             }
+        }
+
+        /// After every script's Update (the event system's clicks among them) and before the
+        /// canvases are laid out: a click's result is built now, so it shows in this frame.
+        void LateUpdate()
+        {
+            if (!window.Open) return;
+            long w = Stopwatch.GetTimestamp();
+            window.AfterInput();
+            RefreshTicks += Stopwatch.GetTimestamp() - w;
         }
 
         /// "164 fps", the number in the light's colour when yellow or red; text set only when it
@@ -472,14 +511,19 @@ namespace OniMoono.GameTweaks
         }
     }
 
-    /// The pointer went down on the badge or the window's title bar.
-    internal sealed class PerfPress : MonoBehaviour, IPointerDownHandler
+    /// The pointer went down on the badge or the window's title bar; it entered or left it.
+    internal sealed class PerfPress : MonoBehaviour, IPointerDownHandler, IPointerEnterHandler, IPointerExitHandler
     {
         internal System.Action Pressed;
+        internal Action<bool> Hover;
 
         public void OnPointerDown(PointerEventData e)
         {
             if (e.button == PointerEventData.InputButton.Left) Pressed?.Invoke();
         }
+
+        public void OnPointerEnter(PointerEventData e) => Hover?.Invoke(true);
+
+        public void OnPointerExit(PointerEventData e) => Hover?.Invoke(false);
     }
 }

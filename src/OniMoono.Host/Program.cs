@@ -67,7 +67,7 @@ namespace OniMoono.Host
             var effective = EffectiveOptions.Resolve(GameTweaks.GameTweakNames.All, GameTweaks.GameTweakNames.ChangingBehaviour,
                 options.GameTweaks, options.Splash, options.FrameStats, settings, options.LogPaths, options.Gpu, options.Renderer, options.Dxgi,
                 GameTweaks.GameTweakNames.OffByDefault, commandLineGc: options.Gc, commandLineStallRepeats: options.StallRepeats,
-                commandLineFpsCounter: options.FpsCounter);
+                commandLineFpsCounter: options.FpsCounter, commandLineVSyncCount: options.VSyncCount >= 0 ? options.VSyncCount : null);
             // The garbage collection asked for (GcMode): on Linux and macOS a runtime started with
             // the other one starts again in place, before the log opens (which keeps the previous
             // run's log as Player-prev.log).
@@ -117,6 +117,9 @@ namespace OniMoono.Host
             options.Dxgi = effective.Dxgi;
             options.StallRepeats = effective.StallRepeats;
             OniMoono.Engine.PlayerLoop.FrameStats = OniMoono.Engine.PlayerLoop.Timing = effective.FrameStats;
+            // The swap interval: `--vsync-count N`, else the Moono Tweaks row ("off": 0), else the
+            // game's quality settings (the menu changes it while the game runs).
+            OniMoono.Engine.VSync.Override = effective.VSyncOverride;
             // The GPU for laptops with two: before anything loads the OpenGL driver (the window,
             // in Player.Run), whose GPU drivers read the choice as it loads.
             foreach (var line in GpuChoice.Apply(effective.Gpu)) EngineLog.Engine(line);
@@ -247,7 +250,7 @@ namespace OniMoono.Host
                 Perf.PerfRecorder.Install(options.PerfRecord, effective.EnabledTweaks.Where(GameTweaks.GameTweaks.Available), GameTweaks.GameTweakNames.All, effective.FrameStats);
                 Perf.PerfHud.Install(effective.FpsCounter, settingsPath, effective.EnabledTweaks.Where(GameTweaks.GameTweaks.Available).ToArray(),
                     GameTweaks.GameTweakNames.All.Length,
-                    GameTweaks.GameTweakNames.All.Count(n => EffectiveOptions.DefaultOn(n, GameTweaks.GameTweakNames.OffByDefault) && !effective.Tweaks[n].On));
+                    GameTweaks.GameTweakNames.All.Where(n => EffectiveOptions.DefaultOn(n, GameTweaks.GameTweakNames.OffByDefault) && !effective.Tweaks[n].On).ToArray());
                 StateMachineSaveNames.Install(dataDir, AppContext.BaseDirectory);
                 NativeCrashes.DescribeGame();
                 StartupStats.Mark("host patches installed");

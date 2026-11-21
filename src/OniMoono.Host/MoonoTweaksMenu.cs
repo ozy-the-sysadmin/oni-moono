@@ -59,6 +59,8 @@ namespace OniMoono.Host
                     Array.IndexOf(row.Choices!, EffectiveOptions.DefaultGc)),
                 GameTweakNames.FpsCounterRow => (Flag(effective.FpsCounter != "off"), effective.FpsCounterSource == OptionSource.CommandLine,
                     Flag(EffectiveOptions.DefaultFpsCounter != "off")),
+                GameTweakNames.VSyncRow => (Array.IndexOf(row.Choices!, effective.VSync), effective.VSyncSource == OptionSource.CommandLine,
+                    Array.IndexOf(row.Choices!, EffectiveOptions.DefaultVSync)),
                 var name => (Flag(effective.Tweaks[name].On), effective.Tweaks[name].Source == OptionSource.CommandLine,
                     Flag(EffectiveOptions.DefaultOn(name, GameTweakNames.OffByDefault))),
             };
@@ -80,7 +82,7 @@ namespace OniMoono.Host
             {
                 var tweaks = new Dictionary<string, bool>(StringComparer.Ordinal);
                 bool? splash = null, frameStats = null, hideLogPaths = null, dxgi = null, stallRepeats = null, updateCheck = null;
-                string? gpu = null, renderer = null, gc = null, fpsCounter = null;
+                string? gpu = null, renderer = null, gc = null, fpsCounter = null, vsync = null;
                 for (int i = 0; i < ids.Length; i++)
                 {
                     if (ids[i] == GameTweakNames.SplashRow) splash = values[i] != 0;
@@ -93,9 +95,10 @@ namespace OniMoono.Host
                     else if (ids[i] == GameTweakNames.UpdateCheckRow) updateCheck = values[i] != 0;
                     else if (ids[i] == GameTweakNames.GcRow) gc = rows.First(r => r.Id == GameTweakNames.GcRow).Choices![values[i]];
                     else if (ids[i] == GameTweakNames.FpsCounterRow) fpsCounter = values[i] != 0 ? "on" : "off";
+                    else if (ids[i] == GameTweakNames.VSyncRow) vsync = rows.First(r => r.Id == GameTweakNames.VSyncRow).Choices![values[i]];
                     else tweaks[ids[i]] = values[i] != 0;
                 }
-                var next = EffectiveOptions.Apply(saved, GameTweakNames.OffByDefault, tweaks, splash, frameStats, hideLogPaths, gpu, renderer, dxgi, updateCheck, gc, stallRepeats, fpsCounter);
+                var next = EffectiveOptions.Apply(saved, GameTweakNames.OffByDefault, tweaks, splash, frameStats, hideLogPaths, gpu, renderer, dxgi, updateCheck, gc, stallRepeats, fpsCounter, vsync);
                 try
                 {
                     next.Write(settingsPath);
@@ -115,6 +118,19 @@ namespace OniMoono.Host
                 typeof(MoonoTweaksMenu).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
                     .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion);
 
+            // Rows that apply while the game runs (the screen saves them at once and asks no
+            // restart for them): vertical sync, through the swap interval the devices read at
+            // every present (OniMoono.Engine.VSync). True when applied.
+            bool vsyncLocked = effective.VSyncSource == OptionSource.CommandLine;
+            Func<string, int, bool> applyLive = (id, value) =>
+            {
+                if (id != GameTweakNames.VSyncRow || vsyncLocked) return false;
+                var choice = rows.First(r => r.Id == GameTweakNames.VSyncRow).Choices![value];
+                OniMoono.Engine.VSync.Override = choice == EffectiveOptions.VSyncOff ? 0 : -1;
+                EngineLog.Engine($"vsync: {choice} (swap interval {OniMoono.Engine.VSync.Interval} from the next frame)");
+                return true;
+            };
+
             var install = GameTweaks.GameTweaks.TypedAssembly.GetType("OniMoono.GameTweaks.MoonoTweaksMenu", throwOnError: true)!.GetMethod("Install")!;
             install.Invoke(null, [harmony,
                 rows.Select(r => r.Id).ToArray(), rows.Select(r => TweakStrings.GroupKey(r.Group)).ToArray(),
@@ -124,7 +140,7 @@ namespace OniMoono.Host
                 rows.Select(r => r.Choices?.Select(c => TweakStrings.ChoiceKey(r, c)).ToArray()).ToArray(),
                 states.Select(s => s.Value).ToArray(), states.Select(s => s.Default).ToArray(), states.Select(s => s.Locked).ToArray(), off,
                 settingsPath, save,
-                TweakStrings.All.Select(t => t.Key).ToArray(), TweakStrings.All.Select(t => t.English).ToArray(), resolve, translations, version]);
+                TweakStrings.All.Select(t => t.Key).ToArray(), TweakStrings.All.Select(t => t.English).ToArray(), resolve, translations, version, applyLive]);
         }
 
         static void InstallBeside(EffectiveOptions effective)

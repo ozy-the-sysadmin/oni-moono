@@ -230,6 +230,21 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_BEHIND_TEXT"
 msgid "The game runs at {0}× instead of the {1}× you chose: your colony's time passes more slowly than it should."
 msgstr ""
 
+#. Colony tab, the verdict when vertical sync holds the frame rate at the screen's refresh rate; {0}: frames a second, {1}: the screen's refresh rate, {2}: the speed setting
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_SCREEN_TEXT"
+msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up with speed {2}."
+msgstr ""
+
+#. Colony tab, the same with the main thread's measured share; {3}: percent of the time the main thread is busy
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_SCREEN_ROOM_TEXT"
+msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up with speed {2}. There is room to spare: the game's own work takes about {3}% of each frame."
+msgstr ""
+
+#. Colony tab, the verdict's text in the first seconds after Scan again; {0}: seconds of unpaused play measured
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_REMEASURING_TEXT"
+msgid "Measuring again since you pressed Scan again: {0} s of play so far."
+msgstr ""
+
 #. Colony tab, the verdict's heading while paused
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_PAUSED"
 msgid "Paused"
@@ -298,6 +313,11 @@ msgstr ""
 #. Colony tab, under Nothing to gain here
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_STEP_PACE_ON"
 msgid "Waiting for the simulation step: \"Simulation at its own pace\" is already on."
+msgstr ""
+
+#. Colony tab, under Nothing to gain here while vertical sync holds the frame rate; {0}: the screen's refresh rate
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_VSYNC"
+msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, set \"Vertical sync\" to Off in Moono Tweaks (main menu); a {0} Hz screen still shows only {0} pictures a second."
 msgstr ""
 
 #. Colony tab, under Nothing to gain here; {0}: stutters a minute from waiting for the simulation step, {1}: all stutters a minute
@@ -380,6 +400,11 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_LIMIT"
 msgid "Frame rate limit"
 msgstr ""
 
+#. Held back by: vertical sync holds the frame rate at the screen's refresh rate; {0}: the refresh rate
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_SCREEN"
+msgid "Your screen ({0} Hz)"
+msgstr ""
+
 #. Colony tab, panel heading (shown in capitals)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING"
 msgid "Your colony"
@@ -425,9 +450,29 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT"
 msgid "Advice is shown only where the gain was measured."
 msgstr ""
 
-#. Colony tab, footer button (counts the colony again)
+#. Colony tab, footer button (counts the colony again and measures the stutters a minute from now on)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCAN_AGAIN"
 msgid "SCAN AGAIN"
+msgstr ""
+
+#. Colony tab, the Scan again button while it counts
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNING"
+msgid "SCANNING…"
+msgstr ""
+
+#. Colony tab, the Scan again button just after it counted
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNED"
+msgid "SCANNED"
+msgstr ""
+
+#. Colony tab, the footer's note after Scan again; {0}: when (PERF_JUST_NOW or "5 s ago")
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT_SCANNED"
+msgid "Counted {0}; stutters and advice measured from then on. Advice is shown only where the gain was measured."
+msgstr ""
+
+#. When something happened less than 2 seconds ago
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_JUST_NOW"
+msgid "just now"
 msgstr ""
 
 #. Frame and Hitches tabs, headline box
@@ -530,9 +575,34 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_OUTSIDE"
 msgid "Between frames"
 msgstr ""
 
-#. Frame tab, a share of the rows above
+#. Frame tab, a part of the frame: the main thread waiting for its picture to be shown, while vertical sync holds the frame rate
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_SCREEN"
+msgid "Waiting for the screen (vsync)"
+msgstr ""
+
+#. Frame tab, a part of the frame: the main thread waiting for the graphics thread to take its frame (no vertical sync)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_GPU"
+msgid "Waiting for the graphics card"
+msgstr ""
+
+#. Frame tab, a part of the frame: the same wait with vertical sync on but frames slower than the screen
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_WAIT_EITHER"
+msgid "Waiting for the screen or graphics card"
+msgstr ""
+
+#. Frame tab, inside the waiting row
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE_FRAME"
+msgid "Graphics thread taking the next frame"
+msgstr ""
+
+#. Frame tab, inside the waiting row (vertical sync's pacing)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_QUEUED"
+msgid "Pictures queued for the screen"
+msgstr ""
+
+#. Frame tab, a share of the rows above (the main thread waiting for answers from the graphics thread)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_WAIT_GRAPHICS"
-msgid "Waiting for graphics"
+msgid "Waiting for graphics results"
 msgstr ""
 
 #. Frame tab, a share of the rows above (garbage collection pauses)
@@ -615,6 +685,31 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WAIT_GRAPHICS"
 msgid "Main thread waiting for graphics"
 msgstr ""
 
+#. Frame tab, threads, while vertical sync holds the frame rate
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WAIT_SCREEN"
+msgid "Main thread waiting for the screen"
+msgstr ""
+
+#. Frame tab, threads
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_VSYNC"
+msgid "Vertical sync"
+msgstr ""
+
+#. Frame tab, vertical sync off
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_OFF"
+msgid "Off"
+msgstr ""
+
+#. Frame tab, vertical sync on (the screen's refresh rate not known)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_ON"
+msgid "On"
+msgstr ""
+
+#. Frame tab, vertical sync on; {0}: the screen's refresh rate
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_ON_HZ"
+msgid "On, {0} Hz"
+msgstr ""
+
 #. Frame tab, threads (with frame stats on)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_SIM"
 msgid "Simulation (SimDLL) on the main thread"
@@ -670,14 +765,44 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ACTIVE"
 msgid "Active"
 msgstr ""
 
-#. Frame tab, tweaks
+#. Frame tab, tweaks: speed-ups that leave a part of the game as it was because a mod changes it (click for the list)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_STEPPED"
-msgid "Stepped aside for a mod"
+msgid "Adjusted for your mods"
 msgstr ""
 
-#. Frame tab, tweaks
+#. Frame tab, tweaks (click for the list)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF"
 msgid "Switched off by you"
+msgstr ""
+
+#. Frame tab, the first line of the Adjusted for your mods list
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ADJUSTED_NOTE"
+msgid "This is normal: where a mod changes the same part of the game, Moono's speed-up leaves that part as the original game has it, so the mod keeps working."
+msgstr ""
+
+#. Frame tab, a case of Adjusted for your mods; {0}: the speed-up's name, {1}: the game's method, {2}: the mod, {3}: its effect (PERF_EFFECT_…)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ADJUSTED_ITEM"
+msgid "{0}: {1} runs as in the original game because {2} changes it. {3}"
+msgstr ""
+
+#. Frame tab, a tweak switched off by the player; {0}: its name, {1}: its effect (PERF_EFFECT_…)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF_ITEM"
+msgid "{0}: {1}"
+msgstr ""
+
+#. Frame tab, a tweak's effect when it was not measured
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_NOT_MEASURED"
+msgid "Effect not measured."
+msgstr ""
+
+#. Frame tab, a switched-off tweak's measured gain; {0}: the gain as Moono Tweaks shows it
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_GAIN"
+msgid "measured gain when on: {0}."
+msgstr ""
+
+#. Frame tab, the effect of background saving adjusted for a mod that changes the colony summary
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EFFECT_COLONY_SUMMARY"
+msgid "Effect: the colony summary is written during the autosave pause again, about 0.1 s more per save on a late-game colony (measured 100 to 126 ms)."
 msgstr ""
 
 #. Frame tab, the footer's note; {0}: how long ago, {1}: the rows that changed most
@@ -725,9 +850,14 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
 msgid "RECORD 60 S"
 msgstr ""
 
-#. The record button while a recording runs
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
-msgid "RECORDING…"
+#. The record button while a recording runs; {0}: seconds left
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING_LEFT"
+msgid "RECORDING… {0} S"
+msgstr ""
+
+#. The record button for a few seconds after a recording was saved
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_SAVED"
+msgid "SAVED"
 msgstr ""
 
 #. A freeze's cause
@@ -1028,6 +1158,31 @@ msgstr ""
 #. Tooltip: how it works (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
 msgid "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
+msgstr ""
+
+#. Row title (vsync)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.TITLE"
+msgid "Vertical sync"
+msgstr ""
+
+#. The line under the title (vsync)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.EFFECT"
+msgid "Off: the real frame rate, but the picture may tear. A 60 Hz screen shows at most 60 fps. No restart."
+msgstr ""
+
+#. Tooltip: how it works (vsync)
+msgctxt "STRINGS.MOONO.TWEAKS.ROWS.VSYNC.DETAIL"
+msgid "Game default: as the original game, each picture waits for the screen's next refresh, so the frame rate stops at the screen's refresh rate (60 on a 60 Hz screen). Off: pictures are shown as soon as they are ready; the frame rate counter shows how fast the game really runs, the picture may tear (a line where two pictures meet) and the graphics card works harder. The game runs the same either way. Game default also follows a mod that changes the game's vertical sync."
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (vsync)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.VSYNC.GAME_DEFAULT"
+msgid "game default"
+msgstr ""
+
+#. A choice on the row's button (shown in capitals) and in its tooltip (vsync)
+msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.VSYNC.OFF"
+msgid "off"
 msgstr ""
 
 #. Row title (log-paths)

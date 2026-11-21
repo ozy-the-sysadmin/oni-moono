@@ -34,6 +34,21 @@ namespace OniMoono.Engine
         /// The refresh period in Stopwatch ticks (0: not known).
         public static long PeriodTicks => Interlocked.Read(ref periodTicks);
 
+        /// The display's refresh period in milliseconds while pictures are presented with vsync
+        /// and the period is known (a vsynced picture in the last quarter second); 0 otherwise
+        /// (vsync off, the period unknown, presentation stopped). The performance window's
+        /// "held back by your screen" reads it.
+        public static double PacedPeriodMs
+        {
+            get
+            {
+                long period = Interlocked.Read(ref periodTicks);
+                long last = Interlocked.Read(ref lastPacedPresent);
+                bool paced = period > 0 && last != 0 && Stopwatch.GetTimestamp() - last <= Stopwatch.Frequency / 4;
+                return paced ? period * 1000.0 / Stopwatch.Frequency : 0;
+            }
+        }
+
         /// A picture was presented with vsync (presenter thread); `period`, the display's refresh
         /// period in Stopwatch ticks when known, else 0.
         public static void PacedPresent(long period)

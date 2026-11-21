@@ -125,7 +125,8 @@ namespace OniMoono.Host
         public bool NoTweaksMenu;
         /// Diagnostics (--log-pointer-hits): the UI element under the mouse, logged when it changes.
         public bool LogPointerHits;
-        /// Diagnostics (--vsync-count N): the swap interval regardless of the quality settings.
+        /// --vsync-count N: the swap interval regardless of the quality settings and of the Moono
+        /// Tweaks "Vertical sync" row (shown there as set by the launch options; EffectiveOptions).
         public int VSyncCount = -1;
         /// Diagnostics (--gpu-profile): GPU time by operation with the frame counters.
         public bool GpuProfile;

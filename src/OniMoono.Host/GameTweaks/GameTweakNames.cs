@@ -44,6 +44,7 @@ namespace OniMoono.Host.GameTweaks
             GameTweakNames.StallRepeatsRow => "--stall-repeats on|off",
             GameTweakNames.GcRow => "--gc " + string.Join("|", Choices!),
             GameTweakNames.FpsCounterRow => "--fps-counter on|off",
+            GameTweakNames.VSyncRow => "--vsync-count 0",
             _ => "--game-tweak " + Id,
         };
     }
@@ -56,7 +57,7 @@ namespace OniMoono.Host.GameTweaks
     internal static class GameTweakNames
     {
         public const string SplashRow = "splash", FrameStatsRow = "frame-stats", LogPathsRow = "log-paths", GpuRow = "gpu", RendererRow = "renderer", DxgiRow = "dxgi", StallRepeatsRow = "stall-repeats",
-            UpdateCheckRow = "update-check", GcRow = "gc", FpsCounterRow = "fps-counter";
+            UpdateCheckRow = "update-check", GcRow = "gc", FpsCounterRow = "fps-counter", VSyncRow = "vsync";
         public const string FastSaveCompression = "fast-save-compression", BackgroundSave = "background-save", NoSaveGc = "no-save-gc", PostLoadGc = "post-load-gc",
             FastSerialization = "fast-serialization", FastParticleCollision = "fast-particle-collision", CompactNavLinks = "compact-nav-links",
             PagedPathGrids = "paged-path-grids", FetchByCell = "fetch-by-cell", InstantReachability = "instant-reachability", SoundPiles = "fix-sound-piles", TimelapseSnapshots = "fix-timelapse-snapshots", TableScroll = "fix-table-scroll", LazyTableRefresh = "lazy-table-refresh",
@@ -126,6 +127,13 @@ namespace OniMoono.Host.GameTweaks
                 + "whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record "
                 + "button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured.",
                 IsTweak: false),
+            // Applies at once (OniMoono.Engine.VSync; the host's MoonoTweaksMenu.ApplyLive), unlike the rows around it.
+            new(VSyncRow, General, "Vertical sync", "Off: the real frame rate, but the picture may tear. A 60 Hz screen shows at most 60 fps. No restart.",
+                "Game default: as the original game, each picture waits for the screen's next refresh, so the frame rate stops at the screen's refresh rate "
+                + "(60 on a 60 Hz screen). Off: pictures are shown as soon as they are ready; the frame rate counter shows how fast the game really runs, "
+                + "the picture may tear (a line where two pictures meet) and the graphics card works harder. The game runs the same either way. "
+                + "Game default also follows a mod that changes the game's vertical sync.",
+                IsTweak: false, Choices: [EffectiveOptions.VSyncGame, EffectiveOptions.VSyncOff]),
             new(LogPathsRow, General, "Hide personal paths in the log", "Player.log shows your user folder as %USERPROFILE% or ~ and hides your account IDs and name.",
                 "Mods still get the full text.", IsTweak: false),
             new(GpuRow, General, "Graphics card", "For laptops with two GPUs: which one the game draws with. Needs a restart.",

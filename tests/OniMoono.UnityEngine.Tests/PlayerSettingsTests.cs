@@ -247,12 +247,12 @@ namespace OniMoono.Tests
             file.GameTweaks["fast-b"] = false;
             Assert.Equal(["game tweaks on (default): fast-a", "game tweaks off (default): slow-c, off-d", "game tweaks off (the settings file): fast-b",
                           "splash moo (default)", "frame stats off (default)", "log paths hidden (default)", "gpu default (default)", "renderer auto (default)",
-                          "dxgi on (default)", "stall repeats on (default)", "update check on (default)", "gc fast (default)", "fps counter on (default)"],
+                          "dxgi on (default)", "stall repeats on (default)", "update check on (default)", "gc fast (default)", "fps counter on (default)", "vsync game-default (default)"],
                 Resolve(file).Describe().ToArray());
             file.UpdateCheck = false;
             Assert.Equal(["game tweaks from the command line (--game-tweak none): none", "splash none (the command line)", "frame stats on (the command line)",
                            "log paths full (the command line)", "gpu default (default)", "renderer auto (default)", "dxgi on (default)", "stall repeats on (default)",
-                           "update check off (the settings file)", "gc fast (default)", "fps counter on (default)"],
+                           "update check off (the settings file)", "gc fast (default)", "fps counter on (default)", "vsync game-default (default)"],
                 Resolve(file, ["none"], "none", true, "full").Describe().ToArray());
         }
 
@@ -277,6 +277,32 @@ namespace OniMoono.Tests
             Assert.Null(EffectiveOptions.Apply(file, Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "on").FpsCounter);
             Assert.Equal("off", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "off").FpsCounter);
             Assert.Contains("\"fpsCounter\": \"off\"", EffectiveOptions.Apply(new PlayerSettings(), Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "off").ToJson());
+        }
+
+        // ----- Vertical sync -----
+
+        [Fact]
+        public void VSyncFollowsTheGameUnlessTheFileOrTheCommandLineSaysOtherwise()
+        {
+            var o = EffectiveOptions.Resolve(All, Changing, [], null, false, new PlayerSettings());
+            Assert.Equal(("game-default", OptionSource.Default, -1), (o.VSync, o.VSyncSource, o.VSyncOverride));
+            var file = PlayerSettings.Parse("""{ "vsync": "off" }""");
+            o = EffectiveOptions.Resolve(All, Changing, [], null, false, file);
+            Assert.Equal(("off", OptionSource.SettingsFile, 0), (o.VSync, o.VSyncSource, o.VSyncOverride));
+            // --vsync-count wins, whatever its interval; 0 shows as off, others as the game's.
+            o = EffectiveOptions.Resolve(All, Changing, [], null, false, file, commandLineVSyncCount: 1);
+            Assert.Equal(("game-default", OptionSource.CommandLine, 1), (o.VSync, o.VSyncSource, o.VSyncOverride));
+            o = EffectiveOptions.Resolve(All, Changing, [], null, false, new PlayerSettings(), commandLineVSyncCount: 0);
+            Assert.Equal(("off", OptionSource.CommandLine, 0), (o.VSync, o.VSyncSource, o.VSyncOverride));
+            Assert.Contains("vsync count 0 (the command line)", o.Describe());
+            Assert.Throws<FormatException>(() => PlayerSettings.Parse("""{ "vsync": "fast" }"""));
+            // The default is dropped from the file, off kept; other choices kept as the file has them.
+            Assert.Null(EffectiveOptions.Apply(file, Changing, new Dictionary<string, bool>(), null, null, vsync: "game-default").VSync);
+            var off = EffectiveOptions.Apply(new PlayerSettings { FpsCounter = "off" }, Changing, new Dictionary<string, bool>(), null, null, vsync: "off");
+            Assert.Equal(("off", "off"), (off.VSync, off.FpsCounter));
+            Assert.Contains("\"vsync\": \"off\"", off.ToJson());
+            Assert.Equal("off", PlayerSettings.Parse(off.ToJson()).VSync);
+            Assert.Equal("off", EffectiveOptions.Apply(file, Changing, new Dictionary<string, bool>(), null, null, fpsCounter: "off").VSync);
         }
 
         // ----- Windows: presenting through DXGI -----

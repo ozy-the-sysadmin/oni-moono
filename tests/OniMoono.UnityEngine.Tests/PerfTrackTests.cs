@@ -247,5 +247,69 @@ namespace OniMoono.Tests
             Assert.Empty(cards);
             Assert.Empty(nothing);
         }
+
+        /// Frames with vsync at 60 Hz: `pattern` repeated (ms each), the game keeping up.
+        static double FeedPattern(PerfTrack t, double now, double seconds, double[] pattern)
+        {
+            double end = now + seconds;
+            int i = 0;
+            while (now < end)
+            {
+                double m = pattern[i++ % pattern.Length];
+                now += m / 1000;
+                t.Add(new PerfFrame { Now = now, Ms = m, InColony = true, Scale = 1, GameDt = m / 1000 });
+            }
+            return now;
+        }
+
+        [Fact]
+        public void VsyncHoldingTheRefreshRateIsNoStutter()
+        {
+            const double refresh = 1000 / 59.95;
+            var t = new PerfTrack { RefreshMs = refresh };
+            // At the refresh rate, the wall clock's ±0.5 ms and a pipelined catch-up (25 ms, then 8 ms).
+            double now = FeedPattern(t, 0, 2, new[] { refresh });
+            FeedPattern(t, now, 15, new[] { refresh, refresh + 0.5, refresh - 0.5, refresh, 25, 8.4, refresh, refresh });
+            Assert.Equal(0, t.Light);
+            Assert.InRange(t.KeepUp, 0.99, 1.01);
+            Assert.Equal(0, t.LastMinute().Stutters);
+            Assert.InRange(t.StutterThreshold(), 29, 29.3);
+        }
+
+        [Fact]
+        public void WithVsyncAMissedRefreshAlwaysCounts()
+        {
+            const double refresh = 1000 / 59.95;
+            // A frame of two refreshes sits on twice the median's line: with the period known it
+            // counts every time (a picture shown twice), whichever side of the bin it falls.
+            var pattern = new List<double>();
+            for (int k = 0; k < 59; k++) pattern.Add(k % 2 == 0 ? refresh - 0.05 : refresh + 0.05);
+            pattern.Add(2 * refresh);
+            var t = new PerfTrack { RefreshMs = refresh };
+            FeedPattern(t, 0, 30, pattern.ToArray());
+            var minute = t.LastMinute();
+            Assert.InRange(minute.PerMinute(minute.Stutters), 55, 65);
+            // Without vsync's period the line is twice the median, as before.
+            t.RefreshMs = 0;
+            Assert.Equal(Math.Max(PerfTrack.StutterMs, 2 * t.MedianMs), t.StutterThreshold());
+        }
+
+        [Fact]
+        public void ScanAgainMeasuresTheMinuteFromThen()
+        {
+            var t = new PerfTrack();
+            double now = Feed(t, 0, 30, 5.6, slowEvery: 80, slowMs: 21);
+            Assert.True(t.LastMinute().Stutters > 30);
+            t.RestartMinute();
+            Assert.Equal(t.Now, t.RestartedAt);
+            Assert.Equal(0, t.LastMinute().Stutters);
+            Assert.Equal(0, t.LastMinute().PlaySeconds);
+            now = Feed(t, now, 10.5, 5.6);
+            var after = t.LastMinute();
+            Assert.Equal(0, after.Stutters);
+            Assert.InRange(after.PlaySeconds, 8.9, 10.1);
+            // The session's totals are kept.
+            Assert.True(t.CauseTimes[(int)PerfCause.SimWait] > 30);
+        }
     }
 }
