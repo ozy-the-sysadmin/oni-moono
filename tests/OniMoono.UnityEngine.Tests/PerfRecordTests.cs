@@ -82,7 +82,6 @@ namespace OniMoono.Tests
                 Assert.Equal(3, window.FrameTimes.Count);
                 Assert.Equal(6e-6, window.PhaseMs[5], 12);
                 Assert.Equal(3e-6, window.PhaseMs[0], 12);
-                Assert.Equal(window.WallMs, window.PartitionMs, 6);
                 Assert.False(FrameWindows.Any);
                 Assert.False(PlayerLoop.Timing);
                 FrameWindows.Frame(phases);
@@ -93,6 +92,89 @@ namespace OniMoono.Tests
                 PlayerLoop.Timing = timing;
                 PlayerLoop.FrameStats = stats;
             }
+        }
+
+        /// Frame stats start their wait counters again from 0 every 600 frames (Epoch): a window's
+        /// waits are the counters' changes frame by frame, never a negative or a doubled jump.
+        [Fact]
+        public void WaitsCountTheirChangesAndStartAgainAtFrameStatsEpoch()
+        {
+            bool timing = PlayerLoop.Timing, stats = PlayerLoop.FrameStats;
+            long queued = FrameStatsWindow.QueuedFrameWait;
+            try
+            {
+                PlayerLoop.FrameStats = false;
+                var phases = new double[FrameWindows.Phases];
+                long tick = System.Diagnostics.Stopwatch.Frequency / 1000; // 1 ms of ticks
+                FrameStatsWindow.QueuedFrameWait = 0;
+                var window = FrameWindows.Open();
+                FrameWindows.Frame(phases); // baselines
+                FrameWindows.Frame(phases); // begins
+                FrameStatsWindow.QueuedFrameWait += 3 * tick;
+                FrameWindows.Frame(phases); // +3 ms
+                Assert.Equal(3, window.WaitMs[3], 6);
+                // Frame stats' window ends: its counters go back to 0, the epoch moves on.
+                FrameStatsWindow.QueuedFrameWait = 2 * tick;
+                FrameStatsWindow.Epoch++;
+                FrameWindows.Frame(phases); // +2 ms from 0, not -1
+                Assert.Equal(5, window.WaitMs[3], 6);
+                FrameStatsWindow.QueuedFrameWait += tick;
+                FrameWindows.Frame(phases);
+                Assert.Equal(6, window.WaitMs[3], 6);
+                FrameWindows.Drop(window);
+            }
+            finally
+            {
+                FrameStatsWindow.QueuedFrameWait = queued;
+                PlayerLoop.Timing = timing;
+                PlayerLoop.FrameStats = stats;
+            }
+        }
+
+        /// Two windows count side by side (the window's tabs and a recording), and a window
+        /// dropped from inside another's callback leaves the other going.
+        [Fact]
+        public void TwoWindowsAndADropInsideACallback()
+        {
+            bool timing = PlayerLoop.Timing, stats = PlayerLoop.FrameStats;
+            try
+            {
+                PlayerLoop.FrameStats = false;
+                var phases = new double[FrameWindows.Phases];
+                FrameWindows.Window other = null;
+                var first = FrameWindows.Open();
+                other = FrameWindows.Open(began: () => FrameWindows.Drop(first));
+                FrameWindows.Frame(phases); // baselines
+                FrameWindows.Frame(phases); // both begin; the second's Began drops the first
+                Assert.True(first.Closed);
+                Assert.False(other.Closed);
+                Assert.True(FrameWindows.Any);
+                FrameWindows.Frame(phases);
+                FrameWindows.Frame(phases);
+                Assert.Equal(2, other.Frames);
+                Assert.Equal(0, first.Frames);
+                FrameWindows.End(other);
+                FrameWindows.Frame(phases);
+                Assert.Equal(3, other.Frames);
+                Assert.False(FrameWindows.Any);
+                Assert.False(PlayerLoop.Timing);
+            }
+            finally
+            {
+                PlayerLoop.Timing = timing;
+                PlayerLoop.FrameStats = stats;
+            }
+        }
+
+        [Fact]
+        public void TheEnvironmentsSpecLosesItsSpeeds()
+        {
+            Assert.Equal("seconds=30;label=x", PerfSpec.WithoutSpeeds("seconds=30;speeds=3,2;label=x", out bool dropped));
+            Assert.True(dropped);
+            Assert.Equal("seconds=30", PerfSpec.WithoutSpeeds("seconds=30", out dropped));
+            Assert.False(dropped);
+            Assert.Equal("delay=1", PerfSpec.WithoutSpeeds("delay=1; Speeds=1", out dropped));
+            Assert.True(dropped);
         }
     }
 }

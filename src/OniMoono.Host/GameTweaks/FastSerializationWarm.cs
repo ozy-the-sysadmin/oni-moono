@@ -26,7 +26,10 @@ namespace OniMoono.Host.GameTweaks
     /// called, nested values go through the same field-only path, and a field that throws is not
     /// reported. Nothing in the game changes: the templates made are those the next save's
     /// would be (KSerialization.Manager makes them from the type alone, and the save starts with
-    /// Manager.Clear), and the writers are kept for the next save as before.
+    /// Manager.Clear), and the writers are kept for the next save as before. Until that first
+    /// save, KSerialization.Manager holds the templates and type entries made here (under the
+    /// load's type-info mask, which the save's Manager.Clear resets); nothing in the game
+    /// serializes through Manager between a load and its first save.
     ///
     /// Skipped when the game is not paused on that frame (unpaused before the load settled), and
     /// with ONI_SAVE_WARM=0 (for measuring the first save without it).

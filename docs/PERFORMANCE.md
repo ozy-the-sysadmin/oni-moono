@@ -179,8 +179,14 @@ default; an earlier build's corner names read as on) is a badge with a status li
 rate (`OniMoono.GameTweaks.PerfOverlay`). It starts at the top centre; drag it with the left button
 anywhere on the screen and it keeps its place, as a fraction of the screen, in
 `oni-moono/perf-counter-position.txt` beside the settings; the row's **Reset position** button puts
-it back. A click without movement opens the performance window; a drag never does, and neither
-reaches the world (the game's tools ignore clicks over any UI). The light (`PerfTrack`):
+it back (and the window to its automatic place). The row switches the counter on or off at once,
+no restart. A click without movement opens the performance window; a drag never does. The overlay
+is a screen of the game's own screen stack (`PerfScreen`, a `KScreen` above the HUD's screens and
+below the pause menu and the dialogs): while the pointer is over the badge or the window, clicks,
+the wheel and the middle and right buttons stay there (no selection, no dig order, no zoom, no
+pan), and **Escape** closes the window and does nothing else. While one of the game's modal dialogs
+is up (the pause menu, Options, saves, the mod events) the window steps out of its way (hidden,
+back when the dialog goes) and the badge is dimmed and does nothing. The light (`PerfTrack`):
 
 - **red**: the game does not keep up with the chosen speed: over the last 5 s of unpaused play
   (frames over 1 s left out) it advanced more than 5 % fewer game seconds than the speed asks;
@@ -192,7 +198,12 @@ reaches the world (the game's tools ignore clicks over any UI). The light (`Perf
 - **green** otherwise, and always while paused or outside a colony.
 
 A state starts after two checks in a row (they run every half second); red ends after two clear
-checks, yellow after four, so the light does not flicker.
+checks, yellow after four, so the light does not flicker. For the first 20 s of play after a load
+it stays green unless the game plainly does not keep up (under 75 % of the speed), and no "a
+minute" is shown before 20 s of play are in its span ("measuring… 12 of 20 s"): a rate from a few
+seconds is noise. A slow frame nothing explains in the first 10 s of play after a load is counted
+as **Settling after load** (the load's, not a stutter of play); a cause the engine reports there
+(GC, compiling code, a save) is still named.
 
 **The window** (`PerfWindow`, the owner's approved mock): **Colony** speaks frames a second: a
 verdict, "What you can do, biggest gain first" (`PerfAdvice`: rules, each a condition on what is
@@ -200,10 +211,14 @@ measured and a card whose gain was measured; today only *Simulation at its own p
 waiting for the simulation step causes 30 or more stutters a minute and it is off), what runs right
 now (keeping up, stutters a minute, the last autosave's pause, memory, what holds the frame rate
 back) and the colony's size. **Frame** speaks ms and %: the frame's parts from the engine's frame
-window, each row opening to what is inside it (Game update's from the bucket profile, patched in
-only while that row is open, `PerfBuckets`; the others' phases), the spread of frame times,
-threads, memory, tweaks, a comparison with the newest recording, **Copy report** and **Record
-60 s**. **Hitches**: the frame-time graph over 2 min, 10 min or the session with stutters (20 to
+window, each row of several parts opening to them (Game update to the game's state machine
+updates by rate, `PerfBuckets`: a prefix and a postfix around
+`StateMachineUpdater.BucketGroup.AdvanceOneSubTick` read the clock while that row is open, the
+game's own method always runs as it is, so nothing of the game or of a mod is replaced; the others
+to their phases), the spread of frame times, threads (with the vertical sync switch: Turn off,
+Turn on, or Launch option when `--vsync-count` sets it), memory, tweaks, a comparison with the
+newest recording (the same split as the rows: the waits for the screen are not Drawing), **Copy
+report** and **Record 60 s** (Waiting for play while paused, then the seconds left, then Saved). **Hitches**: the frame-time graph over 2 min, 10 min or the session with stutters (20 to
 100 ms) and freezes (100 ms or more), the freezes with their cause where the engine or the game
 reports it (a load, the first frame after it, a save from the game's `Saved to` log line, a
 timelapse or preview picture from the Timelapser's state, a GC pause from the runtime, the
@@ -211,22 +226,30 @@ zero-time wait for the simulation step from `Game.simSubTick`/`simDt`; otherwise
 selected freeze was made of (GC, the main thread's JIT, the save's preview frames, the background
 write), the session's totals by cause, the time lost per hour and the loading times.
 
-A click's result is built in the same frame: the event system's clicks are acted on in the
-overlay's `LateUpdate`, before the canvases are laid out, so a tab, a row, a range, a freeze and
-every button show their result on the next picture; numbers that need a second of measuring show
-the last second's or "Measuring…". Buttons and rows light under the pointer, darken while pressed
+A click's result is built in the same frame: a press is noted with the control's id ("tab1",
+"row2", "copy"), its release in the overlay's `LateUpdate` makes the click when the pointer is still
+on that control (where it was at the press or where it is now), and the build that follows hands it
+to the control with that id before the canvases are laid out (`PerfClicks`); a click whose control
+has gone is dropped. So a tab, a row, a range, a freeze and every button show their result on the
+next picture, whatever moved in between; numbers that need a second of measuring show the last
+second's or "Measuring…". The layout does not jump: the verdict always has room for two lines, the
+freeze list keeps its five rows, values have fixed columns and, until the next click, the window
+does not get shorter. Buttons and rows light under the pointer, darken while pressed
 and play the game's button sounds (`HUD_Mouseover`, `HUD_Click_Open`); Copy report says Copied,
 Record 60 s counts down and says Saved. **Scan again** counts the colony now and starts every
 "a minute" afresh (`PerfTrack.RestartMinute`: the verdict's stutters, Right now, the advice and the
 Hitches stutters box), so a change the player just made is judged alone; the light and the
 session's totals go on.
 
-**Vertical sync.** When vsync holds the frame rate (`PerfWindow.ScreenLimit`: vsync on with the
-display's refresh period known, the frames of the last seconds at that period within 4 %, the main
-thread waiting at least a tenth of the time for its picture to be taken and busy under 90 %),
-Colony's verdict says the game runs as fast as the screen can show, with the main thread's
-measured busy share as the room to spare, "Held back by" reads "Your screen (60 Hz)" and "Nothing to
-gain here" points at the **Vertical sync** row of Moono Tweaks for the uncapped number. Frame shows
+**What holds it back.** Once a second the window decides from the engine's waits over the last
+10 s (`PerfHeldDecision`): with vsync and the frames at 95 % of the refresh rate or more, or
+waiting for queued pictures, **your screen**; a frame cap's sleep, **the frame rate limit**; the
+device's waits over a quarter of the time, **graphics**; else **the processor**. A new answer is
+shown only after it came three seconds in a row, and the verdict's sentence about the screen and
+the "Held back by" line read the same answer, so they cannot disagree or flick between answers.
+When it is the screen, Colony's verdict says the game runs as fast as the screen can show, with the
+main thread's measured busy share (in steps of 5 %) as the room to spare, and "Nothing to gain here"
+points at the vertical sync switch. Frame shows
 the main thread's waits for its picture (the device's next frame and the queued pictures, inside
 "Showing the picture") as their own row, "Waiting for the screen (vsync)" (without vsync: "Waiting
 for the graphics card"), so Drawing holds only drawing work, and Threads says whether vsync is on.
@@ -243,15 +266,20 @@ the same as the log's overlap table) and those the player switched off; each ope
 plain words, with the effect where it was measured (background saving's colony summary: 100 to
 126 ms a save on a late-game colony) and "Effect not measured" otherwise.
 
-**What the counter and window cost.** Counter off: nothing is installed. Counter on: one call a
-frame at the frame's start (a few field reads of the game's state into a ring of frames) and the
-badge's text twice a second; the light's check walks the last 10 s of frames every half second.
-The window, only while it shows: the engine's frame window for Colony and Frame (as a recording,
-below), the colony's counts every 5 s on Colony, the bucket profile while Frame's Game update row
-is open (it costs frame rate, and says so).
+**What the counter and window cost.** Counter off: nothing is installed (switched off while the
+game runs: its frame call stops). Counter on: one call a frame at the frame's start (a few field
+reads of the game's state into a ring of frames and a one-second history capped at a day), the
+badge's text twice a second and a look at the game's screen stack (for its dialogs); the light's
+check walks the last 10 s of frames every half second. In the menus and while a load settles the
+engine's frame window is open too (the copy report's account of the load's frames): PlayerLoop's
+phase clock reads, a few microseconds a frame, its sums taken into one reused buffer (no
+allocation). The window, only while it shows: the engine's frame window for Colony and Frame (as a
+recording, below), the colony's counts every 5 s on Colony, and while Frame's Game update row is
+open two clock reads around each of the game's state machine sub-ticks (a few dozen a frame).
 
-**Recordings** (`--perf-record SPEC` or `ONI_PERF_RECORD=SPEC`; `OniMoono.Host.Perf`): N seconds
-of play into one JSON file each, for comparing builds, tweaks and colonies with
+**Recordings** (`--perf-record SPEC` or `ONI_PERF_RECORD=SPEC`; from the environment variable its
+`speeds=` is ignored, as the environment alone must never change the game; `OniMoono.Host.Perf`):
+N seconds of play into one JSON file each, for comparing builds, tweaks and colonies with
 [tools/PerfDiff](../tools/PerfDiff/Program.cs). The spec is `key=value` pairs separated by `;`:
 
 | Key | Default | Meaning |
@@ -298,7 +326,7 @@ frame stats' own patches, which cost frame rate and can make tweaks step aside.
 | `moono` | version (release tag), informational_version, commit, runtime, server_gc |
 | `game` | build, update |
 | `run` | label, index, count, spec, frame_stats, bucket_profile |
-| `display` | width, height, fullscreen_mode, vsync_count, target_frame_rate, focused |
+| `display` | width, height, fullscreen_mode, vsync_count (the swap interval the devices presented with: Moono Tweaks' Vertical sync or `--vsync-count` when set), vsync_game (the game's own setting), vsync_override, target_frame_rate, focused |
 | `camera`, `world` | x, y, ortho; the active world's id and name |
 | `recording` | seconds_target, frames, wall_s, game_s, speed_setting, speed_reached, paused_frames; with frame stats sim_frames, sim_steps, sim_steps_pf |
 | `frame` | ms_pf, fps, p50/p90/p99/p999_ms, low1_fps and low01_fps (the slowest 1 % and 0.1 % of frames), max_ms, frames over 33/50/100/250 ms |
@@ -325,7 +353,9 @@ each measure's mean on both sides with its standard error, the difference and it
 ms per frame sorted by size and the counts sorted by their difference in %.
 `-set FOLDER [-group-by label]` gives each measure's mean and CV over N recordings, and with one
 label a launch the CV within launches and between them. Judge sim rows per game second
-(`ms_pgs`, `calls_pgs`, `objects_pgs`) and frame rows per frame (`ms_pf`).
+(`ms_pgs`, `calls_pgs`, `objects_pgs`) and frame rows per frame (`ms_pf`). A measure a file lacks
+(a row with no calls, the per game second figures of a recording made while paused, a gauge's
+rate) is left out of that side's mean, never counted as zero; the tables say "(n of N)" for it.
 
 ## Perf spread on CI's runners
 

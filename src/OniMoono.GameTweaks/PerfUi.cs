@@ -13,6 +13,12 @@ namespace OniMoono.GameTweaks
     /// again each refresh reusing its widgets (no objects made or destroyed once a tab has been
     /// shown, text set only when it changes). Positions are in the window's units, from the top
     /// left, y downwards.
+    ///
+    /// Clicks go by what was clicked, not by which widget it was: every button and area is
+    /// built with an id ("tab1", "row2", "copy"), a press notes the id under the pointer, its
+    /// release makes the click when the pointer is still on that control (where it was at the
+    /// press or where it is now), and the next build hands the click to the control with that
+    /// id; a click whose control is not in that build is dropped (PerfClicks).
     internal sealed class PerfUi
     {
         // The mock's colours.
@@ -24,7 +30,7 @@ namespace OniMoono.GameTweaks
         /// The Frame tab's waits row (waiting for the screen or the graphics card): a dim slate.
         internal static readonly Color Wait = Hex("596079");
         /// The badge's outline under the pointer.
-        internal static readonly Color RuleHover = Hex("8A91AE");
+        internal static readonly Color RuleHover = Hex("A9B0CC");
         internal const string InkHex = "E9EBF2", MutedHex = "A3A9BD", GoodHex = "7FD66B", WarnHex = "F0C64A", BadHex = "EF6B5B";
 
         internal static Color Hex(string hex)
@@ -69,7 +75,7 @@ namespace OniMoono.GameTweaks
             if (size == 0) size = radius * 2 + 4;
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             var px = new Color32[size * size];
-            float r = size == radius * 2 ? radius : radius;
+            float r = radius;
             for (int y = 0; y < size; y++)
                 for (int x = 0; x < size; x++)
                 {
@@ -120,6 +126,10 @@ namespace OniMoono.GameTweaks
             }
         }
 
+        /// A heading's own words in capitals (the values put into it stay as they are: "5 s ago",
+        /// not "5 S AGO"). Languages without capitals are unchanged.
+        internal static string Upper(string text) => text.ToUpperInvariant();
+
         /// A LocText made inactive, so that it wakes with no key and the game's default style.
         internal static LocText NewText(Transform parent, string name)
         {
@@ -162,6 +172,18 @@ namespace OniMoono.GameTweaks
             if (rect.sizeDelta != size) rect.sizeDelta = size;
         }
 
+        /// A rectangle's place on the screen, in pixels from the top left (the overlay's canvas
+        /// draws in screen pixels).
+        static readonly Vector3[] corners = new Vector3[4];
+
+        internal static PerfBox ScreenBox(RectTransform r)
+        {
+            r.GetWorldCorners(corners);
+            float x0 = Math.Min(corners[0].x, corners[2].x), x1 = Math.Max(corners[0].x, corners[2].x);
+            float y0 = Math.Min(corners[0].y, corners[2].y), y1 = Math.Max(corners[0].y, corners[2].y);
+            return new PerfBox(x0, Screen.height - y1, x1 - x0, y1 - y0);
+        }
+
         // ---- The builder ----
 
         readonly RectTransform root;
@@ -171,13 +193,16 @@ namespace OniMoono.GameTweaks
         readonly List<RawImage> pictures = new List<RawImage>();
         int boxUsed, textUsed, buttonUsed, pictureUsed, order;
         readonly LocText measure;
-        /// A button was clicked during this build: the window builds again at once.
+        /// A control took a click during this build: the window builds again at once.
         internal bool Clicked;
-        /// A button of this builder was clicked since the last build (set by the event system's
-        /// click, before the window's LateUpdate): the window builds at once, so the click's
-        /// result shows in the same frame. `ClickFrame`: the frame of the newest click (tests).
-        internal bool PendingClick;
-        internal int ClickFrame = -1;
+        readonly PerfClicks clicks = new PerfClicks();
+        /// This build's controls by id: where a pressed control is now.
+        readonly Dictionary<string, PerfButton> byId = new Dictionary<string, PerfButton>(StringComparer.Ordinal);
+        /// A click waits for its control: the window builds at once, so its result shows in the
+        /// frame of the release. `ClickFrame`: the frame of the newest click; `Dropped`: clicks
+        /// whose control was gone by the next build (tests).
+        internal bool PendingClick => clicks.Waiting;
+        internal int ClickFrame = -1, Dropped;
 
         internal PerfUi(RectTransform root)
         {
@@ -190,21 +215,48 @@ namespace OniMoono.GameTweaks
         {
             boxUsed = textUsed = buttonUsed = pictureUsed = order = 0;
             Clicked = false;
-            PendingClick = false;
-        }
-
-        void OnButtonClick()
-        {
-            PendingClick = true;
-            ClickFrame = Time.frameCount;
+            byId.Clear();
+            clicks.Begin();
         }
 
         internal void End()
         {
+            if (clicks.End()) Dropped++;
             for (int i = boxUsed; i < boxes.Count; i++) Hide(boxes[i].gameObject);
             for (int i = textUsed; i < texts.Count; i++) Hide(texts[i].gameObject);
             for (int i = buttonUsed; i < buttons.Count; i++) Hide(buttons[i].gameObject);
             for (int i = pictureUsed; i < pictures.Count; i++) Hide(pictures[i].gameObject);
+        }
+
+        /// The pointer went down on one of this builder's controls.
+        internal void Press(PerfButton b)
+        {
+            if (string.IsNullOrEmpty(b.Id)) return;
+            clicks.Press(b.Id, ScreenBox(b.Rect));
+            ShowPressed();
+        }
+
+        /// Each frame before the window acts on clicks: a press whose button is up again is
+        /// released where the pointer is now.
+        internal void Poll()
+        {
+            if (!clicks.Pressing || Input.GetMouseButton(0)) return;
+            var mouse = Input.mousePosition;
+            PerfBox? now = byId.TryGetValue(clicks.PressedId, out var b) && b != null && b.gameObject.activeInHierarchy ? ScreenBox(b.Rect) : (PerfBox?)null;
+            if (clicks.Release(mouse.x, Screen.height - mouse.y, now)) ClickFrame = Time.frameCount;
+            ShowPressed();
+        }
+
+        /// Forgets a press (the window closed or went under a game dialog).
+        internal void Cancel()
+        {
+            clicks.Cancel();
+            ShowPressed();
+        }
+
+        void ShowPressed()
+        {
+            foreach (var b in buttons) b.SetPressed(clicks.PressedId != null && b.Id == clicks.PressedId);
         }
 
         static void Hide(GameObject go)
@@ -235,7 +287,10 @@ namespace OniMoono.GameTweaks
             return box;
         }
 
-        /// One label: `align` within (x, y, w, h); `wrap` lets it take several lines.
+        /// One label: `align` within (x, y, w, h); `wrap` lets it take several lines; `ellipsis`
+        /// cuts a line too long for `w` (its rectangle is made at least a line of the font
+        /// high: TMP drops a line that does not fit in height, which left the Chinese headline
+        /// boxes empty).
         internal LocText Text(float x, float y, float w, float h, string text, float size, Color colour,
             TextAlignmentOptions align = TextAlignmentOptions.MidlineLeft, TMP_FontAsset font = null, bool wrap = false, bool ellipsis = false)
         {
@@ -251,6 +306,11 @@ namespace OniMoono.GameTweaks
             var overflow = ellipsis ? TextOverflowModes.Ellipsis : TextOverflowModes.Overflow;
             if (label.overflowMode != overflow) label.overflowMode = overflow;
             if (label.text != text) label.text = text;
+            if (ellipsis && h < size * 1.7f)
+            {
+                y -= (size * 1.7f - h) / 2;
+                h = size * 1.7f;
+            }
             Place(label.rectTransform, x, y, w, h);
             Order(label.transform);
             return label;
@@ -277,60 +337,70 @@ namespace OniMoono.GameTweaks
             measure.textWrappingMode = TextWrappingModes.Normal;
         }
 
-        PerfButton NextButton()
+        PerfButton NextButton(string id)
         {
             if (buttonUsed == buttons.Count)
             {
                 var made = PerfButton.Make(root);
-                made.Clicked = OnButtonClick;
+                made.Owner = this;
                 buttons.Add(made);
             }
-            return buttons[buttonUsed++];
+            var b = buttons[buttonUsed++];
+            b.Id = id ?? "";
+            if (b.Id.Length > 0) byId[b.Id] = b;
+            b.SetPressed(clicks.PressedId != null && clicks.PressedId == b.Id);
+            return b;
         }
 
-        /// A button with a label; true once after it was clicked. It lightens under the pointer
-        /// and darkens while pressed, with the game's button sounds.
-        internal bool Button(float x, float y, float w, float h, string label, Color back, Color rule, float size = 14f)
+        /// The waiting click, when it is this control's; `at`: where it landed, in the control's
+        /// units from its top left.
+        bool Take(PerfButton b, out Vector2 at)
         {
-            var b = NextButton();
-            b.Set(back, rule, label, size, 0.10f, true);
-            Place(b.Rect, x, y, w, h);
-            Order(b.transform);
-            if (b.Clicks == 0) return false;
-            b.Clicks = 0;
+            at = Vector2.zero;
+            if (b.Id.Length == 0 || !clicks.Take(b.Id)) return false;
+            var box = ScreenBox(b.Rect);
+            float sx = box.W / Math.Max(1f, b.Rect.rect.width), sy = box.H / Math.Max(1f, b.Rect.rect.height);
+            at = new Vector2((clicks.ClickX - box.X) / Math.Max(1e-3f, sx), (clicks.ClickY - box.Y) / Math.Max(1e-3f, sy));
             Clicked = true;
             return true;
+        }
+
+        /// A button with a label; true once after it was clicked. `id`: what it is, the same from
+        /// build to build. It lightens under the pointer and darkens while pressed, with the
+        /// game's button sounds. Not `enabled`: dimmed, no highlight, never clicked.
+        internal bool Button(string id, float x, float y, float w, float h, string label, Color back, Color rule, float size = 14f, bool enabled = true)
+        {
+            var b = NextButton(enabled ? id : "");
+            b.Set(back, rule, label, size, 0.16f, enabled, enabled ? 1f : 0.45f);
+            Place(b.Rect, x, y, w, h);
+            Order(b.transform);
+            return Take(b, out _);
         }
 
         /// A clickable area with no look of its own (a tab, a list row, a table row); true once
-        /// after a click. Under the pointer it gets a faint highlight (`hover`: its strength; the
-        /// graph's is fainter), and the game's sounds when `sounds`.
-        internal bool Area(float x, float y, float w, float h, out Vector2 at, float hover = 0.06f, bool sounds = true)
+        /// after a click, `at` where it landed. Under the pointer it gets a highlight (`hover`:
+        /// its strength; the graph's is fainter), and the game's sounds when `sounds`.
+        internal bool Area(string id, float x, float y, float w, float h, out Vector2 at, float hover = 0.10f, bool sounds = true)
         {
-            var b = NextButton();
-            b.Set(new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), "", 12f, hover, sounds);
+            var b = NextButton(id);
+            b.Set(new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), "", 12f, hover, sounds, 1f);
             Place(b.Rect, x, y, w, h);
             Order(b.transform);
-            at = b.At;
-            if (b.Clicks == 0) return false;
-            b.Clicks = 0;
-            Clicked = true;
-            return true;
+            return Take(b, out at);
         }
 
-        /// The buttons and areas shown now, for the test runs: their order, label, centre in
+        /// The buttons and areas shown now, for the test runs: their order, id, label, centre in
         /// screen pixels from the top left, and state (hover, pressed).
         internal string Describe()
         {
             var parts = new List<string>();
-            var corners = new Vector3[4];
             for (int i = 0; i < buttonUsed && i < buttons.Count; i++)
             {
                 var b = buttons[i];
                 if (!b.gameObject.activeInHierarchy) continue;
-                b.Rect.GetWorldCorners(corners);
-                float cx = (corners[0].x + corners[2].x) / 2, cy = Screen.height - (corners[0].y + corners[2].y) / 2;
-                parts.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}@{2:F0},{3:F0}{4}", i, b.LabelText, cx, cy, b.StateText));
+                var box = ScreenBox(b.Rect);
+                parts.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}@{3:F0},{4:F0}{5}", i, b.Id, b.LabelText,
+                    box.X + box.W / 2, box.Y + box.H / 2, b.StateText));
             }
             return string.Join(";", parts);
         }
@@ -353,18 +423,19 @@ namespace OniMoono.GameTweaks
         }
     }
 
-    /// A button of the window: a rounded panel, its outline, a highlight and a label; counts its
-    /// clicks and where the last one landed (local units from the top left). The highlight shows
-    /// at once, without the window building again: lighter under the pointer, darker while
-    /// pressed.
-    internal sealed class PerfButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
+    /// A button of the window: a rounded panel, its outline, a highlight and a label. Its press
+    /// goes to its builder (PerfUi.Press), which makes the click by the control's id. The
+    /// highlight shows at once, without the window building again: lighter under the pointer,
+    /// darker while pressed.
+    internal sealed class PerfButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler
     {
-        internal int Clicks;
-        internal Vector2 At;
+        /// What the control is in this build ("" for none: not clickable), and its builder.
+        internal string Id = "";
+        internal PerfUi Owner;
         internal RectTransform Rect;
-        internal System.Action Clicked;
         Image back, rule, highlight;
         LocText label;
+        CanvasGroup group;
         bool over, down, sounds = true;
         float hover = 0.08f;
 
@@ -398,7 +469,7 @@ namespace OniMoono.GameTweaks
         internal string LabelText => label.text;
         internal string StateText => down ? " pressed" : over ? " hover" : "";
 
-        internal void Set(Color backColour, Color ruleColour, string text, float size, float hoverAlpha, bool playSounds)
+        internal void Set(Color backColour, Color ruleColour, string text, float size, float hoverAlpha, bool playSounds, float alpha)
         {
             sounds = playSounds;
             if (hover != hoverAlpha)
@@ -406,6 +477,8 @@ namespace OniMoono.GameTweaks
                 hover = hoverAlpha;
                 ShowState();
             }
+            if (alpha < 1f && group == null) group = gameObject.AddComponent<CanvasGroup>();
+            if (group != null && group.alpha != alpha) group.alpha = alpha;
             if (back.color != backColour) back.color = backColour;
             if (rule.color != ruleColour) rule.color = ruleColour;
             var font = PerfUi.Title;
@@ -414,41 +487,34 @@ namespace OniMoono.GameTweaks
             if (label.text != text) label.text = text;
         }
 
-        public void OnPointerClick(PointerEventData e)
-        {
-            if (e.button != PointerEventData.InputButton.Left) return;
-            Clicks++;
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(Rect, e.position, e.pressEventCamera, out var local))
-                At = new Vector2(local.x, -local.y);
-            Clicked?.Invoke();
-        }
-
         public void OnPointerEnter(PointerEventData e)
         {
             over = true;
             ShowState();
-            if (sounds) PerfUi.Sound(PerfUi.HoverSound);
+            if (sounds && Id.Length > 0) PerfUi.Sound(PerfUi.HoverSound);
         }
 
         public void OnPointerExit(PointerEventData e)
         {
             over = false;
-            down = false;
             ShowState();
         }
 
+        /// The press goes to the builder, which keeps it by the control's id until the button is
+        /// up again (PerfUi.Poll).
         public void OnPointerDown(PointerEventData e)
         {
-            if (e.button != PointerEventData.InputButton.Left) return;
-            down = true;
-            ShowState();
+            if (e.button != PointerEventData.InputButton.Left || Id.Length == 0) return;
             if (sounds) PerfUi.Sound(PerfUi.ClickSound);
+            Owner?.Press(this);
         }
 
-        public void OnPointerUp(PointerEventData e)
+        /// Darker while its press is held (the builder says).
+        internal void SetPressed(bool pressed)
         {
-            down = false;
-            ShowState();
+            if (down == pressed) return;
+            down = pressed;
+            if (highlight != null) ShowState();
         }
 
         void OnDisable()
@@ -460,7 +526,7 @@ namespace OniMoono.GameTweaks
         /// Pressed: a dark veil; under the pointer: a light one.
         void ShowState()
         {
-            var c = down ? new Color(0, 0, 0, 0.22f) : over ? new Color(1, 1, 1, hover) : new Color(1, 1, 1, 0);
+            var c = down ? new Color(0, 0, 0, 0.28f) : over && Id.Length > 0 ? new Color(1, 1, 1, hover) : new Color(1, 1, 1, 0);
             if (highlight.color != c) highlight.color = c;
         }
     }

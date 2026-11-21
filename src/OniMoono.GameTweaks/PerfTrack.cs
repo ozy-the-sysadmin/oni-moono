@@ -12,6 +12,10 @@ namespace OniMoono.GameTweaks
         Jit,
         /// The player switched to another asteroid (ClusterManager's active world changed).
         World,
+        /// A slow frame nothing else reported a cause for, in the first SettlingSeconds of play
+        /// after a load (the game and the runtime still finishing the load's work: first runs of
+        /// code paths, first simulation steps); the load's, not play's (no stutter in the rates).
+        Settling,
     }
 
     /// One frame as the monitor sees it (PerfReads fills it at the next frame's start).
@@ -62,12 +66,24 @@ namespace OniMoono.GameTweaks
     /// over 1 s left out), yellow with 6 or more stutters in the last 10 s, green otherwise, and
     /// always while paused or outside a colony. Each state needs two checks in a row to start
     /// (one second) and red two, yellow four (two seconds) to end, so it does not flicker.
+    ///
+    /// Warm-up: for the first WarmUpSeconds of play after a load the light stays green unless
+    /// the game plainly does not keep up (under 75 % of the speed), and every "a minute" waits
+    /// for WarmUpSeconds of play in its span before it is shown (Rate.Measured): a rate taken
+    /// from a few seconds is noise. Slow frames of no reported cause in the first
+    /// SettlingSeconds of play after a load are Settling, not stutters.
     public sealed class PerfTrack
     {
         public const double StutterMs = 20, FreezeMs = 100;
         /// The settling after a load ends at the first frame under this (ms).
         public const double SettledMs = 50;
-        public const int CauseCount = 11;
+        public const int CauseCount = 12;
+        /// Seconds of play before a rate is shown and before the light can turn yellow.
+        public const double WarmUpSeconds = 20;
+        /// Seconds of play after a load whose unexplained slow frames are the load's settling.
+        public const double SettlingSeconds = 10;
+        /// The per-second history's length (a day of seconds; older seconds are dropped).
+        public const int HistoryCap = 86400;
         const int Capacity = 1 << 16;
 
         // The frame ring: wall ms, game seconds, speed, the frame's end, flags.
@@ -104,13 +120,20 @@ namespace OniMoono.GameTweaks
             public float SumMs, MaxMs, PlayMs;
             public bool Colony;
             public PerfCause Worst;
+            /// When the second ended (seconds, PerfFrame.Now's clock).
+            public double End;
         }
 
         readonly List<Second> seconds = new List<Second>(4096);
         Second current;
         double secondEnds = -1;
-        /// The session's seconds (oldest first), one entry a second.
+        /// The session's seconds (oldest first), one entry a second, the last HistoryCap of them.
         public IReadOnlyList<Second> Seconds => seconds;
+        /// Seconds the history spans, from its oldest entry's end to now (the Hitches tab's
+        /// "this session").
+        public double HistorySeconds => seconds.Count > 0 ? Math.Max(0, Now - seconds[0].End + 1) : 0;
+        /// Unpaused play since the last load (seconds): the warm-up's clock.
+        public double PlaySinceLoad;
 
         /// A freeze (a frame of 100 ms or more) or a save, with what it was made of where known.
         public sealed class Freeze
@@ -161,6 +184,7 @@ namespace OniMoono.GameTweaks
         Freeze lastSave, firstSave;
         int previewFramesLeft;
         double prevMs;
+        bool inLoad;
 
         /// The newest slow frames (20 ms or more, and saves) with what the engine and the game
         /// reported for them: the copy report's last lines, and the test runs' check of causes.
@@ -214,7 +238,7 @@ namespace OniMoono.GameTweaks
             // The first frame with game time after a load: the Loading panel's, not play.
             // So is the first that runs the 200 ms simulation step (the sim's first full step after
             // the load), when it comes within 5 s.
-            bool firstFrame = false;
+            bool firstFrame = false, firstStep = false;
             if (awaitFirstFrame && f.InColony && !loading && f.GameDt > 0)
             {
                 awaitFirstFrame = false;
@@ -226,7 +250,7 @@ namespace OniMoono.GameTweaks
             else if (awaitFirstStep && f.InColony && !loading && !f.Paused && f.Step200 && f.Now <= firstStepUntil)
             {
                 awaitFirstStep = false;
-                firstFrame = true;
+                firstFrame = firstStep = true;
                 FirstFrameMs += f.Ms;
             }
             if (loading && f.InColony && !f.Loading)
@@ -247,28 +271,40 @@ namespace OniMoono.GameTweaks
             bool freeze = f.InColony && !notPlay && f.Ms >= FreezeMs;
             prevMs = f.Ms;
             var cause = PerfCause.None;
+            bool settlingFrame = f.InColony && !notPlay && PlaySinceLoad < SettlingSeconds;
             if (f.Ms >= StutterMs || f.Saved)
             {
-                cause = Classify(f, loading, firstFrame, freeze);
+                cause = Classify(f, loading, firstFrame, freeze, settlingFrame);
                 // Loading and saves are always named; other slow frames only when they are a
                 // stutter or a freeze (a run of slow frames is a low rate; the menus are not play).
                 bool named = cause == PerfCause.Load || cause == PerfCause.FirstFrame || cause == PerfCause.Autosave || cause == PerfCause.Save || stutter || freeze;
                 if (!named) cause = PerfCause.None;
+                // The load's settling is the load's: no stutter, no freeze of play.
+                if (cause == PerfCause.Settling)
+                {
+                    stutter = false;
+                    freeze = false;
+                }
                 if (cause != PerfCause.None)
                 {
                     int c = (int)cause;
-                    CauseTimes[c]++;
+                    // One load is one time (its frames add to its total), as is the first frame
+                    // after it with its first simulation step.
+                    bool more = cause == PerfCause.Load && inLoad || cause == PerfCause.FirstFrame && firstStep;
+                    if (!more) CauseTimes[c]++;
                     CauseTotal[c] += f.Ms;
                     if (f.Ms > CauseWorst[c]) CauseWorst[c] = f.Ms;
                 }
                 if (f.Ms >= StutterMs || f.Saved) LogSlow(f, cause, loading, stutter, freeze);
             }
+            inLoad = loading;
             if (stutter) bits |= FStutter;
             if (freeze) bits |= FFreeze;
             flags[i] = bits;
             if (play)
             {
                 PlaySeconds += f.Ms / 1000;
+                PlaySinceLoad += f.Ms / 1000;
                 if (freeze) PlayFreezeMs += f.Ms;
                 else if (stutter) PlayStutterMs += f.Ms;
             }
@@ -323,6 +359,9 @@ namespace OniMoono.GameTweaks
                 if (loadStarted >= 0) LoadMs = (f.Now - loadStarted) * 1000;
                 awaitFirstFrame = awaitFirstSave = true;
                 awaitFirstStep = false;
+                PlaySinceLoad = 0;
+                // Every "a minute" is this colony's: the one left before is not in it.
+                rateFrom = seconds.Count;
                 FirstFrameMs = double.NaN;
                 firstSave = null;
                 settling = true;
@@ -340,7 +379,7 @@ namespace OniMoono.GameTweaks
         }
 
         /// A slow frame's cause (None for frames that count as no stutter: the menus).
-        PerfCause Classify(in PerfFrame f, bool loading, bool firstFrame, bool freeze)
+        PerfCause Classify(in PerfFrame f, bool loading, bool firstFrame, bool freeze, bool settlingFrame)
         {
             if (loading) return PerfCause.Load;
             if (!f.InColony) return PerfCause.None;
@@ -375,7 +414,7 @@ namespace OniMoono.GameTweaks
             else if (f.JitMs >= 0.5 * excess) cause = PerfCause.Jit;
             else if (f.WorldSwitch) cause = PerfCause.World;
             else if (f.ZeroSubTick && !f.Paused) cause = PerfCause.SimWait;
-            else cause = PerfCause.Unknown;
+            else cause = settlingFrame ? PerfCause.Settling : PerfCause.Unknown;
             if (freeze) AddFreeze(f, cause);
             return cause;
         }
@@ -395,11 +434,20 @@ namespace OniMoono.GameTweaks
             if (secondEnds < 0) secondEnds = f.Now + 1;
             while (f.Now >= secondEnds)
             {
+                current.End = secondEnds;
                 seconds.Add(current);
                 current = default;
                 secondEnds += 1;
-                // A long frame spans several seconds: the empty ones are kept as such.
+                // A long frame spans several seconds: the empty ones are kept as such, up to an
+                // hour (a longer gap, the PC asleep, is one jump; each second keeps its own end).
                 if (f.Now - secondEnds > 3600) secondEnds = f.Now + 1;
+            }
+            // A day of seconds at most: the oldest hour goes at once.
+            if (seconds.Count > HistoryCap + 3600)
+            {
+                int drop = seconds.Count - HistoryCap;
+                seconds.RemoveRange(0, drop);
+                rateFrom = Math.Max(0, rateFrom - drop);
             }
             current.Frames++;
             current.SumMs += (float)f.Ms;
@@ -455,9 +503,11 @@ namespace OniMoono.GameTweaks
             KeepUp = realMs >= 3000 && expectS > 0 ? gameS / expectS : double.NaN;
             Speed = f.Scale;
             bool running = f.InColony && !f.Paused;
-            bool red = running && KeepUp < 0.95;
+            // During the warm-up after a load only a plain failure to keep up shows.
+            bool warming = PlaySinceLoad < WarmUpSeconds;
+            bool red = running && KeepUp < (warming ? 0.75 : 0.95);
             bool redClear = !running || double.IsNaN(KeepUp) || KeepUp > 0.97;
-            bool yellow = running && stutters >= 6;
+            bool yellow = running && !warming && stutters >= 6;
             bool yellowClear = !running || stutters <= 3;
             redRun = red ? redRun + 1 : 0;
             clearRun = redClear ? clearRun + 1 : 0;
@@ -567,7 +617,7 @@ namespace OniMoono.GameTweaks
             // Older than the ring: whole seconds.
             for (int sIdx = seconds.Count - 1; sIdx >= 0; sIdx--)
             {
-                double secEnd = secondEnds - (seconds.Count - sIdx);
+                double secEnd = seconds[sIdx].End;
                 if (secEnd >= oldest) continue;
                 double age = now - secEnd;
                 if (age > window) break;
@@ -588,6 +638,8 @@ namespace OniMoono.GameTweaks
             public int Stutters, Freezes, SimWaits, Unknown;
             public double PlaySeconds;
             public int PerMinute(int n) => PlaySeconds >= 1 ? (int)Math.Round(n * 60.0 / PlaySeconds) : 0;
+            /// Enough play in the span for its rates to be shown (WarmUpSeconds).
+            public bool Measured => PlaySeconds >= WarmUpSeconds;
         }
 
         /// The last `n` whole seconds (a minute by default), none from before RestartMinute: the

@@ -12,28 +12,37 @@ namespace OniMoono.GameTweaks
     /// The frame rate counter and its performance window (the Frame rate counter row of Moono
     /// Tweaks; OniMoono.Host.Perf.PerfHud), not a tweak: our own canvas over the game's, in every
     /// scene, drawn with the game's text widget (LocText) and the approved mock's colours
-    /// (PerfUi). No patches, except the window's look inside "Game update" while that row is
-    /// open (PerfBuckets).
+    /// (PerfUi). No patch changes the game: the look inside "Game update" reads the clock around
+    /// the game's own method while that row is open (PerfBuckets).
     ///
     /// The counter is a badge: a status light (PerfTrack.Light) and the frame rate. Drag it
     /// with the left button anywhere on the screen; it stays inside the screen and keeps its
     /// place, as a fraction of the screen, in the oni-moono data folder (PositionFile) across
     /// restarts. A click without movement opens or closes the window (PerfWindow); a drag never
-    /// does. Neither reaches the world: the badge is a raycast target of our canvas, and the
-    /// game's tools ignore clicks over any UI (PlayerController.OnKeyDown).
+    /// does. The window keeps the place it was dragged to the same way (WindowFile).
+    ///
+    /// Input: the overlay is a screen of the game's own screen stack (PerfScreen, a KScreen),
+    /// so the game's rules apply: while the pointer is over the badge or the window, the wheel,
+    /// the middle and right buttons and clicks are taken there and never reach the camera or
+    /// the tools; Escape closes the window. When one of the game's modal dialogs is up (the
+    /// pause menu, Options, a save dialog, the mod events) the window is hidden until it goes
+    /// and the badge is dimmed and inert, so neither ever covers or competes with the dialog.
     ///
     /// Cost: with the counter on, one call a frame (Frame: a few reads of the game's state into
-    /// PerfTrack's ring) and the badge's text twice a second. The window measures more only
-    /// while it shows: the engine's frame window for the Colony and Frame tabs, the bucket
-    /// profile while Frame's "Game update" row is open.
+    /// PerfTrack's ring), the badge's text twice a second and a look at the screen stack. In the
+    /// menus and loads the engine's frame window times each frame's phases too (the copy
+    /// report's account of a load; no allocation). The window measures more only while it
+    /// shows: the frame window for the Colony and Frame tabs, the clock around the game's state
+    /// machine updates while Frame's "Game update" row is open.
     public sealed class PerfOverlay : MonoBehaviour
     {
         // ---- From the host (Install) ----
-        internal static string PositionFile;
+        internal static string PositionFile, WindowFile;
         internal static Action<bool> Timing;
         internal static Func<double[]> Take;
         internal static Func<string> Record;
-        internal static Func<bool> Recording;
+        /// The recorder: -1 off, -2 armed and waiting for play, else the seconds recorded.
+        internal static Func<double> RecordProgress;
         internal static Func<double[]> Engine;
         internal static Func<string[]> LastRecording;
         internal static string[] TweaksOn = Array.Empty<string>(), TweaksSwitchedOff = Array.Empty<string>();
@@ -46,28 +55,33 @@ namespace OniMoono.GameTweaks
 
         internal static readonly PerfTrack Track = new PerfTrack();
 
-        /// From the host: where the badge's place is kept; the engine's frame window
-        /// (`timing(true)` opens it, `take` gives its sums since the last call: see PerfWindow.
-        /// Phases); the recorder (`record` arms 60 s and says what it did, `recording`); the
-        /// engine's memory numbers (`engine`: working set, installed memory, bytes allocated,
-        /// gen0, gen1 and gen2 collections, the last background save write's ms); the newest
-        /// recording's phases (`lastRecording`: name, age in seconds, then "phase=ms" pairs; null
-        /// for none); the tweaks on, the tweak count, the default-on tweaks the player turned off;
-        /// the window's strings' names and English (TweakStrings.Ui), used when the Moono Tweaks
-        /// menu is off; the start-up time on the frame clock (seconds); the Harmony the look
-        /// inside "Game update" patches with (PerfBuckets); the swap interval and the paced
-        /// refresh period (OniMoono.Engine.VSync, FramePacing.PacedPeriodMs).
-        public static void Install(string positionFile, Action<bool> timing, Func<double[]> take, Func<string> record, Func<bool> recording,
+        /// The recorder is busy (armed, waiting or recording).
+        internal static bool Recording => RecordProgress != null && RecordProgress() != -1;
+
+        /// From the host: where the badge's place is kept (the window's beside it); the engine's
+        /// frame window (`timing(true)` opens it, `take` gives its sums since the last call, in
+        /// one buffer it fills again: see PerfWindow.Phases); the recorder (`record` arms 60 s
+        /// and says what it did, `recordProgress`); the engine's memory numbers (`engine`: working
+        /// set, installed memory, bytes allocated, gen0, gen1 and gen2 collections, the last
+        /// background save write's ms, its save's number, the saves handed to the writer); the
+        /// newest recording's phases (`lastRecording`: name, age in seconds, then "phase=ms"
+        /// pairs; null for none); the tweaks on, the tweak count, the default-on tweaks the
+        /// player turned off; the window's strings' names and English (TweakStrings.Ui), used
+        /// when the Moono Tweaks menu is off; the start-up time on the frame clock (seconds);
+        /// the Harmony the look inside "Game update" patches with (PerfBuckets); the swap
+        /// interval and the paced refresh period (OniMoono.Engine.VSync, FramePacing.PacedPeriodMs).
+        public static void Install(string positionFile, Action<bool> timing, Func<double[]> take, Func<string> record, Func<double> recordProgress,
             Func<double[]> engine, Func<string[]> lastRecording, string[] tweaksOn, int tweaksAll, string[] tweaksSwitchedOff,
             string[] uiNames, string[] uiEnglish, double startedAt, HarmonyLib.Harmony harmony, Func<int> vsyncInterval, Func<double> pacedPeriodMs)
         {
             VSyncInterval = vsyncInterval;
             PacedPeriodMs = pacedPeriodMs;
             PositionFile = positionFile;
+            WindowFile = positionFile != null ? Path.Combine(Path.GetDirectoryName(positionFile) ?? "", "perf-window-position.txt") : null;
             Timing = timing;
             Take = take;
             Record = record;
-            Recording = recording;
+            RecordProgress = recordProgress;
             Engine = engine;
             LastRecording = lastRecording;
             TweaksOn = tweaksOn ?? Array.Empty<string>();
@@ -84,6 +98,7 @@ namespace OniMoono.GameTweaks
 
         // ---- Self-timing (the costs the report gives; read by Test("cost")) ----
         internal static long FrameTicks, UpdateTicks, RefreshTicks, Frames;
+        static bool wasColony;
 
         /// The host's frame-start call: the frame that just ended (see PerfReads.Frame).
         public static void Frame(double now, double ms, double gcMs, double jitMs)
@@ -92,18 +107,27 @@ namespace OniMoono.GameTweaks
             var f = PerfReads.Frame(now, ms, gcMs, jitMs);
             Track.RefreshMs = RefreshMs();
             Track.Add(f);
+            if (PerfBuckets.On) PerfBuckets.Frames++;
+            // A colony left or arrived: what the window kept of the last one goes.
+            if (f.InColony != wasColony)
+            {
+                wasColony = f.InColony;
+                PerfBuckets.Clear();
+                if (instance != null) instance.window?.SceneChanged();
+            }
             // Outside a colony (menus, between scenes) and until a load settles, the engine's frame
             // window times each frame's phases (it counts only from the second frame after it
             // opens, so it is open before a load starts): the copy report's account of the
-            // arriving frame and those after it. A few µs a frame, in the menus and loads only.
-            // (Not while the window's own tabs read the frame window: its sums are theirs then.)
+            // arriving frame and those after it. A few µs a frame, in the menus and loads only,
+            // into the host's one buffer. (Not while the window's own tabs read the frame window:
+            // its sums are theirs then.)
             if (loadTiming && !windowTiming && Take?.Invoke() is double[] phases && phases[0] == 1) Track.LoadPhases(f.Now, phases);
             bool want = !f.InColony || Track.Settling;
             if (want != loadTiming)
             {
                 loadTiming = want;
                 ApplyTiming();
-                if (loadTiming) Take?.Invoke();
+                if (loadTiming && !windowTiming) Take?.Invoke();
             }
             Frames++;
             FrameTicks += Stopwatch.GetTimestamp() - start;
@@ -149,11 +173,22 @@ namespace OniMoono.GameTweaks
             return true;
         }
 
+        /// The Moono Tweaks row while the game runs: shown or hidden now (hidden: the window
+        /// closes and nothing is drawn).
+        public static void SetShown(bool shown)
+        {
+            if (instance == null) return;
+            if (!shown) instance.window?.Close();
+            instance.gameObject.SetActive(shown);
+        }
+
         CanvasScaler scaler;
         RectTransform canvasRect, badge;
+        CanvasGroup badgeGroup;
         Image badgeRing, light, glow;
         LocText counter;
         PerfWindow window;
+        PerfScreen screen;
         float scale = 1f, textElapsed, scaleElapsed = 10f;
         int shownFps = -1, shownLight = -1;
         /// The badge's centre as a fraction of the screen (null: the default, top centre).
@@ -171,6 +206,7 @@ namespace OniMoono.GameTweaks
             badge = (RectTransform)go.transform;
             badge.anchorMin = badge.anchorMax = new Vector2(0f, 1f);
             badge.pivot = new Vector2(0.5f, 0.5f);
+            badgeGroup = go.AddComponent<CanvasGroup>();
             var back = go.AddComponent<Image>();
             back.sprite = PerfUi.Pill;
             back.type = Image.Type.Sliced;
@@ -191,12 +227,16 @@ namespace OniMoono.GameTweaks
                 if (pressed != badge) badgeRing.color = on ? PerfUi.RuleHover : PerfUi.Rule;
                 if (on) PerfUi.Sound(PerfUi.HoverSound);
             };
-            badgeWidth = Mathf.Ceil(TextWidth("<b>888</b> <size=12>fps</size>") + 9 + 8 + 9 + 11);
+            // Room for four digits (1000 fps and more with vsync off), with the left's padding.
+            badgeWidth = Mathf.Ceil(TextWidth("<b>8888</b> <size=12>fps</size>") + 9 + 8 + 9 + 11);
             LayoutBadge();
-            place = ReadPlace();
+            place = ReadPlace(PositionFile);
             ApplyPlace();
             ShowRate();
             window = new PerfWindow(this, transform);
+            windowPlace = ReadPlace(WindowFile);
+            screen = gameObject.AddComponent<PerfScreen>();
+            screen.Overlay = this;
         }
 
         static void Fill(RectTransform r)
@@ -253,12 +293,21 @@ namespace OniMoono.GameTweaks
             return Clamp(c, new Vector2(badgeWidth, BadgeHeight));
         }
 
+        /// The badge's rectangle in the overlay's units.
+        internal PerfBox BadgeBox
+        {
+            get
+            {
+                var c = Centre();
+                return new PerfBox(c.x - badgeWidth / 2, c.y - BadgeHeight / 2, badgeWidth, BadgeHeight);
+            }
+        }
+
         Vector2 Clamp(Vector2 centre, Vector2 size)
         {
             var canvas = CanvasSize;
-            centre.x = Mathf.Clamp(centre.x, size.x / 2f + 2f, Math.Max(size.x / 2f + 2f, canvas.x - size.x / 2f - 2f));
-            centre.y = Mathf.Clamp(centre.y, size.y / 2f + 2f, Math.Max(size.y / 2f + 2f, canvas.y - size.y / 2f - 2f));
-            return centre;
+            var b = PerfLayout.Clamp(new PerfBox(centre.x - size.x / 2, centre.y - size.y / 2, size.x, size.y), canvas.x, canvas.y, 2f);
+            return new Vector2(b.X + size.x / 2, b.Y + size.y / 2);
         }
 
         void ApplyPlace()
@@ -271,61 +320,133 @@ namespace OniMoono.GameTweaks
         /// The badge's centre in screen pixels from the top left (tests).
         internal Vector2 BadgePixels => Centre() * scale;
 
-        static Vector2? ReadPlace()
+        /// A place kept as two fractions of the screen ("0.25000 0.84970": the badge's centre, the
+        /// window's top left); null for none.
+        static Vector2? ReadPlace(string path)
         {
             try
             {
-                if (PositionFile == null || !File.Exists(PositionFile)) return null;
-                var parts = File.ReadAllText(PositionFile).Trim().Split(' ');
+                if (path == null || !File.Exists(path)) return null;
+                var parts = File.ReadAllText(path).Trim().Split(' ');
                 if (parts.Length == 2 && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
                     && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
                     && x >= 0 && x <= 1 && y >= 0 && y <= 1) return new Vector2(x, y);
             }
             catch (Exception e)
             {
-                global::Debug.LogWarning("[Moono] fps counter: its place could not be read: " + e.Message);
+                global::Debug.LogWarning("[Moono] fps counter: a place could not be read: " + e.Message);
             }
             return null;
         }
 
-        void WritePlace()
+        /// Written on the main thread at the drag's end (a few bytes): a later reset or drag can
+        /// never be overtaken by an earlier write.
+        static void WritePlace(string path, Vector2 value)
         {
-            var path = PositionFile;
-            if (path == null || !place.HasValue) return;
-            string text = place.Value.x.ToString("F5", CultureInfo.InvariantCulture) + " " + place.Value.y.ToString("F5", CultureInfo.InvariantCulture);
-            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-            {
-                try
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    File.WriteAllText(path, text);
-                }
-                catch (Exception e)
-                {
-                    global::Debug.LogWarning("[Moono] fps counter: its place could not be saved: " + e.Message);
-                }
-            });
-        }
-
-        /// Moono Tweaks' "Reset position": the badge goes back to the top centre, now and after a
-        /// restart. `positionFile`: the place's file when the counter is not running (the menu
-        /// knows the settings folder).
-        public static void ResetPosition(string positionFile = null)
-        {
-            var path = PositionFile ?? positionFile;
+            if (path == null) return;
             try
             {
-                if (path != null && File.Exists(path)) File.Delete(path);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, value.x.ToString("F5", CultureInfo.InvariantCulture) + " " + value.y.ToString("F5", CultureInfo.InvariantCulture));
             }
             catch (Exception e)
             {
-                global::Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
+                global::Debug.LogWarning("[Moono] fps counter: a place could not be saved: " + e.Message);
             }
+        }
+
+        /// Moono Tweaks' "Reset position": the badge goes back to the top centre and the window
+        /// back to its automatic place, now and after a restart.
+        public static void ResetPosition()
+        {
+            foreach (var path in new[] { PositionFile, WindowFile })
+                try
+                {
+                    if (path != null && File.Exists(path)) File.Delete(path);
+                }
+                catch (Exception e)
+                {
+                    global::Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
+                }
             if (instance != null)
             {
                 instance.place = null;
+                instance.windowPlace = null;
                 instance.ApplyPlace();
+                if (instance.window.Open) instance.window.PlaceAgain();
             }
+        }
+
+        // ---- The window's place ----
+
+        /// Where the player dragged the window (its top left as fractions of the screen), null
+        /// for the automatic place (PerfLayout.Place).
+        Vector2? windowPlace;
+
+        /// Where the window goes now, `w` by `h`: the player's place, else clear of the badge and
+        /// of the game's top bar.
+        internal PerfBox WindowBox(float w, float h, out bool chosen)
+        {
+            var canvas = CanvasSize;
+            chosen = windowPlace.HasValue;
+            if (chosen) return PerfLayout.Clamp(new PerfBox(windowPlace.Value.x * canvas.x, windowPlace.Value.y * canvas.y, w, h), canvas.x, canvas.y);
+            return PerfLayout.Place(canvas.x, canvas.y, w, h, BadgeBox, GameBar());
+        }
+
+        /// The game's top bar where it is drawn now (the management buttons, the cycle clock and
+        /// speed controls, the planetoid list), from its widgets' rectangles, in the overlay's
+        /// units. Read when the window is placed, not every frame.
+        internal List<PerfBox> GameBar()
+        {
+            var boxes = new List<PerfBox>();
+            try
+            {
+                var canvas = CanvasSize;
+                foreach (var part in new Component[] { ManagementMenu.Instance, TopLeftControlScreen.Instance, SpeedControlScreen.Instance, WorldSelector.Instance })
+                {
+                    if (part == null || !part.gameObject.activeInHierarchy) continue;
+                    bool any = false;
+                    float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+                    foreach (var g in part.GetComponentsInChildren<Graphic>(false))
+                    {
+                        if (g == null || !g.isActiveAndEnabled || g.color.a <= 0.01f || g.canvas == null) continue;
+                        var b = OnScreen(g.rectTransform, g.canvas);
+                        // Full-screen backgrounds and blockers are not the bar.
+                        if (b.W <= 0 || b.H <= 0 || b.W > canvas.x * 0.6f || b.H > canvas.y * 0.6f) continue;
+                        any = true;
+                        x0 = Math.Min(x0, b.X);
+                        y0 = Math.Min(y0, b.Y);
+                        x1 = Math.Max(x1, b.Right);
+                        y1 = Math.Max(y1, b.Bottom);
+                    }
+                    if (any) boxes.Add(new PerfBox(x0, y0, x1 - x0, y1 - y0));
+                }
+            }
+            catch (Exception)
+            {
+                // A changed game: placed by the badge alone.
+            }
+            return boxes;
+        }
+
+        readonly Vector3[] corners = new Vector3[4];
+
+        /// A widget's rectangle in the overlay's units (any canvas mode).
+        PerfBox OnScreen(RectTransform r, Canvas canvas)
+        {
+            r.GetWorldCorners(corners);
+            var root = canvas.rootCanvas;
+            var camera = root != null && root.renderMode != RenderMode.ScreenSpaceOverlay ? root.worldCamera : null;
+            float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+            foreach (var c in corners)
+            {
+                var p = RectTransformUtility.WorldToScreenPoint(camera, c);
+                x0 = Math.Min(x0, p.x);
+                x1 = Math.Max(x1, p.x);
+                y0 = Math.Min(y0, p.y);
+                y1 = Math.Max(y1, p.y);
+            }
+            return new PerfBox(x0 / scale, (Screen.height - y1) / scale, (x1 - x0) / scale, (y1 - y0) / scale);
         }
 
         // ---- Pressing: the badge (drag or click) and the window's title bar (drag) ----
@@ -341,6 +462,7 @@ namespace OniMoono.GameTweaks
         /// the button is up. `click`: what a press without movement does (null: the badge's).
         internal void BeginPress(RectTransform target, System.Action click)
         {
+            if (inert) return;
             pressed = target;
             clicked = click;
             pressMouse = Input.mousePosition;
@@ -375,20 +497,86 @@ namespace OniMoono.GameTweaks
             badgeRing.color = badgeHover ? PerfUi.RuleHover : PerfUi.Rule;
             if (target == badge)
             {
-                if (dragging) WritePlace();
+                if (dragging) WritePlace(PositionFile, place ?? Vector2.zero);
                 else
                 {
                     PerfUi.Sound(PerfUi.ClickSound);
                     ToggleWindow();
                 }
             }
-            else if (!dragging) clicked?.Invoke();
+            else if (dragging)
+            {
+                // The window's title bar: the place the player chose is kept.
+                var canvas = CanvasSize;
+                var tl = window.TopLeft;
+                windowPlace = new Vector2(Mathf.Clamp01(tl.x / canvas.x), Mathf.Clamp01(tl.y / canvas.y));
+                WritePlace(WindowFile, windowPlace.Value);
+            }
+            else clicked?.Invoke();
         }
+
+        internal bool WindowOpen => window.Open;
+
+        internal void CloseWindow() => window.Close();
 
         internal void ToggleWindow()
         {
             if (window.Open) window.Close();
-            else window.Show(Centre(), new Vector2(badgeWidth, BadgeHeight));
+            else window.Show();
+        }
+
+        // ---- The game's dialogs and screen stack ----
+
+        /// One of the game's modal dialogs is up: the window hides, the badge is dimmed and inert.
+        bool inert;
+        internal bool Inert => inert;
+
+        /// Whether a modal screen of the game is active above everything (KModalScreen,
+        /// KModalButtonMenu: the pause menu, Options, saves, the mod events).
+        static bool ModalUp(KScreen self)
+        {
+            var manager = KScreenManager.Instance;
+            if (manager == null) return false;
+            var stack = manager.screenStack;
+            for (int i = stack.Count - 1; i >= 0; i--)
+            {
+                var s = stack[i];
+                if (s == null || s == self) continue;
+                if (s.IsModal() && s.IsScreenActive()) return true;
+            }
+            return false;
+        }
+
+        /// The pointer is over the badge or the open window (the screen's input rules).
+        internal bool PointerOver()
+        {
+            var mouse = Input.mousePosition;
+            float x = mouse.x / scale, y = (Screen.height - mouse.y) / scale;
+            if (BadgeBox.Contains(x, y)) return true;
+            return window.Open && window.Box.Contains(x, y);
+        }
+
+        void UpdateInert()
+        {
+            bool now = false;
+            try
+            {
+                now = ModalUp(screen);
+            }
+            catch (Exception)
+            {
+            }
+            if (now == inert) return;
+            inert = now;
+            badgeGroup.alpha = inert ? 0.4f : 1f;
+            badgeGroup.blocksRaycasts = !inert;
+            badgeGroup.interactable = !inert;
+            if (inert)
+            {
+                pressed = null;
+                badgeRing.color = PerfUi.Rule;
+            }
+            window.SetHidden(inert);
         }
 
         // ---- Every frame ----
@@ -396,6 +584,8 @@ namespace OniMoono.GameTweaks
         void Update()
         {
             long start = Stopwatch.GetTimestamp();
+            screen.Join();
+            UpdateInert();
             scaleElapsed += Time.unscaledDeltaTime;
             if (scaleElapsed >= 1f)
             {
@@ -419,8 +609,9 @@ namespace OniMoono.GameTweaks
             }
         }
 
-        /// After every script's Update (the event system's clicks among them) and before the
-        /// canvases are laid out: a click's result is built now, so it shows in this frame.
+        /// After every script's Update (the event system's presses among them) and before the
+        /// canvases are laid out: a release is turned into its click and the click's result
+        /// built now, so it shows in this frame.
         void LateUpdate()
         {
             if (!window.Open) return;
@@ -480,7 +671,7 @@ namespace OniMoono.GameTweaks
         // ---- Test runs (the oni-multicore bench's McDrive, by reflection) ----
 
         /// state | open | close | tab colony|frame|hitches | expand NAME|none | select N | range 0|1|2 |
-        /// copy | cost | reset | press X Y (screen pixels from the top left: what is there).
+        /// copy | cost | reset | hits | bar | press X Y (screen pixels from the top left: what is there).
         public static string Test(string verb, string arg)
         {
             var o = instance;
@@ -491,13 +682,20 @@ namespace OniMoono.GameTweaks
                     if (o == null) return "no overlay";
                     var px = o.BadgePixels;
                     var rate = Track.LastMinute();
-                    return string.Format(c, "light={0} fps={1:F0} badge={2:F0},{3:F0} scale={4:F3} window={5} tab={6} rect={7} keepup={8:F3} median={9:F2} stutters10s={10} place={11} minute: play_s={12:F0} stutters={13}/min simwait={14}/min unknown={15}/min sim-step-pace={16}",
+                    return string.Format(c, "light={0} fps={1:F0} badge={2:F0},{3:F0} scale={4:F3} window={5} tab={6} rect={7} keepup={8:F3} median={9:F2} stutters10s={10} place={11} minute: play_s={12:F0} stutters={13}/min simwait={14}/min unknown={15}/min sim-step-pace={16} inert={17} shown={18} since_load={19:F0} held={20}",
                         Track.Light, Track.Fps, px.x, px.y, o.scale, o.window.Open, o.window.TabName, o.window.RectText, Track.KeepUp, Track.MedianMs, Track.Stutters10s,
                         o.place.HasValue ? o.place.Value.x.ToString("F4", c) + "," + o.place.Value.y.ToString("F4", c) : "default",
-                        rate.PlaySeconds, rate.PerMinute(rate.Stutters), rate.PerMinute(rate.SimWaits), rate.PerMinute(rate.Unknown), PerfReads.SimStepPaceOn);
+                        rate.PlaySeconds, rate.PerMinute(rate.Stutters), rate.PerMinute(rate.SimWaits), rate.PerMinute(rate.Unknown), PerfReads.SimStepPaceOn,
+                        o.inert, o.gameObject.activeSelf, Track.PlaySinceLoad, o.window.HeldName);
                 case "open": if (o != null && !o.window.Open) o.ToggleWindow(); return "ok";
                 case "close": if (o != null && o.window.Open) o.window.Close(); return "ok";
                 case "reset": ResetPosition(); return "ok";
+                case "bar":
+                {
+                    // The game's top bar as the window's placement sees it, and the badge (overlay units).
+                    if (o == null) return "no overlay";
+                    return "ok badge=" + o.BadgeBox + " bar=" + string.Join(";", o.GameBar()) + " canvas=" + o.CanvasSize.x.ToString("F0", c) + "x" + o.CanvasSize.y.ToString("F0", c);
+                }
                 case "hits":
                 {
                     // What the event system's raycast finds under the pointer now, top first, and the
@@ -511,8 +709,8 @@ namespace OniMoono.GameTweaks
                         es.RaycastAll(data, hits);
                         foreach (var h in hits) parts.Add(h.gameObject != null ? h.gameObject.name + "(" + h.sortingOrder + ")" : "null");
                     }
-                    return string.Format(c, "ok mouse={0:F0},{1:F0} button0={2} eventsystem={3} hits=[{4}] badge downs={5} enters={6}", Input.mousePosition.x, Input.mousePosition.y,
-                        Input.GetMouseButton(0), es != null ? es.name : "none", string.Join(",", parts), PerfPress.Downs, PerfPress.Enters);
+                    return string.Format(c, "ok mouse={0:F0},{1:F0} button0={2} eventsystem={3} hits=[{4}] badge downs={5} enters={6} over={7} taken={8}", Input.mousePosition.x, Input.mousePosition.y,
+                        Input.GetMouseButton(0), es != null ? es.name : "none", string.Join(",", parts), PerfPress.Downs, PerfPress.Enters, o != null && o.PointerOver(), PerfScreen.Taken);
                 }
                 case "cost":
                 {
@@ -523,6 +721,65 @@ namespace OniMoono.GameTweaks
                 }
                 default:
                     return o == null ? "no overlay" : o.window.Test(verb, arg);
+            }
+        }
+    }
+
+    /// The overlay's place in the game's screen stack (KScreenManager): a KScreen, so that the
+    /// game's input rules apply to it as to its own screens. Above the HUD's screens (the tool
+    /// menu, the management screens) and below the pause menu and the modal dialogs, which sit
+    /// above it and take their input first. While the pointer is over the badge or the window
+    /// it takes the wheel's zoom, the middle and right buttons (the camera's pan) and clicks;
+    /// Escape closes the open window and does nothing else. Key releases are left alone (a pan
+    /// begun elsewhere ends normally). Each scene has its own manager: the overlay, which lives
+    /// across scenes, joins each one (Join).
+    internal sealed class PerfScreen : KScreen
+    {
+        internal PerfOverlay Overlay;
+        KScreenManager joined;
+        /// Events taken so far (test runs).
+        internal static int Taken;
+
+        public override float GetSortKey() => 22f;
+
+        /// Pushed onto the scene's screen stack once.
+        internal void Join()
+        {
+            var manager = KScreenManager.Instance;
+            if (manager == null || manager == joined) return;
+            joined = manager;
+            manager.PushScreen(this);
+        }
+
+        public override void OnKeyDown(KButtonEvent e)
+        {
+            if (e.Consumed || Overlay == null || Overlay.Inert) return;
+            if (Overlay.WindowOpen && e.TryConsume(global::Action.Escape))
+            {
+                Overlay.CloseWindow();
+                Taken++;
+                return;
+            }
+            if (!Overlay.PointerOver()) return;
+            if (e.TryConsume(global::Action.ZoomIn) || e.TryConsume(global::Action.ZoomOut) || e.TryConsume(global::Action.MouseMiddle)
+                || e.TryConsume(global::Action.MouseRight) || e.TryConsume(global::Action.MouseLeft) || e.TryConsume(global::Action.ShiftMouseLeft))
+                Taken++;
+        }
+
+        public override void OnKeyUp(KButtonEvent e)
+        {
+        }
+
+        /// Never destroys the overlay (the game deactivates every screen when it quits).
+        public override void Deactivate()
+        {
+            try
+            {
+                var manager = KScreenManager.Instance;
+                if (manager != null) manager.PopScreen(this);
+            }
+            catch (Exception)
+            {
             }
         }
     }

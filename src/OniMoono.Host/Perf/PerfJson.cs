@@ -17,12 +17,14 @@ namespace OniMoono.Host.Perf
     {
         public const string Schema = "moono-perf/1";
 
+        // Filled by PerfRecorder; the unit tests compile this file without it.
+#pragma warning disable CS0649
         internal sealed class Input
         {
             public PerfSpec Spec = new();
             public int Index;
             public FrameWindows.Window Window = null!;
-            public PerfRecorder.Snapshot Start = null!, End = null!;
+            public PerfSnapshot Start = null!, End = null!;
             public long PausedFrames;
             public int SpeedSetting;
             public IReadOnlySet<string> TweaksOn = new HashSet<string>();
@@ -30,7 +32,9 @@ namespace OniMoono.Host.Perf
             public IReadOnlyDictionary<string, string> Unavailable = new Dictionary<string, string>();
             public bool FrameStats;
             public Type Game = null!;
+            public string? GameUpdate;
         }
+#pragma warning restore CS0649
 
         public static byte[] Write(Input r)
         {
@@ -91,7 +95,7 @@ namespace OniMoono.Host.Perf
 
                 j.WriteStartObject("game"u8);
                 j.WriteString("build"u8, Call<string>(r.Game, "Build"));
-                j.WriteString("update"u8, GameVersionCheck.ThisUpdate);
+                j.WriteString("update"u8, r.GameUpdate);
                 j.WriteEndObject();
 
                 j.WriteStartObject("run"u8);
@@ -107,7 +111,11 @@ namespace OniMoono.Host.Perf
                 j.WriteNumber("width"u8, UnityEngine.Screen.width);
                 j.WriteNumber("height"u8, UnityEngine.Screen.height);
                 j.WriteString("fullscreen_mode"u8, UnityEngine.Screen.fullScreenMode.ToString());
-                j.WriteNumber("vsync_count"u8, UnityEngine.QualitySettings.vSyncCount);
+                // The swap interval the devices presented with (the Moono Tweaks choice or
+                // --vsync-count when set), and the game's own setting beside it.
+                j.WriteNumber("vsync_count"u8, VSync.Interval);
+                j.WriteNumber("vsync_game"u8, GameVSync());
+                j.WriteBoolean("vsync_override"u8, VSync.Override >= 0);
                 j.WriteNumber("target_frame_rate"u8, UnityEngine.Application.targetFrameRate);
                 j.WriteBoolean("focused"u8, PlayerLoop.HasFocus);
                 j.WriteEndObject();
@@ -202,7 +210,7 @@ namespace OniMoono.Host.Perf
                 j.WriteNumber("pool_items"u8, d.PoolCompleted);
                 j.WriteEndObject();
 
-                void Colony(string name, PerfRecorder.Snapshot s)
+                void Colony(string name, PerfSnapshot s)
                 {
                     j.WriteStartObject(name);
                     for (int i = 0; i < s.ColonyKeys.Length; i++) Num(s.ColonyKeys[i], s.ColonyValues[i]);
@@ -308,6 +316,19 @@ namespace OniMoono.Host.Perf
                 }
                 if (calls == 0) continue;
                 row("bucket/" + e.BucketLabels[i], "bucket", ticks * msPerTick, calls, entries, null, null);
+            }
+        }
+
+        /// The game's own vsync setting (-1 when it cannot be read: no player, the unit tests).
+        static int GameVSync()
+        {
+            try
+            {
+                return UnityEngine.QualitySettings.vSyncCount;
+            }
+            catch (Exception)
+            {
+                return -1;
             }
         }
 

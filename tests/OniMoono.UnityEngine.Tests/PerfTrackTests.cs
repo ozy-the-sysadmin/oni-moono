@@ -47,8 +47,10 @@ namespace OniMoono.Tests
         public void FrequentStuttersTurnItYellowAndItClearsAfterTwoSeconds()
         {
             var t = new PerfTrack();
-            // 126 a minute of 21 ms frames among 5.6 ms ones, as on McBench (session AB).
-            double now = Feed(t, 0, 12, 5.6, slowEvery: 80, slowMs: 21);
+            // Past the warm-up after the load, then 126 a minute of 21 ms frames among 5.6 ms
+            // ones, as on McBench (session AB).
+            double now = Feed(t, 0, PerfTrack.WarmUpSeconds + 1, 5.6);
+            now = Feed(t, now, 12, 5.6, slowEvery: 80, slowMs: 21);
             Assert.Equal(1, t.Light);
             Assert.True(t.Stutters10s >= 6);
             var last = t.LastMinute(10);
@@ -112,7 +114,9 @@ namespace OniMoono.Tests
             t.Add(new PerfFrame { Now = now += 0.01, Ms = 10, InColony = true, Paused = true, Scale = 0 });
             Assert.InRange(t.StartToMenuMs, 1000, 1100);
             Assert.InRange(t.LoadMs, 9900, 10300);
-            Assert.Equal(50, t.CauseTimes[(int)PerfCause.Load]);
+            // One load is one time; its 50 frames are its total.
+            Assert.Equal(1, t.CauseTimes[(int)PerfCause.Load]);
+            Assert.InRange(t.CauseTotal[(int)PerfCause.Load], 10_000, 10_100);
             // The first unpaused frame.
             t.Add(new PerfFrame { Now = now += 0.3, Ms = 300, InColony = true, Scale = 3, GameDt = 0.2 });
             Assert.Equal(300, t.FirstFrameMs);
@@ -124,7 +128,7 @@ namespace OniMoono.Tests
             var save = t.Freezes.Last();
             Assert.Equal(PerfCause.Autosave, save.Cause);
             Assert.Equal((90.0, 40.0, 50.0), (save.GcMs, save.JitMs, save.PreviewMs));
-            now = Feed(t, now, 3, 6);
+            now = Feed(t, now, PerfTrack.SettlingSeconds + 1, 6);
             t.Add(new PerfFrame { Now = now += 0.2, Ms = 200, InColony = true, Scale = 3, GameDt = 0.2, Timelapse = true });
             t.Add(new PerfFrame { Now = now += 0.15, Ms = 150, GcMs = 120, InColony = true, Scale = 3, GameDt = 0.2 });
             t.Add(new PerfFrame { Now = now += 0.12, Ms = 120, InColony = true, Scale = 3, GameDt = 0.2 });
@@ -135,7 +139,8 @@ namespace OniMoono.Tests
         public void SummaryPercentilesComeFromTheFrames()
         {
             var t = new PerfTrack();
-            double now = Feed(t, 0, 10, 5, slowEvery: 50, slowMs: 25);
+            double now = Feed(t, 0, PerfTrack.SettlingSeconds + 1, 5);
+            now = Feed(t, now, 10, 5, slowEvery: 50, slowMs: 25);
             var s = t.Summarize(10, now);
             Assert.InRange(s.MedianMs, 4.9, 5.1);
             Assert.InRange(s.P99Ms, 24.9, 25.1);
@@ -170,7 +175,7 @@ namespace OniMoono.Tests
         public void ARunOfSlowFramesIsALowRateNotStutters()
         {
             var t = new PerfTrack();
-            double now = Feed(t, 0, 5, 6);
+            double now = Feed(t, 0, PerfTrack.SettlingSeconds + 1, 6);
             // Ten 25 ms frames in a row: one stutter (the first), not ten.
             for (int i = 0; i < 10; i++) t.Add(new PerfFrame { Now = now += 0.025, Ms = 25, InColony = true, Scale = 3, GameDt = 0.075 });
             now = Feed(t, now, 2, 6);
@@ -193,7 +198,7 @@ namespace OniMoono.Tests
             // 17 s between scenes, the arriving frame and the three frames before the first under 50 ms.
             Assert.InRange(t.LoadMs, 20_800, 21_100);
             Assert.Empty(t.Freezes);
-            Assert.Equal(14, t.CauseTimes[(int)PerfCause.Load]);
+            Assert.Equal(1, t.CauseTimes[(int)PerfCause.Load]);
             Assert.Equal(0, t.CauseTimes[(int)PerfCause.Unknown] + t.CauseTimes[(int)PerfCause.Jit]);
             // Then the first frame with game time (the Loading panel's), then play.
             t.Add(new PerfFrame { Now = now += 0.064, Ms = 64, InColony = true, Scale = 3, GameDt = 0.2 });
@@ -214,7 +219,7 @@ namespace OniMoono.Tests
         public void CompilingAndSwitchingAsteroidAreNamedAndPausedFreezesListedButNotPlay()
         {
             var t = new PerfTrack();
-            double now = Feed(t, 0, 5, 6);
+            double now = Feed(t, 0, PerfTrack.SettlingSeconds + 2, 6);
             t.Add(new PerfFrame { Now = now += 0.3, Ms = 300, JitMs = 220, InColony = true, Paused = true });
             t.Add(new PerfFrame { Now = now += 0.13, Ms = 130, InColony = true, Paused = true, WorldSwitch = true });
             now = Feed(t, now, 2, 6);
@@ -286,8 +291,10 @@ namespace OniMoono.Tests
             for (int k = 0; k < 59; k++) pattern.Add(k % 2 == 0 ? refresh - 0.05 : refresh + 0.05);
             pattern.Add(2 * refresh);
             var t = new PerfTrack { RefreshMs = refresh };
-            FeedPattern(t, 0, 30, pattern.ToArray());
-            var minute = t.LastMinute();
+            // Past the settling after the load first.
+            double now = FeedPattern(t, 0, PerfTrack.SettlingSeconds + 2, new[] { refresh });
+            FeedPattern(t, now, 30, pattern.ToArray());
+            var minute = t.LastMinute(28);
             Assert.InRange(minute.PerMinute(minute.Stutters), 55, 65);
             // Without vsync's period the line is twice the median, as before.
             t.RefreshMs = 0;
@@ -310,6 +317,71 @@ namespace OniMoono.Tests
             Assert.InRange(after.PlaySeconds, 8.9, 10.1);
             // The session's totals are kept.
             Assert.True(t.CauseTimes[(int)PerfCause.SimWait] > 30);
+        }
+
+        [Fact]
+        public void TheWarmUpAfterALoadKeepsTheLightGreenAndTheRatesUnshown()
+        {
+            var t = new PerfTrack();
+            // Straight after the load: 126 stutters a minute from the simulation's wait.
+            double now = Feed(t, 0, 15, 5.6, slowEvery: 80, slowMs: 21);
+            Assert.Equal(0, t.Light);
+            Assert.False(t.LastMinute().Measured);
+            Assert.True(t.LastMinute().Stutters > 0);
+            // Once 20 s of play are measured: yellow, and the rate is shown.
+            Feed(t, now, 12, 5.6, slowEvery: 80, slowMs: 21);
+            Assert.Equal(1, t.Light);
+            Assert.True(t.LastMinute().Measured);
+            // Another load: the minute starts again (the colony left is not in it).
+            now = Feed(t, t.Now + 1, 2, 6, paused: true, colony: false);
+            now = Feed(t, now, 3, 5.6);
+            Assert.InRange(t.LastMinute().PlaySeconds, 0, 3.1);
+            Assert.False(t.LastMinute().Measured);
+            Assert.Equal(0, t.Light);
+            // A plain failure to keep up shows even during the warm-up.
+            var behind = new PerfTrack();
+            Feed(behind, 0, 8, 100, scale: 3, rate: 1.5);
+            Assert.Equal(2, behind.Light);
+        }
+
+        [Fact]
+        public void UnexplainedSlowFramesJustAfterALoadAreItsSettling()
+        {
+            var t = new PerfTrack();
+            // 30 ms frames of no reported cause in the first seconds of play.
+            var pattern = Enumerable.Repeat(6.0, 99).Append(30.0).ToArray();
+            double now = FeedPattern(t, 0, PerfTrack.SettlingSeconds - 1, pattern);
+            Assert.True(t.CauseTimes[(int)PerfCause.Settling] > 0);
+            Assert.Equal(0, t.CauseTimes[(int)PerfCause.Unknown]);
+            Assert.Equal(0, t.LastMinute().Stutters);
+            Assert.Equal(0, t.PlayStutterMs);
+            // Later, the same frames are stutters of no known cause.
+            FeedPattern(t, now, 12, pattern);
+            Assert.True(t.CauseTimes[(int)PerfCause.Unknown] > 0);
+            Assert.True(t.LastMinute().Unknown > 0);
+            // A reported cause (compiling code) is named in the settling too.
+            var jit = new PerfTrack();
+            now = Feed(jit, 0, 2, 6);
+            jit.Add(new PerfFrame { Now = now += 0.15, Ms = 150, JitMs = 120, InColony = true, Scale = 3, GameDt = 0.2 });
+            Assert.Equal(PerfCause.Jit, jit.Freezes.Last().Cause);
+        }
+
+        [Fact]
+        public void EachSecondKeepsItsOwnEndAcrossAGap()
+        {
+            var t = new PerfTrack();
+            double now = Feed(t, 0, 5, 6);
+            // Two hours with no frame (the PC asleep), then play again.
+            now += 7200;
+            now = Feed(t, now, 5, 6);
+            var seconds = t.Seconds;
+            for (int i = 1; i < seconds.Count; i++) Assert.True(seconds[i].End > seconds[i - 1].End);
+            Assert.InRange(now - seconds[seconds.Count - 1].End, 0, 1.01);
+            // The graph's columns for the last minute hold only the recent frames.
+            var cols = new float[60];
+            var kinds = new byte[60];
+            t.Columns(60, now, cols, kinds);
+            Assert.True(cols.Take(50).All(c => c == 0));
         }
     }
 }

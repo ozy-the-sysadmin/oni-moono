@@ -7,7 +7,7 @@ using System.Linq;
 namespace OniMoono.Host.Perf
 {
     /// What the performance recorder records (PerfRecorder): `key=value` pairs separated by `;`,
-    /// from `--perf-record SPEC`, ONI_PERF_RECORD=SPEC or the HUD's frame time panel.
+    /// from `--perf-record SPEC`, ONI_PERF_RECORD=SPEC or the performance window's Record button.
     ///
     ///     delay=40    real seconds of unpaused play after a colony loads before the first recording
     ///                 (paused time does not count; every load starts the wait again)
@@ -34,6 +34,16 @@ namespace OniMoono.Host.Perf
 
         /// The speed for recording `index` (0-based); 0 for unchanged.
         public int SpeedFor(int index) => Speeds == null || Speeds.Length == 0 ? 0 : Speeds[Math.Min(index, Speeds.Length - 1)];
+
+        /// The spec without its `speeds=` part (ONI_PERF_RECORD: the environment alone never
+        /// changes the game's speed); `dropped` when it had one.
+        public static string WithoutSpeeds(string text, out bool dropped)
+        {
+            var parts = text.Split(';');
+            var kept = parts.Where(p => !p.Trim().StartsWith("speeds=", StringComparison.OrdinalIgnoreCase)).ToArray();
+            dropped = kept.Length != parts.Length;
+            return string.Join(";", kept);
+        }
 
         /// The spec in `text`; what it could not read is in `problems` (those keys keep their
         /// defaults).

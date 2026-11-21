@@ -19,6 +19,8 @@ using System.Text.Json;
 //     (by the run's label: one label a launch), also the CV within groups (the mean of each
 //     group's CV) and between them (the CV of the groups' means).
 //
+// A measure missing from a recording is left out of that side's mean (not counted as zero);
+// the tables say "(n of N)" where it is missing from some (DiffMath).
 // Prints Markdown; -out also writes PREFIX.md and PREFIX.csv. Measures: frame.* (ms_pf, fps,
 // percentiles, lows, longest), recording.speed_reached, gc.*, each row's ms_pf, ms_pgs,
 // calls_pgs, objects_pgs, each counter's per_gs and per_frame.
@@ -99,31 +101,39 @@ void Pair(List<Recording> left, List<Recording> right)
 {
     md.Append($"# perfdiff: A ({left.Count} files) against B ({right.Count} files)\n\n");
     md.Append($"A: {Describe(left)}\n\nB: {Describe(right)}\n\n");
-    csv.Append("measure,a_mean,a_se,b_mean,b_se,diff,diff_pct\n");
+    csv.Append("measure,a_mean,a_se,a_n,b_mean,b_se,b_n,diff,diff_pct\n");
     var keys = left.SelectMany(r => r.Values.Keys).Concat(right.SelectMany(r => r.Values.Keys)).Distinct().ToList();
-    var rows = new List<(string Key, double A, double SeA, double B, double SeB)>();
+    var rows = new List<(string Key, double A, double SeA, int NA, double B, double SeB, int NB)>();
+    int missing = 0;
     foreach (var key in keys)
     {
-        var (ma, sa) = MeanSe(left.Select(r => r.Values.GetValueOrDefault(key)));
-        var (mb, sb) = MeanSe(right.Select(r => r.Values.GetValueOrDefault(key)));
-        rows.Add((key, ma, sa, mb, sb));
-        csv.Append(string.Join(",", Quote(key), F(ma), F(sa), F(mb), F(sb), F(mb - ma), F(Pct(ma, mb)))).Append('\n');
+        // Each side over the recordings that have the measure: a missing row is not a zero.
+        var (ma, sa, na) = DiffMath.MeanSe(left.Select(r => DiffMath.Get(r.Values, key)));
+        var (mb, sb, nb) = DiffMath.MeanSe(right.Select(r => DiffMath.Get(r.Values, key)));
+        if (na < left.Count || nb < right.Count) missing++;
+        rows.Add((key, ma, sa, na, mb, sb, nb));
+        csv.Append(string.Join(",", Quote(key), F(ma), F(sa), na.ToString(c), F(mb), F(sb), nb.ToString(c), F(mb - ma), F(Pct(ma, mb)))).Append('\n');
     }
-    void Table(string title, IEnumerable<(string Key, double A, double SeA, double B, double SeB)> part, string format)
+    if (missing > 0)
+        md.Append($"{missing} measures are missing from some recordings; each side is averaged over the recordings that have it, their number in brackets.\n\n");
+    string Side(double mean, double se, int n, int of, string format) =>
+        n == 0 ? "–" : $"{mean.ToString(format, c)} ±{se.ToString(format, c)}" + (n < of ? $" ({n} of {of})" : "");
+    void Table(string title, IEnumerable<(string Key, double A, double SeA, int NA, double B, double SeB, int NB)> part, string format)
     {
         md.Append($"## {title}\n\n| measure | A | B | B − A | % |\n|---|---|---|---|---|\n");
         foreach (var r in part)
-            md.Append($"| {Cell(r.Key)} | {r.A.ToString(format, c)} ±{r.SeA.ToString(format, c)} | {r.B.ToString(format, c)} ±{r.SeB.ToString(format, c)} | {(r.B - r.A).ToString(format, c)} | {PctText(r.A, r.B)} |\n");
+            md.Append($"| {Cell(r.Key)} | {Side(r.A, r.SeA, r.NA, left.Count, format)} | {Side(r.B, r.SeB, r.NB, right.Count, format)} | {(r.NA == 0 || r.NB == 0 ? "–" : (r.B - r.A).ToString(format, c))} | {(r.NA == 0 || r.NB == 0 ? "–" : PctText(r.A, r.B))} |\n");
         md.Append('\n');
     }
+    static double Size(double d) => double.IsNaN(d) ? -1 : Math.Abs(d);
     Table("Frame", rows.Where(r => !r.Key.Contains(' ')), "F3");
     Table("Rows, ms per frame (largest difference first)", rows.Where(r => r.Key.EndsWith(" ms_pf", StringComparison.Ordinal))
-        .OrderByDescending(r => Math.Abs(r.B - r.A)), "F4");
+        .OrderByDescending(r => Size(r.B - r.A)), "F4");
     Table("Rows, ms per game second (sim rows)", rows.Where(r => r.Key.EndsWith(" ms_pgs", StringComparison.Ordinal))
-        .OrderByDescending(r => Math.Abs(r.B - r.A)).Take(40), "F3");
+        .OrderByDescending(r => Size(r.B - r.A)).Take(40), "F3");
     Table("Counts (largest difference in % first)", rows.Where(r => r.Key.EndsWith("_pgs", StringComparison.Ordinal) && !r.Key.EndsWith(" ms_pgs", StringComparison.Ordinal)
         || r.Key.EndsWith(" per_gs", StringComparison.Ordinal) || r.Key.EndsWith(" per_frame", StringComparison.Ordinal))
-        .Where(r => r.A != 0 || r.B != 0).OrderByDescending(r => r.A == 0 ? double.PositiveInfinity : Math.Abs(Pct(r.A, r.B))), "F2");
+        .Where(r => r.A != 0 || r.B != 0).OrderByDescending(r => r.A == 0 || double.IsNaN(r.A) ? double.PositiveInfinity : Size(Pct(r.A, r.B))), "F2");
 }
 
 void Set(List<Recording> all)
@@ -136,42 +146,27 @@ void Set(List<Recording> all)
     var keys = all.SelectMany(r => r.Values.Keys).Distinct().OrderBy(k => k.Contains(' ') ? 1 : 0).ThenBy(k => k, StringComparer.Ordinal);
     foreach (var key in keys)
     {
-        var values = all.Select(r => r.Values.GetValueOrDefault(key)).ToList();
-        double mean = values.Average(), cv = Cv(values);
-        if (mean == 0) continue;
+        var values = all.Select(r => DiffMath.Get(r.Values, key)).ToList();
+        var (mean, _, n) = DiffMath.MeanSe(values);
+        double cv = DiffMath.Cv(values);
+        if (n == 0 || mean == 0) continue;
+        string Key() => n < all.Count ? $"{key} ({n} of {all.Count})" : key;
         if (!grouped)
         {
-            md.Append($"| {Cell(key)} | {mean.ToString("G5", c)} | {cv.ToString("F2", c)} |\n");
+            md.Append($"| {Cell(Key())} | {mean.ToString("G5", c)} | {cv.ToString("F2", c)} |\n");
             csv.Append(string.Join(",", Quote(key), F(mean), F(cv))).Append('\n');
             continue;
         }
-        double within = groups.Select(g => Cv(g.Select(r => r.Values.GetValueOrDefault(key)).ToList())).Average();
-        double between = Cv(groups.Select(g => g.Average(r => r.Values.GetValueOrDefault(key))).ToList());
-        md.Append($"| {Cell(key)} | {mean.ToString("G5", c)} | {cv.ToString("F2", c)} | {within.ToString("F2", c)} | {between.ToString("F2", c)} |\n");
+        double within = groups.Select(g => DiffMath.Cv(g.Select(r => DiffMath.Get(r.Values, key)))).Average();
+        double between = DiffMath.Cv(groups.Select(g => DiffMath.MeanSe(g.Select(r => DiffMath.Get(r.Values, key)))).Where(m => m.N > 0).Select(m => (double?)m.Mean));
+        md.Append($"| {Cell(Key())} | {mean.ToString("G5", c)} | {cv.ToString("F2", c)} | {within.ToString("F2", c)} | {between.ToString("F2", c)} |\n");
         csv.Append(string.Join(",", Quote(key), F(mean), F(cv), F(within), F(between))).Append('\n');
     }
 }
 
-string Describe(List<Recording> rs) => string.Join("; ", rs.Select(r => $"{Path.GetFileName(r.Path)} ({r.Label}, {r.Frames} frames, {r.Values.GetValueOrDefault("frame.fps").ToString("F1", c)} fps)"));
+string Describe(List<Recording> rs) => string.Join("; ", rs.Select(r => $"{Path.GetFileName(r.Path)} ({r.Label}, {r.Frames} frames, {(r.Values.TryGetValue("frame.fps", out var fps) ? fps.ToString("F1", c) : "–")} fps)"));
 
-static (double Mean, double Se) MeanSe(IEnumerable<double> values)
-{
-    var v = values.ToList();
-    double mean = v.Average();
-    if (v.Count < 2) return (mean, 0);
-    double sd = Math.Sqrt(v.Sum(x => (x - mean) * (x - mean)) / (v.Count - 1));
-    return (mean, sd / Math.Sqrt(v.Count));
-}
-
-static double Cv(List<double> v)
-{
-    if (v.Count < 2) return 0;
-    double mean = v.Average();
-    if (mean == 0) return 0;
-    return 100 * Math.Sqrt(v.Sum(x => (x - mean) * (x - mean)) / (v.Count - 1)) / Math.Abs(mean);
-}
-
-static double Pct(double a, double b) => a != 0 ? 100 * (b - a) / Math.Abs(a) : 0;
+static double Pct(double a, double b) => a != 0 && !double.IsNaN(a) && !double.IsNaN(b) ? 100 * (b - a) / Math.Abs(a) : 0;
 static string PctText(double a, double b) => a == 0 ? (b == 0 ? "0.0" : "new") : Pct(a, b).ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture);
 // Bucket labels hold "|", which would end a Markdown table cell.
 static string Cell(string s) => s.Replace("|", "\\|");

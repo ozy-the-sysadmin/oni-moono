@@ -6,13 +6,17 @@ using HarmonyLib;
 namespace OniMoono.GameTweaks
 {
     /// The performance window's look inside "Game update" (its Frame tab, while that row is
-    /// open): the bucket profile's timed loop (BucketProfile), patched in when the row opens
-    /// and taken out when it closes, so it costs nothing otherwise. It times each state machine
-    /// bucket's Update in StateMachineUpdater.BucketGroup.AdvanceOneSubTick, the same calls in
-    /// the same order, and keeps per kind the time, the calls, the entries and the longest call.
-    /// No tweak patches that method, and the patch is ours (OniMoono.*), so none steps aside.
-    /// With `--frame-stats` and ONI_BUCKET_PROFILE=1 the frame stats' own profile runs the loop
-    /// instead (it comes first) and this one only reads nothing.
+    /// open): the game's state machine updates timed by their rate. A prefix and a postfix on
+    /// StateMachineUpdater.BucketGroup.AdvanceOneSubTick, patched in when the row opens and taken
+    /// out when it closes, read the clock around the game's own method, which always runs as it
+    /// is (and with any mod's patches on it): nothing of the game or of a mod is replaced. The
+    /// prefix also counts the objects the sub-tick will update (the buckets' counts, read only).
+    /// Per rate group (sim every tick, 33 ms, 200 ms, 1 s, 4 s; render every frame, 200 ms, 1 s)
+    /// it keeps the time, the sub-ticks run, the objects and the longest sub-tick. Coarser than
+    /// timing each bucket, which would need the game's loop replaced.
+    ///
+    /// The groups are kept by their rate (an enum), so nothing of a colony is referenced after
+    /// it is left; Clear also runs at every scene change (PerfOverlay).
     public static class PerfBuckets
     {
         /// The host's Harmony for it (OniMoono.Host.Perf.PerfHud; an OniMoono.* ID, so ours).
@@ -22,16 +26,18 @@ namespace OniMoono.GameTweaks
 
         public sealed class Kind
         {
-            public string Label;
+            public UpdateRate Rate;
             public long Ticks, Calls, Entries, MaxTicks;
         }
 
-        static readonly Dictionary<StateMachineUpdater.BaseUpdateBucket, Kind> byBucket = new Dictionary<StateMachineUpdater.BaseUpdateBucket, Kind>();
-        static readonly Dictionary<string, Kind> byLabel = new Dictionary<string, Kind>();
+        static readonly Dictionary<UpdateRate, Kind> byRate = new Dictionary<UpdateRate, Kind>();
 
         public static bool On => on;
 
-        /// Patches the loop in (true) or takes it out (false). Why not, or null.
+        /// Frames seen while on (PerfOverlay.Frame counts them): the per-frame numbers' divisor.
+        public static long Frames;
+
+        /// Patches the timing in (true) or takes it out (false). Why not, or null.
         public static string Switch(bool on)
         {
             try
@@ -39,15 +45,18 @@ namespace OniMoono.GameTweaks
                 if (on == PerfBuckets.on) return null;
                 if (Harmony == null) return "no Harmony from the host";
                 var method = AccessTools.Method(typeof(StateMachineUpdater.BucketGroup), nameof(StateMachineUpdater.BucketGroup.AdvanceOneSubTick));
+                if (method == null) return "StateMachineUpdater.BucketGroup.AdvanceOneSubTick is not in this game version";
                 if (on)
                 {
                     mainThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
                     Clear();
-                    Harmony.Patch(method, prefix: new HarmonyMethod(typeof(PerfBuckets), nameof(Advance)) { priority = Priority.First - 2 });
+                    Harmony.Patch(method, prefix: new HarmonyMethod(typeof(PerfBuckets), nameof(Before)) { priority = Priority.Last },
+                        postfix: new HarmonyMethod(typeof(PerfBuckets), nameof(After)) { priority = Priority.First });
                 }
                 else
                 {
                     Harmony.Unpatch(method, HarmonyPatchType.Prefix, Harmony.Id);
+                    Harmony.Unpatch(method, HarmonyPatchType.Postfix, Harmony.Id);
                 }
                 PerfBuckets.on = on;
                 return null;
@@ -58,53 +67,50 @@ namespace OniMoono.GameTweaks
             }
         }
 
-        /// "SIM_200ms" as the window says it: "sim 200 ms".
-        static string Rate(string rate) => rate.Replace("SIM_", "sim ").Replace("RENDER_", "render ").Replace("EVERY_TICK", "every tick").Replace("ms", " ms");
-
         public static void Clear()
         {
-            foreach (var k in byLabel.Values) k.Ticks = k.Calls = k.Entries = k.MaxTicks = 0;
+            byRate.Clear();
+            Frames = 0;
         }
 
-        /// Every kind with its counts since the last Clear.
-        public static IEnumerable<Kind> Kinds => byLabel.Values;
+        /// Every rate group with its counts since the last Clear.
+        public static IEnumerable<Kind> Kinds => byRate.Values;
 
         public static double TicksToMs(long ticks) => ticks * 1000.0 / Stopwatch.Frequency;
 
-        /// The prefix: on the main thread, unless an earlier prefix (frame stats' profile) already
-        /// ran the loop, the timed loop replaces the game's (BucketProfile.Timed's, with the
-        /// longest call kept).
-        static bool Advance(StateMachineUpdater.BucketGroup __instance, float dt, bool __runOriginal)
+        /// The prefix (last of the prefixes, nearest the game's code): the clock and the objects
+        /// the sub-tick will update. Its state carries both to the postfix.
+        static void Before(StateMachineUpdater.BucketGroup __instance, out long __state)
         {
-            if (!__runOriginal || System.Threading.Thread.CurrentThread.ManagedThreadId != mainThread) return __runOriginal;
-            var group = __instance;
-            var list = group.bucketFrames[group.nextUpdateIndex];
-            int count = list.Count;
-            string rate = null;
-            for (int i = 0; i < count; i++)
+            __state = 0;
+            if (System.Threading.Thread.CurrentThread.ManagedThreadId != mainThread) return;
+            long entries = 0;
+            try
             {
-                var bucket = list[i];
-                int entries = bucket.count;
-                if (entries == 0) continue;
-                long start = Stopwatch.GetTimestamp();
-                bucket.Update(dt);
-                long ticks = Stopwatch.GetTimestamp() - start;
-                if (!byBucket.TryGetValue(bucket, out var kind))
-                {
-                    rate = rate ?? group.updateRate.ToString();
-                    // Most buckets name their rate already ("RequireInputs SIM_200ms").
-                    string name = bucket.name ?? "?";
-                    string label = name.Contains("SIM_") || name.Contains("RENDER_") ? Rate(name) : name + " · " + Rate(rate);
-                    if (!byLabel.TryGetValue(label, out kind)) byLabel[label] = kind = new Kind { Label = label };
-                    byBucket[bucket] = kind;
-                }
-                kind.Ticks += ticks;
-                kind.Calls++;
-                kind.Entries += entries;
-                if (ticks > kind.MaxTicks) kind.MaxTicks = ticks;
+                var list = __instance.bucketFrames[__instance.nextUpdateIndex];
+                for (int i = 0; i < list.Count; i++) entries += list[i].count;
             }
-            group.nextUpdateIndex = (group.nextUpdateIndex + 1) % group.bucketFrames.Count;
-            return false;
+            catch (Exception)
+            {
+                // A changed game: the objects are not counted, the time still is.
+            }
+            pendingEntries = entries;
+            __state = Stopwatch.GetTimestamp();
+        }
+
+        static long pendingEntries;
+
+        /// The postfix (first of the postfixes): the sub-tick's time, added to its rate group.
+        static void After(StateMachineUpdater.BucketGroup __instance, long __state)
+        {
+            if (__state == 0) return;
+            long ticks = Stopwatch.GetTimestamp() - __state;
+            var rate = __instance.updateRate;
+            if (!byRate.TryGetValue(rate, out var kind)) byRate[rate] = kind = new Kind { Rate = rate };
+            kind.Ticks += ticks;
+            kind.Calls++;
+            kind.Entries += pendingEntries;
+            if (ticks > kind.MaxTicks) kind.MaxTicks = ticks;
         }
     }
 }

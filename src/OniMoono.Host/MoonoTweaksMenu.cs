@@ -120,10 +120,18 @@ namespace OniMoono.Host
 
             // Rows that apply while the game runs (the screen saves them at once and asks no
             // restart for them): vertical sync, through the swap interval the devices read at
-            // every present (OniMoono.Engine.VSync). True when applied.
+            // every present (OniMoono.Engine.VSync), and the frame rate counter. True when applied.
             bool vsyncLocked = effective.VSyncSource == OptionSource.CommandLine;
+            bool counterLocked = effective.FpsCounterSource == OptionSource.CommandLine;
             Func<string, int, bool> applyLive = (id, value) =>
             {
+                // The frame rate counter: shown or hidden now (Perf.PerfHud.SetOn).
+                if (id == GameTweakNames.FpsCounterRow)
+                {
+                    if (counterLocked) return false;
+                    Perf.PerfHud.SetOn(value != 0);
+                    return true;
+                }
                 if (id != GameTweakNames.VSyncRow || vsyncLocked) return false;
                 var choice = rows.First(r => r.Id == GameTweakNames.VSyncRow).Choices![value];
                 OniMoono.Engine.VSync.Override = choice == EffectiveOptions.VSyncOff ? 0 : -1;

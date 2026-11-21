@@ -67,6 +67,38 @@ namespace OniMoono.GameTweaks
         /// The frame rate counter, when it runs, puts its badge back at the top centre
         /// (PerfOverlay.ResetPosition; the Reset position button).
         internal static System.Action CounterReset;
+
+        /// A row's value as this run has it (-1: no such row), and whether a launch option sets it.
+        internal static int Value(string id, out bool locked)
+        {
+            locked = false;
+            int i = Ids != null ? Array.IndexOf(Ids, id) : -1;
+            if (i < 0 || Running == null) return -1;
+            locked = Locked != null && Locked[i];
+            return Running[i];
+        }
+
+        /// Sets a row that applies while the game runs (ApplyLive) from elsewhere (the performance
+        /// window's vertical sync switch), as the screen does: applied now and saved with the
+        /// other rows as saved. Null when done, else why not.
+        internal static string SetLive(string id, int value)
+        {
+            int i = Ids != null ? Array.IndexOf(Ids, id) : -1;
+            if (i < 0 || ApplyLive == null || Save == null) return "no such row";
+            if (Locked[i]) return "set by a launch option";
+            if (!ApplyLive(id, value)) return "needs a restart";
+            Running[i] = value;
+            Saved[i] = value;
+            var ids = new List<string>();
+            var values = new List<int>();
+            for (int k = 0; k < Ids.Length; k++)
+            {
+                if (Locked[k]) continue;
+                ids.Add(Ids[k]);
+                values.Add(Saved[k]);
+            }
+            return Save(ids.ToArray(), values.ToArray());
+        }
         /// The header's version label ("Moono 2026.11.19.01", or a build's short commit; null for
         /// none), from the host (OniMoono.Host.UpdateCheck.VersionLabel).
         internal static string Version;
@@ -773,9 +805,18 @@ namespace OniMoono.GameTweaks
                 {
                     shown[i] = 1 - shown[i];
                     toggle.ChangeState(shown[i]);
+                    // A row that applies while the game runs (the frame rate counter) does so now.
+                    Live(i);
                     Refresh();
                 };
-                if (tip != null) tip.OnToolTip = () => shown[i] != 0 ? UI.FRONTEND.MODS.TOOLTIPS.ENABLED : UI.FRONTEND.MODS.TOOLTIPS.DISABLED;
+                if (tip != null)
+                {
+                    // One line: sized to the word, "Disabled" wrapped as "Disable / d" (the tooltip
+                    // measures the text before its style makes it wider); a fixed width has room.
+                    tip.SizingSetting = ToolTip.ToolTipSizeSetting.MaxWidthWrapContent;
+                    tip.WrapWidth = 170f;
+                    tip.OnToolTip = () => shown[i] != 0 ? UI.FRONTEND.MODS.TOOLTIPS.ENABLED : UI.FRONTEND.MODS.TOOLTIPS.DISABLED;
+                }
             }
             // The frame rate counter's row (GameTweakNames.FpsCounterRow) also puts the badge back.
             if (MoonoTweaksMenu.Ids[i] == "fps-counter") ResetPositionButton(entry);
@@ -797,18 +838,23 @@ namespace OniMoono.GameTweaks
             var tip = button.GetComponent<ToolTip>();
             if (tip == null) tip = button.gameObject.AddComponent<ToolTip>();
             tip.toolTip = MoonoTweaksMenu.Ui("RESET_POSITION_TIP");
-            string file = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(MoonoTweaksMenu.SettingsPath) ?? "", "perf-counter-position.txt");
+            string dir = System.IO.Path.GetDirectoryName(MoonoTweaksMenu.SettingsPath) ?? "";
             button.onClick += () =>
             {
-                try
-                {
-                    if (System.IO.File.Exists(file)) System.IO.File.Delete(file);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
-                }
-                MoonoTweaksMenu.CounterReset?.Invoke();
+                // The running counter forgets its places and moves now (it deletes the files);
+                // otherwise the files alone (the badge's and the window's).
+                if (MoonoTweaksMenu.CounterReset != null) MoonoTweaksMenu.CounterReset();
+                else
+                    foreach (var name in new[] { "perf-counter-position.txt", "perf-window-position.txt" })
+                        try
+                        {
+                            var file = System.IO.Path.Combine(dir, name);
+                            if (System.IO.File.Exists(file)) System.IO.File.Delete(file);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
+                        }
                 label.text = MoonoTweaksMenu.Ui("POSITION_RESET");
             };
         }

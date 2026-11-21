@@ -117,21 +117,27 @@ namespace OniMoono.Host.GameTweaks
             file.Position = 0;
             file.ReadExactly(header);
             file.Position = header.Length;
+            int seq = ++Started;
             // Each write follows the previous one whatever its outcome, and never faults the chain
             // (a fault would make every later save and load throw).
             lock (gate) pending = pending.ContinueWith(_ =>
             {
-                try { Write(path, header, uncompressed, length); }
+                try { Write(path, header, uncompressed, length, seq); }
                 catch (Exception e) { EngineLog.Engine($"background save of {path}: {e}"); }
             }, TaskScheduler.Default);
             return false;
         }
 
         /// How long the last background write took (compression and file, ms; 0 before one), for the
-        /// performance window's freeze details.
+        /// performance window's freeze details, and its save's number (LastWriteSeq; Started: the
+        /// saves handed to the writer so far, main thread). The window shows a save's write time
+        /// only when LastWriteSeq equals Started: the newest save's own write has finished (a
+        /// failed write sets neither).
         public static double LastWriteMs;
+        public static volatile int LastWriteSeq;
+        public static int Started;
 
-        static void Write(string path, byte[] header, byte[] body, int length)
+        static void Write(string path, byte[] header, byte[] body, int length, int seq)
         {
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             string temporary = path + ".writing";
@@ -162,6 +168,7 @@ namespace OniMoono.Host.GameTweaks
             // took the save's place: another process holding the save (an antivirus scan, a cloud
             // client, the game closing its handle on the header) is waited out, then copied over.
             LastWriteMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            LastWriteSeq = seq;
             if (Replace(temporary, path)) EngineLog.Engine($"background save written: {path}");
             else UnityEngine.Debug.LogError($"Background save of {path} could not replace the save file, which another program keeps open; the complete save is in {temporary}");
         }

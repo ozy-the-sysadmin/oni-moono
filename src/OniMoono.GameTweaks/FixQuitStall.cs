@@ -67,7 +67,25 @@ namespace OniMoono.GameTweaks
             AccessTools.Method(typeof(SaveManager), nameof(SaveManager.Unregister), new[] { typeof(SaveLoadRoot) }),
         ];
 
+        /// First in App.OnPreLoadScene: an exception here would abort the game's own handlers
+        /// after it (Game.StopBE, Components.Clear) on every frame, the very stall this fixes, so
+        /// nothing escapes it. Entries are removed from the lists directly, so
+        /// SaveManager.onUnregister is not raised for them (in the game only OverlayModes listens,
+        /// and it is torn down with the colony).
         static void OnPreLoadScene()
+        {
+            try
+            {
+                DropStale();
+            }
+            catch (Exception e)
+            {
+                off = true;
+                global::Debug.LogWarning($"[Moono] {Name}: off after an error: {e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        static void DropStale()
         {
             if (off || Bypass) return;
             if (ForeignPatches.Find(guarded) is { } why)

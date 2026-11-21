@@ -215,8 +215,8 @@ msgid "No change we have measured would remove these stutters: the game reports 
 msgstr "我们测量过的更改都无法消除这些卡顿：每分钟 {1} 次中有 {0} 次游戏没有报告原因。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
-msgid "Nothing to advise yet: let the game run unpaused for half a minute."
-msgstr "暂无建议：让游戏不暂停地运行半分钟。"
+msgid "Nothing to advise yet: measuring, {0} of {1} s of unpaused play so far."
+msgstr "暂无建议：正在测量，已测 {0} / {1} 秒未暂停的游戏时间。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE"
 msgid "Turn on \"Simulation at its own pace\" in Moono Tweaks"
@@ -435,16 +435,8 @@ msgid "Memory clean-up"
 msgstr "内存清理"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BUCKETS_NOTE"
-msgid "Measuring what is inside Game update costs some frame rate while the row is open."
-msgstr "展开此行时，测量游戏更新内部的内容会消耗一些帧率。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_INSIDE"
-msgid "Inside \"{0}\""
-msgstr "“{0}”内部"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_CALLS"
-msgid "calls"
-msgstr "调用"
+msgid "While this row is open, the game's state machine updates are timed by their rate: the game's own code runs as it is, and reading the clock around it costs a little."
+msgstr "此行展开时，游戏的状态机更新按更新频率计时：游戏自身的代码照常运行，在其前后读取时钟只有少许开销。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_OBJECTS"
 msgid "objects"
@@ -454,13 +446,9 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_WORST"
 msgid "worst"
 msgstr "最慢"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_SMALLER"
-msgid "{0} smaller entries"
-msgstr "{0} 个较小的条目"
-
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_IN_BUCKETS"
-msgid "The rest (simulation step, other scripts)"
-msgstr "其余（模拟步骤、其他脚本）"
+msgid "The rest: sim step, scripts"
+msgstr "其余：模拟步骤、脚本"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_HEADING"
 msgid "Frame time spread"
@@ -767,12 +755,12 @@ msgid "RESET POSITION"
 msgstr "重置位置"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.POSITION_RESET"
-msgid "POSITION RESET"
-msgstr "位置已重置"
+msgid "DONE"
+msgstr "完成"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION_TIP"
-msgid "Puts the frame rate counter back at the top centre of the screen."
-msgstr "把帧率计数器放回屏幕顶部中央。"
+msgid "Puts the frame rate counter back at the top centre of the screen, and its window back in its first place."
+msgstr "把帧率计数器放回屏幕顶部中央，并把它的窗口放回最初的位置。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.GROUPS.GENERAL"
 msgid "General"
@@ -815,8 +803,8 @@ msgid "Frame rate counter"
 msgstr "帧率计数器"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
-msgid "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window."
-msgstr "显示帧率和状态灯。可拖到任意位置；点击打开性能窗口。"
+msgid "Frame rate with a status light. Drag it anywhere; click it for the performance window. No restart."
+msgstr "帧率和状态灯。可拖到任意位置；点击打开性能窗口。无需重启。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
 msgid "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
@@ -1707,12 +1695,12 @@ msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up wi
 msgstr "{0} fps，已达到你的 {1} Hz 屏幕能显示的上限，游戏也跟得上 {2} 档速度。还有余量：游戏自身的工作只占每帧约 {3}% 的时间。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_REMEASURING_TEXT"
-msgid "Measuring again since you pressed Scan again: {0} s of play so far."
-msgstr "自你点击“重新扫描”后重新测量中：目前已测 {0} 秒游戏时间。"
+msgid "Measuring again since you pressed Scan again: {0} of {1} s of play so far."
+msgstr "自你点击“重新扫描”后重新测量中：已测 {0} / {1} 秒游戏时间。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_VSYNC"
-msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, set \"Vertical sync\" to Off in Moono Tweaks (main menu); a {0} Hz screen still shows only {0} pictures a second."
-msgstr "帧率：垂直同步把它保持在屏幕的 {0} Hz，这是屏幕能显示的上限。想看游戏实际能跑多快，可在 Moono 调整项（主菜单）中把“垂直同步”设为关闭；{0} Hz 的屏幕每秒仍只能显示 {0} 张画面。"
+msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, turn vertical sync off in the Frame tab (Threads) or in Moono Tweaks; a {0} Hz screen still shows only {0} pictures a second."
+msgstr "帧率：垂直同步把它保持在屏幕的 {0} Hz，这是屏幕能显示的上限。想看游戏实际能跑多快，可在“帧”标签页（线程）或 Moono 调整项中关闭垂直同步；{0} Hz 的屏幕每秒仍只能显示 {0} 张画面。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_SCREEN"
 msgid "Your screen ({0} Hz)"
@@ -1825,3 +1813,83 @@ msgstr "游戏默认"
 msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.VSYNC.OFF"
 msgid "off"
 msgstr "关闭"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_WARMING_TEXT"
+msgid "Stutters are counted once {1} s of play are measured: {0} s so far."
+msgstr "测满 {1} 秒游戏时间后才统计卡顿：目前已测 {0} 秒。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NO_COLONY"
+msgid "Load a colony to see advice."
+msgstr "载入殖民地后可查看建议。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING_PROGRESS"
+msgid "measuring… {0} of {1} s"
+msgstr "测量中… {0} / {1} 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING_SHORT"
+msgid "measuring"
+msgstr "测量中"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_RUNS"
+msgid "a second"
+msgstr "每秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_AVAILABLE"
+msgid "Not available: {0}"
+msgstr "不可用：{0}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_TICK"
+msgid "Simulation, every frame"
+msgstr "模拟，每帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FAST"
+msgid "Simulation, every 33 ms"
+msgstr "模拟，每 33 毫秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FIFTH"
+msgid "Simulation, every 0.2 s"
+msgstr "模拟，每 0.2 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_SECOND"
+msgid "Simulation, every second"
+msgstr "模拟，每秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FOUR_SECONDS"
+msgid "Simulation, every 4 s"
+msgstr "模拟，每 4 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_TICK"
+msgid "Visuals, every frame"
+msgstr "画面，每帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_FIFTH"
+msgid "Visuals, every 0.2 s"
+msgstr "画面，每 0.2 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_SECOND"
+msgid "Visuals, every second"
+msgstr "画面，每秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_TURN_OFF"
+msgid "TURN OFF"
+msgstr "关闭"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_TURN_ON"
+msgid "TURN ON"
+msgstr "开启"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_LAUNCH_OPTION"
+msgid "LAUNCH OPTION"
+msgstr "启动选项"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_WAITING"
+msgid "WAITING FOR PLAY"
+msgstr "等待游戏运行"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SETTLING"
+msgid "Settling after load"
+msgstr "载入后的稳定阶段"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HITCHES_NO_COLONY"
+msgid "Load a colony to see its stutters and freezes. The loading times are on the right."
+msgstr "载入殖民地后可查看卡顿和冻结。载入时间在右侧。"

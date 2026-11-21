@@ -122,7 +122,8 @@ namespace OniMoono.Host.GameTweaks
                 + "The answer is kept in the oni-moono data folder. Installs from the Steam Workshop ask nothing: Steam updates them. Off: Moono makes no network requests.", IsTweak: false),
             new(FrameStatsRow, General, "Frame stats in the log", "Notes where the frame time goes in Player.log, for reporting slowness.",
                 "Every 60 frames.", IsTweak: false),
-            new(FpsCounterRow, General, "Frame rate counter", "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window.",
+            // Applies at once too (Perf.PerfHud.SetOn through the host's MoonoTweaksMenu.ApplyLive).
+            new(FpsCounterRow, General, "Frame rate counter", "Frame rate with a status light. Drag it anywhere; click it for the performance window. No restart.",
                 "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice "
                 + "whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record "
                 + "button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured.",

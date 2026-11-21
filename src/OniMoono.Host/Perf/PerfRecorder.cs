@@ -11,7 +11,9 @@ namespace OniMoono.Host.Perf
 {
     /// The performance recorder: N seconds of play into one JSON file (schema `moono-perf/1`,
     /// PerfJson), for comparing builds, tweaks and colonies (tools/PerfDiff). Armed by
-    /// `--perf-record SPEC` or ONI_PERF_RECORD=SPEC (PerfSpec), or by the HUD's frame time panel.
+    /// `--perf-record SPEC` or ONI_PERF_RECORD=SPEC (PerfSpec; from the environment its `speeds=`
+    /// is ignored: only the launch option may change the game's speed), or by the performance
+    /// window's Record button.
     ///
     /// What it records is the engine's own timing (FrameWindows: PlayerLoop's phases, the time
     /// outside the loop, the device's and the GC's waits, every frame's time) with snapshots
@@ -46,7 +48,7 @@ namespace OniMoono.Host.Perf
         static double unpausedS, warmS;
         static long lastTick;
         static FrameWindows.Window? window;
-        static Snapshot? start;
+        static PerfSnapshot? start;
         static long pausedFrames;
         static int speedSetting;
         static bool subscribed;
@@ -55,7 +57,7 @@ namespace OniMoono.Host.Perf
         /// The files' writes on the thread pool, chained (main thread only).
         static System.Threading.Tasks.Task writes = System.Threading.Tasks.Task.CompletedTask;
 
-        /// What the recorder says about itself (for the panel).
+        /// What the recorder says about itself (the log).
         public static string State => stage switch
         {
             Stage.Off => "off",
@@ -66,6 +68,15 @@ namespace OniMoono.Host.Perf
 
         public static bool Busy => stage != Stage.Off;
 
+        /// For the window's Record button: -1 off, -2 armed and waiting for unpaused play (or
+        /// warming up), else the seconds recorded so far.
+        public static double Progress => stage switch
+        {
+            Stage.Off => -1,
+            Stage.Waiting or Stage.WarmUp => -2,
+            _ => window != null ? window.WallMs / 1000 : spec.Seconds,
+        };
+
         /// Program, after the tweaks are in: binds the game's side (OniMoono.GameTweaks.PerfGame)
         /// and arms a recording when the command line or the environment asks for one.
         public static void Install(string? commandLine, IEnumerable<string> enabledTweaks, IReadOnlyCollection<string> all, bool withFrameStats)
@@ -73,9 +84,19 @@ namespace OniMoono.Host.Perf
             tweaksOn = enabledTweaks.ToHashSet(StringComparer.Ordinal);
             allTweaks = all;
             frameStats = withFrameStats;
-            string? text = commandLine ?? Environment.GetEnvironmentVariable(EnvVar);
+            string? text = commandLine;
+            bool fromEnvironment = false;
+            if (text == null)
+            {
+                text = Environment.GetEnvironmentVariable(EnvVar);
+                fromEnvironment = true;
+            }
             if (string.IsNullOrWhiteSpace(text)) return;
-            EngineLog.Engine("perf record: " + Arm(text));
+            // The environment alone may record (files only), never change the game: its speeds
+            // need the launch option.
+            bool dropped = false;
+            if (fromEnvironment) text = PerfSpec.WithoutSpeeds(text, out dropped);
+            EngineLog.Engine("perf record: " + Arm(text) + (dropped ? $"; {EnvVar}'s speeds= ignored (it changes the game's speed: give it with --perf-record)" : ""));
         }
 
         static bool Bind()
@@ -253,25 +274,9 @@ namespace OniMoono.Host.Perf
             stage = Stage.Waiting;
         }
 
-        /// What is read at a recording's bounds.
-        internal sealed class Snapshot
+        static PerfSnapshot Take()
         {
-            public long Timestamp;
-            public DateTime Utc;
-            public double GameTime;
-            public List<(string Key, string Tweak, long Value, bool Gauge)> Counters = [];
-            public string[] ColonyKeys = [];
-            public double[] ColonyValues = [];
-            public long[]? Game;
-            public string[]? BucketLabels;
-            public long[]? BucketTicks, BucketCalls, BucketEntries;
-            public FrameStatsWindow.RuntimeSample Runtime;
-            public long HeapBytes, CommittedBytes;
-        }
-
-        static Snapshot Take()
-        {
-            var s = new Snapshot { Timestamp = Stopwatch.GetTimestamp(), Utc = DateTime.UtcNow, GameTime = gameTime!(), Runtime = FrameStatsWindow.RuntimeSample.Now() };
+            var s = new PerfSnapshot { Timestamp = Stopwatch.GetTimestamp(), Utc = DateTime.UtcNow, GameTime = gameTime!(), Runtime = FrameStatsWindow.RuntimeSample.Now() };
             var assemblies = new[] { typeof(PerfRecorder).Assembly, GameTweaks.GameTweaks.TypedAssembly };
             s.Counters = TweakCounters.Read(assemblies, tweaksOn);
             try
@@ -310,7 +315,7 @@ namespace OniMoono.Host.Perf
                 {
                     Spec = spec, Index = index, Window = w, Start = start, End = end, PausedFrames = pausedFrames, SpeedSetting = speedSetting,
                     TweaksOn = tweaksOn, AllTweaks = allTweaks, Unavailable = GameTweaks.GameTweaks.Unavailable, FrameStats = frameStats,
-                    Game = game!,
+                    Game = game!, GameUpdate = GameVersionCheck.ThisUpdate,
                 };
                 byte[] json = PerfJson.Write(record);
                 // Full path: the data folder comes with '/' (Unity's style), the spec's with '\'.

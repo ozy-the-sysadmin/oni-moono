@@ -240,9 +240,14 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_SCREEN_ROOM_TEXT"
 msgid "{0} fps, as fast as your {1} Hz screen can show, and the game keeps up with speed {2}. There is room to spare: the game's own work takes about {3}% of each frame."
 msgstr ""
 
-#. Colony tab, the verdict's text in the first seconds after Scan again; {0}: seconds of unpaused play measured
+#. Colony tab, the verdict's text in the first seconds after Scan again; {0}: seconds of unpaused play measured, {1}: the seconds needed
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_REMEASURING_TEXT"
-msgid "Measuring again since you pressed Scan again: {0} s of play so far."
+msgid "Measuring again since you pressed Scan again: {0} of {1} s of play so far."
+msgstr ""
+
+#. Colony tab, the verdict's text in the first seconds of play after a load; {0}: seconds of unpaused play measured, {1}: the seconds needed
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_WARMING_TEXT"
+msgid "Stutters are counted once {1} s of play are measured: {0} s so far."
 msgstr ""
 
 #. Colony tab, the verdict's heading while paused
@@ -280,9 +285,14 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE_STUTTERS"
 msgid "No change we have measured would remove these stutters: the game reports no cause for {0} of the {1} a minute."
 msgstr ""
 
-#. Colony tab, before enough play was measured
+#. Colony tab, before enough play was measured; {0}: seconds of unpaused play measured, {1}: the seconds needed
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
-msgid "Nothing to advise yet: let the game run unpaused for half a minute."
+msgid "Nothing to advise yet: measuring, {0} of {1} s of unpaused play so far."
+msgstr ""
+
+#. Colony tab, under the advice's heading in the menus
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NO_COLONY"
+msgid "Load a colony to see advice."
 msgstr ""
 
 #. Colony tab, an advice card's title (the sim-step-pace row's title in quotes)
@@ -317,7 +327,7 @@ msgstr ""
 
 #. Colony tab, under Nothing to gain here while vertical sync holds the frame rate; {0}: the screen's refresh rate
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_VSYNC"
-msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, set \"Vertical sync\" to Off in Moono Tweaks (main menu); a {0} Hz screen still shows only {0} pictures a second."
+msgid "Frame rate: vertical sync holds it at your screen's {0} Hz, the most the screen can show. To see how fast the game could run, turn vertical sync off in the Frame tab (Threads) or in Moono Tweaks; a {0} Hz screen still shows only {0} pictures a second."
 msgstr ""
 
 #. Colony tab, under Nothing to gain here; {0}: stutters a minute from waiting for the simulation step, {1}: all stutters a minute
@@ -510,6 +520,16 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING"
 msgid "Measuring…"
 msgstr ""
 
+#. A rate a minute not shown yet (too little play measured); {0}: seconds of unpaused play measured, {1}: the seconds needed
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING_PROGRESS"
+msgid "measuring… {0} of {1} s"
+msgstr ""
+
+#. Hitches tab, in a headline box's unit place while its rate is not shown yet
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING_SHORT"
+msgid "measuring"
+msgstr ""
+
 #. Frame tab, a part of the frame (scripts' Update, the simulation's step)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_UPDATE"
 msgid "Game update"
@@ -612,37 +632,72 @@ msgstr ""
 
 #. Frame tab, a note under the rows while Game update is open
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BUCKETS_NOTE"
-msgid "Measuring what is inside Game update costs some frame rate while the row is open."
+msgid "While this row is open, the game's state machine updates are timed by their rate: the game's own code runs as it is, and reading the clock around it costs a little."
 msgstr ""
 
-#. Frame tab, the open row's table heading; {0}: the row's name
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_INSIDE"
-msgid "Inside \"{0}\""
+#. Frame tab, column of Game update's open table (runs a second)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_RUNS"
+msgid "a second"
 msgstr ""
 
-#. Frame tab, column of the open row's table
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_CALLS"
-msgid "calls"
-msgstr ""
-
-#. Frame tab, column of the open row's table
+#. Frame tab, column of Game update's open table (objects updated a run)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_OBJECTS"
 msgid "objects"
 msgstr ""
 
-#. Frame tab, column of the open row's table (the longest call, ms)
+#. Frame tab, column of the open row's table (the longest run or frame, ms)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_WORST"
 msgid "worst"
 msgstr ""
 
-#. Frame tab, the open row's last line; {0}: how many
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_SMALLER"
-msgid "{0} smaller entries"
+#. Frame tab, Game update's time outside the state machine updates
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_IN_BUCKETS"
+msgid "The rest: sim step, scripts"
 msgstr ""
 
-#. Frame tab, Game update's time outside the state machine buckets
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_IN_BUCKETS"
-msgid "The rest (simulation step, other scripts)"
+#. Frame tab, Game update's open table when its timing could not be switched on; {0}: why
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_AVAILABLE"
+msgid "Not available: {0}"
+msgstr ""
+
+#. Frame tab, inside Game update: the state machine updates run every simulation tick
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_TICK"
+msgid "Simulation, every frame"
+msgstr ""
+
+#. Frame tab, inside Game update: those run every 33 ms of game time
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FAST"
+msgid "Simulation, every 33 ms"
+msgstr ""
+
+#. Frame tab, inside Game update: those run every 200 ms of game time
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FIFTH"
+msgid "Simulation, every 0.2 s"
+msgstr ""
+
+#. Frame tab, inside Game update: those run every second of game time
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_SECOND"
+msgid "Simulation, every second"
+msgstr ""
+
+#. Frame tab, inside Game update: those run every 4 seconds of game time
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_SIM_FOUR_SECONDS"
+msgid "Simulation, every 4 s"
+msgstr ""
+
+#. Frame tab, inside Game update: the visual state machine updates run every frame
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_TICK"
+msgid "Visuals, every frame"
+msgstr ""
+
+#. Frame tab, inside Game update: the visual ones run every 200 ms
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_FIFTH"
+msgid "Visuals, every 0.2 s"
+msgstr ""
+
+#. Frame tab, inside Game update: the visual ones run every second
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RATE_RENDER_SECOND"
+msgid "Visuals, every second"
 msgstr ""
 
 #. Frame tab, panel heading (shown in capitals)
@@ -708,6 +763,21 @@ msgstr ""
 #. Frame tab, vertical sync on; {0}: the screen's refresh rate
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_ON_HZ"
 msgid "On, {0} Hz"
+msgstr ""
+
+#. Frame tab, the vertical sync line's button (the Moono Tweaks row's Off, applied now)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_TURN_OFF"
+msgid "TURN OFF"
+msgstr ""
+
+#. Frame tab, the vertical sync line's button (back to the game's default)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_TURN_ON"
+msgid "TURN ON"
+msgstr ""
+
+#. Frame tab, the vertical sync line's button when --vsync-count sets it (not clickable)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VSYNC_LAUNCH_OPTION"
+msgid "LAUNCH OPTION"
 msgstr ""
 
 #. Frame tab, threads (with frame stats on)
@@ -860,6 +930,11 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_SAVED"
 msgid "SAVED"
 msgstr ""
 
+#. The record button after a click while the game is paused or no colony runs: the recording starts once the game runs
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_WAITING"
+msgid "WAITING FOR PLAY"
+msgstr ""
+
 #. A freeze's cause
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_LOAD"
 msgid "Loading"
@@ -920,6 +995,11 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_UNKNOWN"
 msgid "Unknown"
 msgstr ""
 
+#. A stutter or freeze in the first 10 s of play after a load that nothing else explains (counted as the load's, not as play's)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SETTLING"
+msgid "Settling after load"
+msgstr ""
+
 #. Hitches tab, the graph's range
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_TWO_MIN"
 msgid "2 min"
@@ -953,6 +1033,11 @@ msgstr ""
 #. Hitches tab, when the list is empty
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_FREEZES"
 msgid "No freezes in this range."
+msgstr ""
+
+#. Hitches tab in the menus
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HITCHES_NO_COLONY"
+msgid "Load a colony to see its stutters and freezes. The loading times are on the right."
 msgstr ""
 
 #. Hitches tab, in the list's time column for repeated stutters
@@ -1090,14 +1175,14 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION"
 msgid "RESET POSITION"
 msgstr ""
 
-#. The same button just after a click
+#. The same button just after a click (the counter and its window are back in their first places)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.POSITION_RESET"
-msgid "POSITION RESET"
+msgid "DONE"
 msgstr ""
 
 #. Tooltip of the Reset position button
 msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION_TIP"
-msgid "Puts the frame rate counter back at the top centre of the screen."
+msgid "Puts the frame rate counter back at the top centre of the screen, and its window back in its first place."
 msgstr ""
 
 #. Section heading (shown in capitals)
@@ -1152,7 +1237,7 @@ msgstr ""
 
 #. The line under the title (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
-msgid "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window."
+msgid "Frame rate with a status light. Drag it anywhere; click it for the performance window. No restart."
 msgstr ""
 
 #. Tooltip: how it works (fps-counter)
