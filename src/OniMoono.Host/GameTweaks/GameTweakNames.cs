@@ -43,7 +43,7 @@ namespace OniMoono.Host.GameTweaks
             GameTweakNames.DxgiRow => "--dxgi on|off",
             GameTweakNames.StallRepeatsRow => "--stall-repeats on|off",
             GameTweakNames.GcRow => "--gc " + string.Join("|", Choices!),
-            GameTweakNames.FpsCounterRow => "--fps-counter " + string.Join("|", Choices!),
+            GameTweakNames.FpsCounterRow => "--fps-counter on|off",
             _ => "--game-tweak " + Id,
         };
     }
@@ -121,11 +121,11 @@ namespace OniMoono.Host.GameTweaks
                 + "The answer is kept in the oni-moono data folder. Installs from the Steam Workshop ask nothing: Steam updates them. Off: Moono makes no network requests.", IsTweak: false),
             new(FrameStatsRow, General, "Frame stats in the log", "Notes where the frame time goes in Player.log, for reporting slowness.",
                 "Every 60 frames.", IsTweak: false),
-            new(FpsCounterRow, General, "Frame rate counter", "Shows the frame rate at the top of the screen. Click it to see where the frame time goes.",
-                "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; "
-                + "it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. "
-                + "Off: no counter and nothing measured.",
-                IsTweak: false, Choices: EffectiveOptions.FpsCounterChoices),
+            new(FpsCounterRow, General, "Frame rate counter", "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window.",
+                "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice "
+                + "whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record "
+                + "button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured.",
+                IsTweak: false),
             new(LogPathsRow, General, "Hide personal paths in the log", "Player.log shows your user folder as %USERPROFILE% or ~ and hides your account IDs and name.",
                 "Mods still get the full text.", IsTweak: false),
             new(GpuRow, General, "Graphics card", "For laptops with two GPUs: which one the game draws with. Needs a restart.",

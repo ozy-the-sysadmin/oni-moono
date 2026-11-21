@@ -1,41 +1,91 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
-using System.Text;
+using System.IO;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace OniMoono.GameTweaks
 {
-    /// The HUD's frame rate counter and its frame time panel (the Frame rate counter row of Moono
-    /// Tweaks; OniMoono.Host.Perf.PerfHud), not a tweak: our own small canvas over the game's,
-    /// in every scene, with the game's text widget (LocText) in the game's default text style.
+    /// The frame rate counter and its performance window (the Frame rate counter row of Moono
+    /// Tweaks; OniMoono.Host.Perf.PerfHud), not a tweak: our own canvas over the game's, in every
+    /// scene, drawn with the game's text widget (LocText) and the approved mock's colours
+    /// (PerfUi). No patches, except the window's look inside "Game update" while that row is
+    /// open (PerfBuckets).
     ///
-    /// The counter shows the frame rate and the frame time from Time.unscaledDeltaTime, written
-    /// twice a second. Clicking it opens the panel: the frame's time by part (PlayerLoop's
-    /// phases and the time between frames, which add up to the frame), the engine's waits and
-    /// counts, refreshed every second from a frame window the host opens only while the panel
-    /// shows (closed, nothing is measured), and a button that records 60 seconds into a file
-    /// (OniMoono.Host.Perf.PerfRecorder). No patches.
+    /// The counter is a badge: a status light (PerfTrack.Light) and the frame rate. Drag it
+    /// with the left button anywhere on the screen; it stays inside the screen and keeps its
+    /// place, as a fraction of the screen, in the oni-moono data folder (PositionFile) across
+    /// restarts. A click without movement opens or closes the window (PerfWindow); a drag never
+    /// does. Neither reaches the world: the badge is a raycast target of our canvas, and the
+    /// game's tools ignore clicks over any UI (PlayerController.OnKeyDown).
+    ///
+    /// Cost: with the counter on, one call a frame (Frame: a few reads of the game's state into
+    /// PerfTrack's ring) and the badge's text twice a second. The window measures more only
+    /// while it shows: the engine's frame window for the Colony and Frame tabs, the bucket
+    /// profile while Frame's "Game update" row is open.
     public sealed class PerfOverlay : MonoBehaviour
     {
-        static string corner;
-        static Action<bool> timing;
-        static Func<double[]> take;
-        static Func<string> record;
-        static Func<bool> recording;
+        // ---- From the host (Install) ----
+        internal static string PositionFile;
+        internal static Action<bool> Timing;
+        internal static Func<double[]> Take;
+        internal static Func<string> Record;
+        internal static Func<bool> Recording;
+        internal static Func<double[]> Engine;
+        internal static Func<string[]> LastRecording;
+        internal static string[] TweaksOn = Array.Empty<string>();
+        internal static int TweaksAll, TweaksSwitchedOff;
+        static Dictionary<string, string> english = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        /// From the host: where the counter goes (EffectiveOptions.FpsCounterChoices, not "off"),
-        /// the panel's frame window (`panelTiming(true)` opens it, false closes it; `panelTake`
-        /// gives the frames since the last call: see Panel), and the recorder (`recordNow`
-        /// arms 60 s, returning what the log says; `isRecording`).
-        public static void Install(string position, Action<bool> panelTiming, Func<double[]> panelTake, Func<string> recordNow, Func<bool> isRecording)
+        internal static readonly PerfTrack Track = new PerfTrack();
+
+        /// From the host: where the badge's place is kept; the engine's frame window
+        /// (`timing(true)` opens it, `take` gives its sums since the last call: see PerfWindow.
+        /// Phases); the recorder (`record` arms 60 s and says what it did, `recording`); the
+        /// engine's memory numbers (`engine`: working set, installed memory, bytes allocated,
+        /// gen0, gen1 and gen2 collections, the last background save write's ms); the newest
+        /// recording's phases (`lastRecording`: name, age in seconds, then "phase=ms" pairs; null
+        /// for none); the tweaks on, the tweak count, the default-on tweaks the player turned off;
+        /// the window's strings' names and English (TweakStrings.Ui), used when the Moono Tweaks
+        /// menu is off; the start-up time on the frame clock (seconds); and the Harmony the look
+        /// inside "Game update" patches with (PerfBuckets).
+        public static void Install(string positionFile, Action<bool> timing, Func<double[]> take, Func<string> record, Func<bool> recording,
+            Func<double[]> engine, Func<string[]> lastRecording, string[] tweaksOn, int tweaksAll, int tweaksSwitchedOff,
+            string[] uiNames, string[] uiEnglish, double startedAt, HarmonyLib.Harmony harmony)
         {
-            corner = position;
-            timing = panelTiming;
-            take = panelTake;
-            record = recordNow;
-            recording = isRecording;
+            PositionFile = positionFile;
+            Timing = timing;
+            Take = take;
+            Record = record;
+            Recording = recording;
+            Engine = engine;
+            LastRecording = lastRecording;
+            TweaksOn = tweaksOn ?? Array.Empty<string>();
+            TweaksAll = tweaksAll;
+            TweaksSwitchedOff = tweaksSwitchedOff;
+            english = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (int i = 0; i < uiNames.Length; i++) english[uiNames[i]] = uiEnglish[i];
+            PerfReads.SimStepPaceOn = Array.IndexOf(TweaksOn, PerfAdvice.SimStepPace) >= 0;
+            PerfReads.Listen(true);
+            Track.StartedAt = startedAt;
+            PerfBuckets.Harmony = harmony;
+            MoonoTweaksMenu.CounterReset = () => ResetPosition();
+        }
+
+        // ---- Self-timing (the costs the report gives; read by Test("cost")) ----
+        internal static long FrameTicks, UpdateTicks, RefreshTicks, Frames;
+
+        /// The host's frame-start call: the frame that just ended (see PerfReads.Frame).
+        public static void Frame(double now, double ms, double gcMs, double jitMs)
+        {
+            long start = Stopwatch.GetTimestamp();
+            var f = PerfReads.Frame(now, ms, gcMs, jitMs);
+            Track.Add(f);
+            Frames++;
+            FrameTicks += Stopwatch.GetTimestamp() - start;
         }
 
         static PerfOverlay instance;
@@ -57,165 +107,300 @@ namespace OniMoono.GameTweaks
             return true;
         }
 
-        LocText counter, panelText, recordLabel;
-        GameObject panel;
         CanvasScaler scaler;
-        float elapsed, panelElapsed;
-        int frames;
-        readonly StringBuilder text = new StringBuilder(64);
+        RectTransform canvasRect, badge;
+        Image badgeRing, light, glow;
+        LocText counter;
+        PerfWindow window;
+        float scale = 1f, textElapsed, scaleElapsed = 10f;
+        int shownFps = -1, shownLight = -1;
+        /// The badge's centre as a fraction of the screen (null: the default, top centre).
+        Vector2? place;
+        const float BadgeHeight = 22f;
+        float badgeWidth = 80f;
 
         void Build()
         {
             scaler = GetComponent<CanvasScaler>();
-            bool right = corner.EndsWith("right", StringComparison.Ordinal), top = corner.StartsWith("top", StringComparison.Ordinal);
-            // "top-centre" (the default): the middle of the game's top bar, which is empty.
-            bool centre = corner.EndsWith("centre", StringComparison.Ordinal);
-            var anchor = new Vector2(centre ? 0.5f : right ? 1f : 0f, top ? 1f : 0f);
-            float inset = centre ? 0f : right ? -6f : 6f;
-
-            counter = Label(transform, "Counter", 13, centre ? TMPro.TextAlignmentOptions.Top : TextAnchorFor(right, top));
-            var rect = counter.rectTransform;
-            rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
-            rect.sizeDelta = new Vector2(150f, 20f);
-            rect.anchoredPosition = new Vector2(inset, top ? -3f : 3f);
-            counter.raycastTarget = true;
-            counter.gameObject.AddComponent<PerfClick>().Clicked = Toggle;
-
-            panel = new GameObject("Panel", typeof(RectTransform));
-            panel.transform.SetParent(transform, false);
-            var back = panel.AddComponent<Image>();
-            back.color = new Color(0.1f, 0.11f, 0.14f, 0.88f);
-            var panelRect = (RectTransform)panel.transform;
-            panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = anchor;
-            panelRect.sizeDelta = new Vector2(480f, 330f);  // 420 cut the counts line short at 1440p (session AA, C1)
-            panelRect.anchoredPosition = new Vector2(inset, top ? -24f : 24f);
-            panelText = Label(panel.transform, "Text", 12, TMPro.TextAlignmentOptions.TopLeft);
-            var textRect = panelText.rectTransform;
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(10f, 34f);
-            textRect.offsetMax = new Vector2(-10f, -8f);
-            panelText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
-            panelText.richText = true;
-
-            recordLabel = Label(panel.transform, "Record", 13, TMPro.TextAlignmentOptions.MidlineLeft);
-            var recordRect = recordLabel.rectTransform;
-            recordRect.anchorMin = recordRect.anchorMax = recordRect.pivot = new Vector2(0f, 0f);
-            recordRect.sizeDelta = new Vector2(300f, 24f);
-            recordRect.anchoredPosition = new Vector2(10f, 6f);
-            recordLabel.raycastTarget = true;
-            recordLabel.color = Util.ColorFromHex("9DE07A");
-            recordLabel.gameObject.AddComponent<PerfClick>().Clicked = Record;
-            panel.SetActive(false);
+            canvasRect = (RectTransform)transform;
+            UpdateScale();
+            var go = new GameObject("Badge", typeof(RectTransform));
+            go.transform.SetParent(transform, false);
+            badge = (RectTransform)go.transform;
+            badge.anchorMin = badge.anchorMax = new Vector2(0f, 1f);
+            badge.pivot = new Vector2(0.5f, 0.5f);
+            var back = go.AddComponent<Image>();
+            back.sprite = PerfUi.Pill;
+            back.type = Image.Type.Sliced;
+            back.color = PerfUi.BadgeBack;
+            back.raycastTarget = true;
+            badgeRing = PerfUi.NewImage(go.transform, "Ring", PerfUi.PillRing, PerfUi.Rule);
+            Fill(badgeRing.rectTransform);
+            glow = PerfUi.NewImage(go.transform, "Glow", PerfUi.Dot, PerfUi.Good);
+            light = PerfUi.NewImage(go.transform, "Light", PerfUi.Dot, PerfUi.Good);
+            counter = PerfUi.NewText(go.transform, "Rate");
+            counter.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+            counter.fontSize = 15f;
+            go.AddComponent<PerfPress>().Pressed = () => BeginPress(badge, null);
+            badgeWidth = Mathf.Ceil(TextWidth("<b>888</b> <size=12>fps</size>") + 9 + 8 + 9 + 11);
+            LayoutBadge();
+            place = ReadPlace();
+            ApplyPlace();
+            ShowRate();
+            window = new PerfWindow(this, transform);
         }
 
-        static TMPro.TextAlignmentOptions TextAnchorFor(bool right, bool top) =>
-            right ? (top ? TMPro.TextAlignmentOptions.TopRight : TMPro.TextAlignmentOptions.BottomRight)
-                : (top ? TMPro.TextAlignmentOptions.TopLeft : TMPro.TextAlignmentOptions.BottomLeft);
-
-        /// A LocText made inactive, so that it wakes with no key and the game's default style.
-        static LocText Label(Transform parent, string name, float size, TMPro.TextAlignmentOptions alignment)
+        static void Fill(RectTransform r)
         {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.SetActive(false);
-            go.transform.SetParent(parent, false);
-            var label = go.AddComponent<LocText>();
-            label.key = "";
-            label.textStyleSetting = PluginAssets.Instance.defaultTextStyleSetting;
-            go.SetActive(true);
-            label.font = Localization.FontAsset;
-            label.fontSize = size;
-            label.color = Color.white;
-            label.alignment = alignment;
-            label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
-            label.raycastTarget = false;
-            label.text = "";
-            return label;
+            r.anchorMin = Vector2.zero;
+            r.anchorMax = Vector2.one;
+            r.offsetMin = r.offsetMax = Vector2.zero;
         }
+
+        float TextWidth(string text) => counter.GetPreferredValues(text, 10000f, 0f).x;
+
+        void LayoutBadge()
+        {
+            badge.sizeDelta = new Vector2(badgeWidth, BadgeHeight);
+            PerfUi.Place(glow.rectTransform, 6f, (BadgeHeight - 15f) / 2f, 15f, 15f);
+            glow.color = new Color(1, 1, 1, 0.3f) * PerfUi.Good;
+            PerfUi.Place(light.rectTransform, 9f, (BadgeHeight - 9f) / 2f, 9f, 9f);
+            PerfUi.Place(counter.rectTransform, 9f + 9f + 8f, 0f, badgeWidth - 26f - 8f, BadgeHeight);
+        }
+
+        /// The canvas follows the game's own UI scale (KCanvasScaler: the player's UI scale
+        /// option times the screen's step, 1 at 1080 lines, 1.33 at 2160).
+        void UpdateScale()
+        {
+            float user = 1f;
+            try
+            {
+                if (KPlayerPrefs.HasKey(KCanvasScaler.UIScalePrefKey)) user = KPlayerPrefs.GetFloat(KCanvasScaler.UIScalePrefKey) / 100f;
+            }
+            catch (Exception)
+            {
+            }
+            float h = Screen.height, aspect = (float)Screen.width / Math.Max(1, Screen.height);
+            float step = h <= 720f || aspect < 1.6f ? 0.86f : h > 2160f ? 1.33f : h <= 1080f ? Mathf.Lerp(0.86f, 1f, (h - 720f) / 360f) : Mathf.Lerp(1f, 1.33f, (h - 1080f) / 1080f);
+            float s = Mathf.Clamp(user, 0.5f, 3f) * step;
+            if (!Mathf.Approximately(s, scale) || !Mathf.Approximately(scaler.scaleFactor, s))
+            {
+                scale = s;
+                scaler.scaleFactor = s;
+            }
+        }
+
+        internal float Scale => scale;
+        internal Vector2 CanvasSize => new Vector2(Screen.width / scale, Screen.height / scale);
+
+        // ---- The badge's place ----
+
+        Vector2 DefaultCentre() => new Vector2(CanvasSize.x / 2f, 3f + BadgeHeight / 2f);
+
+        Vector2 Centre()
+        {
+            var size = CanvasSize;
+            var c = place.HasValue ? new Vector2(place.Value.x * size.x, place.Value.y * size.y) : DefaultCentre();
+            return Clamp(c, new Vector2(badgeWidth, BadgeHeight));
+        }
+
+        Vector2 Clamp(Vector2 centre, Vector2 size)
+        {
+            var canvas = CanvasSize;
+            centre.x = Mathf.Clamp(centre.x, size.x / 2f + 2f, Math.Max(size.x / 2f + 2f, canvas.x - size.x / 2f - 2f));
+            centre.y = Mathf.Clamp(centre.y, size.y / 2f + 2f, Math.Max(size.y / 2f + 2f, canvas.y - size.y / 2f - 2f));
+            return centre;
+        }
+
+        void ApplyPlace()
+        {
+            var c = Centre();
+            var pos = new Vector2(c.x, -c.y);
+            if (badge.anchoredPosition != pos) badge.anchoredPosition = pos;
+        }
+
+        /// The badge's centre in screen pixels from the top left (tests).
+        internal Vector2 BadgePixels => Centre() * scale;
+
+        static Vector2? ReadPlace()
+        {
+            try
+            {
+                if (PositionFile == null || !File.Exists(PositionFile)) return null;
+                var parts = File.ReadAllText(PositionFile).Trim().Split(' ');
+                if (parts.Length == 2 && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
+                    && x >= 0 && x <= 1 && y >= 0 && y <= 1) return new Vector2(x, y);
+            }
+            catch (Exception e)
+            {
+                global::Debug.LogWarning("[Moono] fps counter: its place could not be read: " + e.Message);
+            }
+            return null;
+        }
+
+        void WritePlace()
+        {
+            var path = PositionFile;
+            if (path == null || !place.HasValue) return;
+            string text = place.Value.x.ToString("F5", CultureInfo.InvariantCulture) + " " + place.Value.y.ToString("F5", CultureInfo.InvariantCulture);
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    File.WriteAllText(path, text);
+                }
+                catch (Exception e)
+                {
+                    global::Debug.LogWarning("[Moono] fps counter: its place could not be saved: " + e.Message);
+                }
+            });
+        }
+
+        /// Moono Tweaks' "Reset position": the badge goes back to the top centre, now and after a
+        /// restart. `positionFile`: the place's file when the counter is not running (the menu
+        /// knows the settings folder).
+        public static void ResetPosition(string positionFile = null)
+        {
+            var path = PositionFile ?? positionFile;
+            try
+            {
+                if (path != null && File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception e)
+            {
+                global::Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
+            }
+            if (instance != null)
+            {
+                instance.place = null;
+                instance.ApplyPlace();
+            }
+        }
+
+        // ---- Pressing: the badge (drag or click) and the window's title bar (drag) ----
+
+        RectTransform pressed;
+        System.Action clicked;
+        Vector2 pressMouse, pressCentre;
+        bool dragging;
+        const float DragPixels = 5f;
+
+        /// A press on `target` begins (PerfPress, on the pointer's down): followed in Update until
+        /// the button is up. `click`: what a press without movement does (null: the badge's).
+        internal void BeginPress(RectTransform target, System.Action click)
+        {
+            pressed = target;
+            clicked = click;
+            pressMouse = Input.mousePosition;
+            var pos = target.anchoredPosition;
+            pressCentre = new Vector2(pos.x, -pos.y);
+            dragging = false;
+            if (target == badge) badgeRing.color = PerfUi.Accent;
+        }
+
+        void FollowPress()
+        {
+            if (pressed == null) return;
+            Vector2 mouse = Input.mousePosition;
+            var delta = mouse - pressMouse;
+            if (!dragging && delta.magnitude > DragPixels) dragging = true;
+            if (dragging)
+            {
+                var c = pressCentre + new Vector2(delta.x, -delta.y) / scale;
+                if (pressed == badge)
+                {
+                    c = Clamp(c, new Vector2(badgeWidth, BadgeHeight));
+                    var size = CanvasSize;
+                    place = new Vector2(c.x / size.x, c.y / size.y);
+                    ApplyPlace();
+                }
+                else window.MoveTo(c);
+            }
+            if (Input.GetMouseButton(0)) return;
+            // Released.
+            var target = pressed;
+            pressed = null;
+            badgeRing.color = PerfUi.Rule;
+            if (target == badge)
+            {
+                if (dragging) WritePlace();
+                else ToggleWindow();
+            }
+            else if (!dragging) clicked?.Invoke();
+        }
+
+        internal void ToggleWindow()
+        {
+            if (window.Open) window.Close();
+            else window.Show(Centre(), new Vector2(badgeWidth, BadgeHeight));
+        }
+
+        // ---- Every frame ----
 
         void Update()
         {
-            // The game's UI scale is for its own canvases; this one follows the screen's height.
-            float scale = Mathf.Max(1f, Screen.height / 1080f);
-            if (scaler != null && !Mathf.Approximately(scaler.scaleFactor, scale)) scaler.scaleFactor = scale;
-            frames++;
-            elapsed += Time.unscaledDeltaTime;
-            if (elapsed >= 0.5f)
+            long start = Stopwatch.GetTimestamp();
+            scaleElapsed += Time.unscaledDeltaTime;
+            if (scaleElapsed >= 1f)
             {
-                var c = CultureInfo.InvariantCulture;
-                text.Clear();
-                text.Append((frames / elapsed).ToString("F0", c)).Append(" fps  ").Append((elapsed * 1000f / frames).ToString("F1", c)).Append(" ms");
-                counter.text = text.ToString();
-                frames = 0;
-                elapsed = 0;
+                scaleElapsed = 0f;
+                UpdateScale();
+                ApplyPlace();
             }
-            if (!panel.activeSelf) return;
-            panelElapsed += Time.unscaledDeltaTime;
-            if (panelElapsed < 1f) return;
-            panelElapsed = 0;
-            var numbers = take?.Invoke();
-            if (numbers != null) panelText.text = Panel(numbers);
-            recordLabel.text = recording != null && recording() ? Ui("PERF_RECORDING") : Ui("PERF_RECORD");
-        }
-
-        void Toggle()
-        {
-            bool show = !panel.activeSelf;
-            panel.SetActive(show);
-            timing?.Invoke(show);
-            panelElapsed = 0;
-            if (!show) return;
-            panelText.text = Ui("PERF_MEASURING");
-            recordLabel.text = recording != null && recording() ? Ui("PERF_RECORDING") : Ui("PERF_RECORD");
-        }
-
-        void Record()
-        {
-            if (record == null || (recording != null && recording())) return;
-            Debug.Log("[Moono] perf record: " + record());
-            recordLabel.text = Ui("PERF_RECORDING");
-        }
-
-        /// The host's numbers (OniMoono.Host.Perf.PerfHud.Take): frames, wall ms, the 9 phases'
-        /// ms (FrameWindows' order: render, gui, end of frame, present, early+fixed, update, late,
-        /// post-late, particles), outside the loop, the 5 waits' ms (device frame, device calls,
-        /// texel copies, queued frames, presenter), device calls, GC pause ms, frames with a GC
-        /// pause, the longest frame.
-        internal static string Panel(double[] n)
-        {
-            double frames = Math.Max(1, n[0]), wall = n[1];
-            if (n[0] < 1 || wall <= 0) return Ui("PERF_MEASURING");
-            var c = CultureInfo.InvariantCulture;
-            var s = new StringBuilder(1024);
-            s.Append("<b>").Append(string.Format(c, Ui("PERF_TITLE"), (1000 * frames / wall).ToString("F0", c), (wall / frames).ToString("F2", c))).Append("</b>\n");
-            void Line(string label, double ms, string extra = null)
+            FollowPress();
+            textElapsed += Time.unscaledDeltaTime;
+            if (textElapsed >= 0.5f)
             {
-                s.Append(label).Append("<pos=62%>").Append((ms / frames).ToString("F2", c)).Append(" ms<pos=82%>")
-                    .Append((100 * ms / wall).ToString("F0", c)).Append('%');
-                if (extra != null) s.Append("  ").Append(extra);
-                s.Append('\n');
+                textElapsed = 0f;
+                ShowRate();
             }
-            // The frame's order: input, game update, animation, interface, drawing, presenting.
-            Line(Ui("PERF_EARLY"), n[2 + 4]);
-            Line(Ui("PERF_UPDATE"), n[2 + 5]);
-            Line(Ui("PERF_LATE"), n[2 + 6]);
-            Line(Ui("PERF_POST_LATE"), n[2 + 7]);
-            Line(Ui("PERF_PARTICLES"), n[2 + 8]);
-            Line(Ui("PERF_RENDER"), n[2 + 0]);
-            Line(Ui("PERF_GUI"), n[2 + 1]);
-            Line(Ui("PERF_END_OF_FRAME"), n[2 + 2]);
-            Line(Ui("PERF_PRESENT"), n[2 + 3]);
-            Line(Ui("PERF_OUTSIDE"), n[11]);
-            s.Append("<alpha=#B0>");
-            Line(Ui("PERF_WAIT_DEVICE"), n[12] + n[13] + n[14] + n[15]);
-            Line(Ui("PERF_GC"), n[18]);
-            s.Append(string.Format(c, Ui("PERF_COUNTS"), n[0].ToString("F0", c), (n[17] / frames).ToString("F1", c), n[19].ToString("F0", c), n[20].ToString("F1", c)));
-            return s.ToString();
+            UpdateTicks += Stopwatch.GetTimestamp() - start;
+            if (window.Open)
+            {
+                long w = Stopwatch.GetTimestamp();
+                window.Update(Time.unscaledDeltaTime);
+                RefreshTicks += Stopwatch.GetTimestamp() - w;
+            }
         }
 
-        /// One of the panel's labels in the game's language (MoonoTweaksMenu's strings), English
-        /// when the Moono Tweaks menu is off.
-        static string Ui(string name)
+        /// "164 fps", the number in the light's colour when yellow or red; text set only when it
+        /// changes.
+        void ShowRate()
+        {
+            int fps = (int)Math.Round(Track.Fps);
+            int lit = Track.Light;
+            if (fps == shownFps && lit == shownLight) return;
+            shownFps = fps;
+            string number = lit == 0 ? "<b>" + fps.ToString(CultureInfo.InvariantCulture) + "</b>"
+                : "<b><color=#" + PerfUi.LightHex(lit) + ">" + fps.ToString(CultureInfo.InvariantCulture) + "</color></b>";
+            counter.text = number + " <size=12><color=#" + PerfUi.MutedHex + ">" + Ui("PERF_FPS") + "</color></size>";
+            if (lit != shownLight)
+            {
+                shownLight = lit;
+                light.color = PerfUi.LightColour(lit);
+                glow.color = new Color(light.color.r, light.color.g, light.color.b, 0.3f);
+            }
+        }
+
+        void OnDestroy()
+        {
+            try
+            {
+                window?.Close();
+            }
+            catch (Exception)
+            {
+            }
+            if (instance == this) instance = null;
+        }
+
+        // ---- Strings ----
+
+        /// One of the window's strings in the game's language (the Moono Tweaks menu's), English
+        /// from the catalog when the menu is off.
+        internal static string Ui(string name)
         {
             try
             {
@@ -225,37 +410,49 @@ namespace OniMoono.GameTweaks
             catch (Exception)
             {
             }
-            return English(name);
+            return english.TryGetValue(name, out var e) ? e : name;
         }
 
-        static string English(string name) => name switch
+        // ---- Test runs (the oni-multicore bench's McDrive, by reflection) ----
+
+        /// state | open | close | tab colony|frame|hitches | expand NAME|none | select N | range 0|1|2 |
+        /// copy | cost | reset | press X Y (screen pixels from the top left: what is there).
+        public static string Test(string verb, string arg)
         {
-            "PERF_TITLE" => "Frame time: {0} fps, {1} ms a frame",
-            "PERF_RECORD" => "Record 60 s",
-            "PERF_RECORDING" => "Recording…",
-            "PERF_MEASURING" => "Measuring…",
-            "PERF_EARLY" => "Input and physics",
-            "PERF_UPDATE" => "Game update",
-            "PERF_LATE" => "Animation and late update",
-            "PERF_POST_LATE" => "Interface layout",
-            "PERF_PARTICLES" => "Particles",
-            "PERF_RENDER" => "Drawing",
-            "PERF_GUI" => "Debug interface",
-            "PERF_END_OF_FRAME" => "End of frame",
-            "PERF_PRESENT" => "Showing the picture",
-            "PERF_OUTSIDE" => "Between frames",
-            "PERF_WAIT_DEVICE" => "Of these, waiting for the graphics thread",
-            "PERF_GC" => "Of these, memory cleanup",
-            "PERF_COUNTS" => "{0} frames; {1} graphics calls waited for a frame; {2} memory cleanups; longest frame {3} ms",
-            _ => name,
-        };
+            var o = instance;
+            var c = CultureInfo.InvariantCulture;
+            switch (verb)
+            {
+                case "state":
+                    if (o == null) return "no overlay";
+                    var px = o.BadgePixels;
+                    return string.Format(c, "light={0} fps={1:F0} badge={2:F0},{3:F0} scale={4:F3} window={5} tab={6} rect={7} keepup={8:F3} median={9:F2} stutters10s={10} place={11}",
+                        Track.Light, Track.Fps, px.x, px.y, o.scale, o.window.Open, o.window.TabName, o.window.RectText, Track.KeepUp, Track.MedianMs, Track.Stutters10s,
+                        o.place.HasValue ? o.place.Value.x.ToString("F4", c) + "," + o.place.Value.y.ToString("F4", c) : "default");
+                case "open": if (o != null && !o.window.Open) o.ToggleWindow(); return "ok";
+                case "close": if (o != null && o.window.Open) o.window.Close(); return "ok";
+                case "reset": ResetPosition(); return "ok";
+                case "cost":
+                {
+                    double f = Math.Max(1, Frames), us = 1e6 / Stopwatch.Frequency;
+                    string r = string.Format(c, "frames={0} frame_us={1:F2} update_us={2:F2} window_us={3:F2}", Frames, FrameTicks * us / f, UpdateTicks * us / f, RefreshTicks * us / f);
+                    Frames = FrameTicks = UpdateTicks = RefreshTicks = 0;
+                    return r;
+                }
+                default:
+                    return o == null ? "no overlay" : o.window.Test(verb, arg);
+            }
+        }
     }
 
-    /// A click on one of the overlay's labels.
-    sealed class PerfClick : MonoBehaviour, IPointerClickHandler
+    /// The pointer went down on the badge or the window's title bar.
+    internal sealed class PerfPress : MonoBehaviour, IPointerDownHandler
     {
-        internal System.Action Clicked;
+        internal System.Action Pressed;
 
-        public void OnPointerClick(PointerEventData eventData) => Clicked?.Invoke();
+        public void OnPointerDown(PointerEventData e)
+        {
+            if (e.button == PointerEventData.InputButton.Left) Pressed?.Invoke();
+        }
     }
 }

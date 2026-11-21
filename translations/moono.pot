@@ -155,89 +155,794 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.OVERLAPS_TIP"
 msgid "Some mods patch the same code as Moono's tweaks. Open Moono Tweaks to see which."
 msgstr ""
 
-#. The frame time panel (click the frame rate counter), heading; {0}: frames a second, {1}: milliseconds a frame
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TITLE"
-msgid "Frame time: {0} fps, {1} ms a frame"
+#. The frame rate's unit, after the number (the counter, the window)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_FPS"
+msgid "fps"
 msgstr ""
 
-#. The frame time panel, before its first second is measured
+#. Milliseconds, after a number (the performance window)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MS"
+msgid "ms"
+msgstr ""
+
+#. Seconds, after a number (the performance window)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_S"
+msgid "s"
+msgstr ""
+
+#. Gigabytes, after a number (the performance window)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GB"
+msgid "GB"
+msgstr ""
+
+#. Kilobytes, after a number (the performance window)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KB"
+msgid "KB"
+msgstr ""
+
+#. The performance window's title (click the frame rate counter)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WINDOW_TITLE"
+msgid "PERFORMANCE"
+msgstr ""
+
+#. The performance window's first tab (for players)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_COLONY"
+msgid "COLONY"
+msgstr ""
+
+#. The performance window's second tab (the frame's parts, for developers)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_FRAME"
+msgid "FRAME"
+msgstr ""
+
+#. The performance window's third tab (stutters and freezes)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_HITCHES"
+msgid "HITCHES"
+msgstr ""
+
+#. Colony tab, the verdict's heading (green light)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_GOOD"
+msgid "Running well"
+msgstr ""
+
+#. Colony tab, the verdict; {0}: frames a second, {1}: the speed setting (1 to 3)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_GOOD_TEXT"
+msgid "{0} fps and the game keeps up with speed {1}. You don't need to change anything."
+msgstr ""
+
+#. Colony tab, the verdict's heading (yellow light)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_STUTTERING"
+msgid "Stuttering"
+msgstr ""
+
+#. Colony tab, the verdict; {0}: frames a second, {1}: stutters a minute
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_STUTTERING_TEXT"
+msgid "{0} fps, but the picture stops for a moment {1} times a minute."
+msgstr ""
+
+#. Colony tab, the verdict's heading (red light)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_BEHIND"
+msgid "Not keeping up"
+msgstr ""
+
+#. Colony tab, the verdict; {0}: the speed reached, {1}: the speed chosen
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_BEHIND_TEXT"
+msgid "The game runs at {0}× instead of the {1}× you chose: your colony's time passes more slowly than it should."
+msgstr ""
+
+#. Colony tab, the verdict's heading while paused
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_PAUSED"
+msgid "Paused"
+msgstr ""
+
+#. Colony tab, the verdict while paused
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_PAUSED_TEXT"
+msgid "The game is paused. Unpause it for a few seconds to see how it runs."
+msgstr ""
+
+#. Colony tab, the verdict's heading in the menus
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_NO_COLONY"
+msgid "No colony loaded"
+msgstr ""
+
+#. Colony tab, the verdict in the menus
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_NO_COLONY_TEXT"
+msgid "Load a colony to see how it runs and what you can do about it."
+msgstr ""
+
+#. Colony tab, the advice's heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_HEADING"
+msgid "What you can do, biggest gain first"
+msgstr ""
+
+#. Colony tab, when no advice applies
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE"
+msgid "No change we have measured would make this colony run better."
+msgstr ""
+
+#. Colony tab, before enough play was measured
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
+msgid "Nothing to advise yet: let the game run unpaused for half a minute."
+msgstr ""
+
+#. Colony tab, an advice card's title (the sim-step-pace row's title in quotes)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE"
+msgid "Turn on \"Simulation at its own pace\" in Moono Tweaks"
+msgstr ""
+
+#. Colony tab, the card's gain; {0}: stutters a minute now, {1} and {2}: measured before and after
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_GAIN"
+msgid "Would remove most of the {0} small stutters a minute (in our tests: {1} a minute down to about {2})."
+msgstr ""
+
+#. Colony tab, the card's side effect
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_WHY"
+msgid "Dug and built tiles appear up to 0.2 s later. Off by default."
+msgstr ""
+
+#. Colony tab, heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_HEADING"
+msgid "Nothing to gain here"
+msgstr ""
+
+#. Colony tab, under Nothing to gain here before anything was judged
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_NONE"
+msgid "Nothing checked yet."
+msgstr ""
+
+#. Colony tab, under Nothing to gain here
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_STEP_PACE_ON"
+msgid "Waiting for the simulation step: \"Simulation at its own pace\" is already on."
+msgstr ""
+
+#. Colony tab, under Nothing to gain here; {0}: stutters a minute
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_WAITS_FEW"
+msgid "Waiting for the simulation step causes few stutters here ({0} a minute)."
+msgstr ""
+
+#. Colony tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_HEADING"
+msgid "Right now"
+msgstr ""
+
+#. Colony tab, a line of Right now
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_FRAME_RATE"
+msgid "Frame rate"
+msgstr ""
+
+#. Colony tab, a line of Right now; {0}: the speed setting (1 to 3)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_KEEPS_UP"
+msgid "Keeps up with speed {0}"
+msgstr ""
+
+#. Colony tab, the answer to Keeps up with speed
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_YES"
+msgid "Yes"
+msgstr ""
+
+#. Colony tab, the answer to Keeps up with speed; {0}: the speed reached
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_AT"
+msgid "No, {0}×"
+msgstr ""
+
+#. Colony tab, a line of Right now
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_STUTTERS"
+msgid "Small stutters"
+msgstr ""
+
+#. A count a minute; {0}: the count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PER_MINUTE"
+msgid "{0} a minute"
+msgstr ""
+
+#. Colony tab, a line of Right now (the last save's freeze)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_AUTOSAVE"
+msgid "Autosave pause"
+msgstr ""
+
+#. A value not measured yet (no save yet)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NONE_YET"
+msgid "None yet"
+msgstr ""
+
+#. Colony tab, a line of Right now
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_MEMORY"
+msgid "Memory used"
+msgstr ""
+
+#. Memory used; {0}: used, {1}: installed
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GB_OF"
+msgid "{0} of {1} GB"
+msgstr ""
+
+#. Colony tab, a line of Right now (what limits the frame rate)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_HELD_BACK"
+msgid "Held back by"
+msgstr ""
+
+#. Held back by: the processor
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_PROCESSOR"
+msgid "Processor"
+msgstr ""
+
+#. Held back by: the graphics card
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_GRAPHICS"
+msgid "Graphics"
+msgstr ""
+
+#. Held back by: a frame rate cap or vsync
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_LIMIT"
+msgid "Frame rate limit"
+msgstr ""
+
+#. Colony tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING"
+msgid "Your colony"
+msgstr ""
+
+#. Colony tab, panel heading (shown in capitals); {0}: the cycle
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING_CYCLE"
+msgid "Your colony · cycle {0}"
+msgstr ""
+
+#. Colony tab, a count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_DUPLICANTS"
+msgid "Duplicants"
+msgstr ""
+
+#. Colony tab, a count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_CRITTERS"
+msgid "Critters"
+msgstr ""
+
+#. Colony tab, a count (items in no storage)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_LOOSE"
+msgid "Loose items"
+msgstr ""
+
+#. Colony tab, a count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_BUILDINGS"
+msgid "Buildings"
+msgstr ""
+
+#. Colony tab, a count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_UTILITIES"
+msgid "Pipes, wires, rails"
+msgstr ""
+
+#. Colony tab, a count
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_ASTEROIDS"
+msgid "Asteroids visited"
+msgstr ""
+
+#. Colony tab, the footer's note
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT"
+msgid "Advice is shown only where the gain was measured."
+msgstr ""
+
+#. Colony tab, footer button (counts the colony again)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCAN_AGAIN"
+msgid "SCAN AGAIN"
+msgstr ""
+
+#. Frame and Hitches tabs, headline box
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_AVERAGE"
+msgid "Average"
+msgstr ""
+
+#. Frame and Hitches tabs, headline box (the 99th percentile frame)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_SLOWEST"
+msgid "Slowest 1%"
+msgstr ""
+
+#. Frame and Hitches tabs, headline box
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_WORST"
+msgid "Worst frame"
+msgstr ""
+
+#. Frame tab, headline box (the speed reached)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_SPEED"
+msgid "Game speed"
+msgstr ""
+
+#. Hitches tab, headline box
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_STUTTERS"
+msgid "Stutters"
+msgstr ""
+
+#. After a count a minute in a headline box
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PER_MIN"
+msgid "/ min"
+msgstr ""
+
+#. The performance window, before its first second is measured
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING"
 msgid "Measuring…"
 msgstr ""
 
-#. The frame time panel: a part of the frame (input, fixed updates)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EARLY"
-msgid "Input and physics"
-msgstr ""
-
-#. The frame time panel: a part of the frame (scripts' Update, the simulation's step)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_UPDATE"
+#. Frame tab, a part of the frame (scripts' Update, the simulation's step)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_UPDATE"
 msgid "Game update"
 msgstr ""
 
-#. The frame time panel: a part of the frame (animators, LateUpdate)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LATE"
-msgid "Animation and late update"
+#. Frame tab, a part of the frame (animators, LateUpdate)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_LATE"
+msgid "Animation, late update"
 msgstr ""
 
-#. The frame time panel: a part of the frame (canvases)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_POST_LATE"
-msgid "Interface layout"
-msgstr ""
-
-#. The frame time panel: a part of the frame
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PARTICLES"
-msgid "Particles"
-msgstr ""
-
-#. The frame time panel: a part of the frame (cameras, overlay canvases)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RENDER"
+#. Frame tab, a part of the frame (cameras, present)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_DRAWING"
 msgid "Drawing"
 msgstr ""
 
-#. The frame time panel: a part of the frame (OnGUI)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GUI"
+#. Frame tab, a part of the frame (canvases, OnGUI)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_INTERFACE"
+msgid "Interface"
+msgstr ""
+
+#. Frame tab, a part of the frame (input, particles, between frames)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_ELSE"
+msgid "Everything else"
+msgstr ""
+
+#. Frame tab, inside Drawing
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_RENDER"
+msgid "Drawing the scene"
+msgstr ""
+
+#. Frame tab, inside Interface (OnGUI)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_GUI"
 msgid "Debug interface"
 msgstr ""
 
-#. The frame time panel: a part of the frame (WaitForEndOfFrame)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_END_OF_FRAME"
+#. Frame tab, inside Drawing (WaitForEndOfFrame)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_END_OF_FRAME"
 msgid "End of frame"
 msgstr ""
 
-#. The frame time panel: a part of the frame (present)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PRESENT"
+#. Frame tab, inside Drawing (present)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_PRESENT"
 msgid "Showing the picture"
 msgstr ""
 
-#. The frame time panel: a part of the frame (input polling, frame cap)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OUTSIDE"
+#. Frame tab, inside Everything else
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_EARLY"
+msgid "Input and physics"
+msgstr ""
+
+#. Frame tab, inside Interface (canvases)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_POST_LATE"
+msgid "Interface layout"
+msgstr ""
+
+#. Frame tab, inside Everything else
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_PARTICLES"
+msgid "Particles"
+msgstr ""
+
+#. Frame tab, inside Everything else (input polling, frame cap)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_OUTSIDE"
 msgid "Between frames"
 msgstr ""
 
-#. The frame time panel: a share of the rows above
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE"
-msgid "Of these, waiting for the graphics thread"
+#. Frame tab, a share of the rows above
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_WAIT_GRAPHICS"
+msgid "Waiting for graphics"
 msgstr ""
 
-#. The frame time panel: a share of the rows above (garbage collection pauses)
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GC"
-msgid "Of these, memory cleanup"
+#. Frame tab, a share of the rows above (garbage collection pauses)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_GC"
+msgid "Memory clean-up"
 msgstr ""
 
-#. The frame time panel, last line; {0}: frames in the second, {1}: calls a frame, {2}: garbage collections, {3}: milliseconds
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COUNTS"
-msgid "{0} frames; {1} graphics calls waited for a frame; {2} memory cleanups; longest frame {3} ms"
+#. Frame tab, a note under the rows while Game update is open
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BUCKETS_NOTE"
+msgid "Measuring what is inside Game update costs some frame rate while the row is open."
 msgstr ""
 
-#. The frame time panel's button: saves 60 seconds of measurements to a file
+#. Frame tab, the open row's table heading; {0}: the row's name
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_INSIDE"
+msgid "Inside \"{0}\""
+msgstr ""
+
+#. Frame tab, column of the open row's table
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_CALLS"
+msgid "calls"
+msgstr ""
+
+#. Frame tab, column of the open row's table
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_OBJECTS"
+msgid "objects"
+msgstr ""
+
+#. Frame tab, column of the open row's table (the longest call, ms)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_WORST"
+msgid "worst"
+msgstr ""
+
+#. Frame tab, the open row's last line; {0}: how many
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_SMALLER"
+msgid "{0} smaller entries"
+msgstr ""
+
+#. Frame tab, Game update's time outside the state machine buckets
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_IN_BUCKETS"
+msgid "The rest (simulation step, other scripts)"
+msgstr ""
+
+#. Frame tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_HEADING"
+msgid "Frame time spread"
+msgstr ""
+
+#. Frame tab, frame time spread
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_MEDIAN"
+msgid "Typical (median)"
+msgstr ""
+
+#. Frame tab, frame time spread (90th percentile)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_NINE_IN_TEN"
+msgid "9 frames in 10 under"
+msgstr ""
+
+#. Frame tab, frame time spread (99th percentile)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_NINETY_NINE"
+msgid "99 in 100 under"
+msgstr ""
+
+#. Frame tab, frame time spread
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_LONGEST"
+msgid "Longest"
+msgstr ""
+
+#. Frame tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_HEADING"
+msgid "Threads"
+msgstr ""
+
+#. Frame tab, threads
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_MAIN"
+msgid "Main thread busy"
+msgstr ""
+
+#. Frame tab, threads
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WAIT_GRAPHICS"
+msgid "Main thread waiting for graphics"
+msgstr ""
+
+#. Frame tab, threads (with frame stats on)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_SIM"
+msgid "Simulation (SimDLL) on the main thread"
+msgstr ""
+
+#. Frame tab, threads
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WORKERS"
+msgid "Game's worker threads"
+msgstr ""
+
+#. A count of a total; {0}: the count, {1}: the total
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OF_N"
+msgid "{0} of {1}"
+msgstr ""
+
+#. Frame tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_HEADING"
+msgid "Memory"
+msgstr ""
+
+#. Frame tab, memory
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_IN_USE"
+msgid "In use"
+msgstr ""
+
+#. Frame tab, memory
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_PER_FRAME"
+msgid "New memory per frame"
+msgstr ""
+
+#. Frame tab, memory (garbage collections)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_CLEANUPS"
+msgid "Clean-ups per minute"
+msgstr ""
+
+#. Frame tab, memory; {0}: young collections, {1}: full ones
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CLEANUPS_VALUE"
+msgid "{0} small · {1} full"
+msgstr ""
+
+#. Frame tab, memory
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_LONGEST"
+msgid "Longest clean-up pause"
+msgstr ""
+
+#. Frame tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_HEADING"
+msgid "Tweaks"
+msgstr ""
+
+#. Frame tab, tweaks
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ACTIVE"
+msgid "Active"
+msgstr ""
+
+#. Frame tab, tweaks
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_STEPPED"
+msgid "Stepped aside for a mod"
+msgstr ""
+
+#. Frame tab, tweaks
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF"
+msgid "Switched off by you"
+msgstr ""
+
+#. Frame tab, the footer's note; {0}: how long ago, {1}: the rows that changed most
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COMPARE"
+msgid "Compared with your last recording ({0}): {1}."
+msgstr ""
+
+#. Frame tab, the footer's note without a recording
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COMPARE_NONE"
+msgid "No earlier recording to compare with: Record 60 s makes one."
+msgstr ""
+
+#. A time in the past; {0}: seconds
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_S"
+msgid "{0} s ago"
+msgstr ""
+
+#. A time in the past; {0}: minutes
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_MIN"
+msgid "{0} min ago"
+msgstr ""
+
+#. A time in the past; {0}: hours
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_H"
+msgid "{0} h ago"
+msgstr ""
+
+#. A time in the past; {0}: days
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_DAYS"
+msgid "{0} days ago"
+msgstr ""
+
+#. Frame tab, footer button (the numbers as text to the clipboard)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COPY_REPORT"
+msgid "COPY REPORT"
+msgstr ""
+
+#. Frame tab, the copy button just after a copy
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COPIED"
+msgid "COPIED"
+msgstr ""
+
+#. Footer button: saves 60 seconds of measurements to a file
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
-msgid "Record 60 s"
+msgid "RECORD 60 S"
 msgstr ""
 
-#. The frame time panel's button while a recording runs
+#. The record button while a recording runs
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
-msgid "Recording…"
+msgid "RECORDING…"
+msgstr ""
+
+#. A freeze's cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_LOAD"
+msgid "Loading"
+msgstr ""
+
+#. A freeze's cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_FIRST_FRAME"
+msgid "First frame after loading"
+msgstr ""
+
+#. A freeze's cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_AUTOSAVE"
+msgid "Autosave"
+msgstr ""
+
+#. A freeze's cause (a save the player made)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SAVE"
+msgid "Save"
+msgstr ""
+
+#. A freeze's cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_TIMELAPSE"
+msgid "Timelapse picture"
+msgstr ""
+
+#. A freeze's cause (garbage collection)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_GC"
+msgid "Memory clean-up"
+msgstr ""
+
+#. A stutter's cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT"
+msgid "Waiting for the simulation step"
+msgstr ""
+
+#. A freeze's cause when the game reports none
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_UNKNOWN"
+msgid "Unknown"
+msgstr ""
+
+#. Hitches tab, the graph's range
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_TWO_MIN"
+msgid "2 min"
+msgstr ""
+
+#. Hitches tab, the graph's range
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_TEN_MIN"
+msgid "10 min"
+msgstr ""
+
+#. Hitches tab, the graph's range
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_SESSION"
+msgid "This session"
+msgstr ""
+
+#. Hitches tab, the graph's legend
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_FRAME"
+msgid "Frame time"
+msgstr ""
+
+#. Hitches tab, the graph's legend (20 to 100 ms)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_STUTTER"
+msgid "Stutter"
+msgstr ""
+
+#. Hitches tab, the graph's legend (100 ms or more)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_FREEZE"
+msgid "Freeze"
+msgstr ""
+
+#. Hitches tab, when the list is empty
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_FREEZES"
+msgid "No freezes in this range."
+msgstr ""
+
+#. Hitches tab, in the list's time column for repeated stutters
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ONGOING"
+msgid "Ongoing"
+msgstr ""
+
+#. Hitches tab, under the waiting for the simulation line
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SIM_WAIT_FIX"
+msgid "Can be removed with \"Simulation at its own pace\" in Moono Tweaks."
+msgstr ""
+
+#. Hitches tab, heading (shown in capitals); {0}: the cause, {1}: how long ago
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SELECTED_HEADING"
+msgid "The selected freeze: {0}, {1}"
+msgstr ""
+
+#. Hitches tab, a part of a save's freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_SAVE_DATA"
+msgid "Collecting and writing the colony's data"
+msgstr ""
+
+#. Hitches tab, a part of a freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_FRAME"
+msgid "The rest of the frame"
+msgstr ""
+
+#. Hitches tab, a part of a freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_GC"
+msgid "Memory clean-up"
+msgstr ""
+
+#. Hitches tab, a part of a freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_JIT"
+msgid "Compiling code (first time only)"
+msgstr ""
+
+#. Hitches tab, a part of a save's freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_PREVIEW"
+msgid "Preview picture"
+msgstr ""
+
+#. Hitches tab, a part of a save done after its freeze
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_BACKGROUND_WRITE"
+msgid "Compressing and writing the file (in the background, no freeze)"
+msgstr ""
+
+#. Hitches tab, panel heading (shown in capitals); {0}: minutes in a colony
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BY_CAUSE_HEADING"
+msgid "By cause, this session ({0} min)"
+msgstr ""
+
+#. Hitches tab, column heading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_COLUMN"
+msgid "Cause"
+msgstr ""
+
+#. Hitches tab, column heading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TIMES_COLUMN"
+msgid "Times"
+msgstr ""
+
+#. Hitches tab, column heading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WORST_COLUMN"
+msgid "Worst"
+msgstr ""
+
+#. Hitches tab, column heading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TOTAL_COLUMN"
+msgid "Total"
+msgstr ""
+
+#. Hitches tab, the by-cause table when empty
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_CAUSES"
+msgid "No stutters or freezes yet."
+msgstr ""
+
+#. Hitches tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_HEADING"
+msgid "Time lost to freezes"
+msgstr ""
+
+#. Hitches tab, time lost
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_FREEZES"
+msgid "Freezes over 0.1 s"
+msgstr ""
+
+#. Hitches tab, time lost
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_STUTTERS"
+msgid "Stutters over 20 ms"
+msgstr ""
+
+#. Hitches tab, time lost; {0}: seconds
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_S_PER_HOUR"
+msgid "{0} s per hour"
+msgstr ""
+
+#. Hitches tab, time lost; {0}: minutes
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MIN_PER_HOUR"
+msgid "{0} min per hour"
+msgstr ""
+
+#. Hitches tab, panel heading (shown in capitals)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_HEADING"
+msgid "Loading"
+msgstr ""
+
+#. Hitches tab, loading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_MENU"
+msgid "Game start to menu"
+msgstr ""
+
+#. Hitches tab, loading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_COLONY"
+msgid "Loading this colony"
+msgstr ""
+
+#. Hitches tab, loading
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_FRAME"
+msgid "First frame after loading"
+msgstr ""
+
+#. Hitches tab, loading (the first save after the load)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_SAVE"
+msgid "First save"
+msgstr ""
+
+#. Hitches tab, the footer's note
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HITCHES_FOOT"
+msgid "A cause is named only when the game reports it. Click a red bar or a freeze to see what it was made of."
+msgstr ""
+
+#. The Frame rate counter row's button: puts the counter back at the top centre
+msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION"
+msgid "RESET POSITION"
+msgstr ""
+
+#. The same button just after a click
+msgctxt "STRINGS.MOONO.TWEAKS.UI.POSITION_RESET"
+msgid "POSITION RESET"
+msgstr ""
+
+#. Tooltip of the Reset position button
+msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION_TIP"
+msgid "Puts the frame rate counter back at the top centre of the screen."
 msgstr ""
 
 #. Section heading (shown in capitals)
@@ -292,42 +997,12 @@ msgstr ""
 
 #. The line under the title (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
-msgid "Shows the frame rate at the top of the screen. Click it to see where the frame time goes."
+msgid "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window."
 msgstr ""
 
 #. Tooltip: how it works (fps-counter)
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
-msgid "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_CENTRE"
-msgid "top centre"
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_RIGHT"
-msgid "top right"
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_LEFT"
-msgid "top left"
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_RIGHT"
-msgid "bottom right"
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_LEFT"
-msgid "bottom left"
-msgstr ""
-
-#. A choice on the row's button (shown in capitals) and in its tooltip (fps-counter)
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.OFF"
-msgid "off"
+msgid "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
 msgstr ""
 
 #. Row title (log-paths)

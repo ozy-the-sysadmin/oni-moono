@@ -245,7 +245,9 @@ namespace OniMoono.Host
                 if (effective.FrameStats) GameTweaks.GameTweaks.InstallFrameStats();
                 if (!options.NoTweaksMenu) MoonoTweaksMenu.Install(effective, settings, settingsPath);
                 Perf.PerfRecorder.Install(options.PerfRecord, effective.EnabledTweaks.Where(GameTweaks.GameTweaks.Available), GameTweaks.GameTweakNames.All, effective.FrameStats);
-                Perf.PerfHud.Install(effective.FpsCounter);
+                Perf.PerfHud.Install(effective.FpsCounter, settingsPath, effective.EnabledTweaks.Where(GameTweaks.GameTweaks.Available).ToArray(),
+                    GameTweaks.GameTweakNames.All.Length,
+                    GameTweaks.GameTweakNames.All.Count(n => EffectiveOptions.DefaultOn(n, GameTweaks.GameTweakNames.OffByDefault) && !effective.Tweaks[n].On));
                 StateMachineSaveNames.Install(dataDir, AppContext.BaseDirectory);
                 NativeCrashes.DescribeGame();
                 StartupStats.Mark("host patches installed");

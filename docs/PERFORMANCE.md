@@ -174,13 +174,47 @@ start-up; none is needed to play):
 
 ## The frame rate counter and recordings
 
-**The counter.** **Frame rate counter** (Moono Tweaks, General; `--fps-counter
-top-centre|top-right|top-left|bottom-right|bottom-left|off`; top centre by default, in the
-empty middle of the game's top bar) shows the frame rate and the frame time, from `Time.unscaledDeltaTime`, written twice a second. Clicking it opens the frame time
-panel: the frame's parts (PlayerLoop's phases and the time between frames, which add up to the
-frame), the waits for the graphics thread and the GC's pauses inside them, and counts, refreshed
-every second. The panel measures only while it shows (`FrameWindows`, below); closed, nothing is
-timed. Its **Record 60 s** button writes a recording.
+**The counter.** **Frame rate counter** (Moono Tweaks, General; `--fps-counter on|off`, on by
+default; an earlier build's corner names read as on) is a badge with a status light and the frame
+rate (`OniMoono.GameTweaks.PerfOverlay`). It starts at the top centre; drag it with the left button
+anywhere on the screen and it keeps its place, as a fraction of the screen, in
+`oni-moono/perf-counter-position.txt` beside the settings; the row's **Reset position** button puts
+it back. A click without movement opens the performance window; a drag never does, and neither
+reaches the world (the game's tools ignore clicks over any UI). The light (`PerfTrack`):
+
+- **red**: the game does not keep up with the chosen speed: over the last 5 s of unpaused play
+  (frames over 1 s left out) it advanced more than 5 % fewer game seconds than the speed asks;
+- **yellow**: it stutters: 6 or more unpaused frames in the last 10 s that took 20 ms or more,
+  twice the median or more, right after a normal frame (a run of slow frames is a low rate, not
+  stutters);
+- **green** otherwise, and always while paused or outside a colony.
+
+A state starts after two checks in a row (they run every half second); red ends after two clear
+checks, yellow after four, so the light does not flicker.
+
+**The window** (`PerfWindow`, the owner's approved mock): **Colony** speaks frames a second: a
+verdict, "What you can do, biggest gain first" (`PerfAdvice`: rules, each a condition on what is
+measured and a card whose gain was measured; today only *Simulation at its own pace*, shown while
+waiting for the simulation step causes 30 or more stutters a minute and it is off), what runs right
+now (keeping up, stutters a minute, the last autosave's pause, memory, what holds the frame rate
+back) and the colony's size. **Frame** speaks ms and %: the frame's parts from the engine's frame
+window, each row opening to what is inside it (Game update's from the bucket profile, patched in
+only while that row is open, `PerfBuckets`; the others' phases), the spread of frame times,
+threads, memory, tweaks, a comparison with the newest recording, **Copy report** and **Record
+60 s**. **Hitches**: the frame-time graph over 2 min, 10 min or the session with stutters (20 to
+100 ms) and freezes (100 ms or more), the freezes with their cause where the engine or the game
+reports it (a load, the first frame after it, a save from the game's `Saved to` log line, a
+timelapse or preview picture from the Timelapser's state, a GC pause from the runtime, the
+zero-time wait for the simulation step from `Game.simSubTick`/`simDt`; otherwise Unknown), what a
+selected freeze was made of (GC, the main thread's JIT, the save's preview frames, the background
+write), the session's totals by cause, the time lost per hour and the loading times.
+
+**What the counter and window cost.** Counter off: nothing is installed. Counter on: one call a
+frame at the frame's start (a few field reads of the game's state into a ring of frames) and the
+badge's text twice a second; the light's check walks the last 10 s of frames every half second.
+The window, only while it shows: the engine's frame window for Colony and Frame (as a recording,
+below), the colony's counts every 5 s on Colony, the bucket profile while Frame's Game update row
+is open (it costs frame rate, and says so).
 
 **Recordings** (`--perf-record SPEC` or `ONI_PERF_RECORD=SPEC`; `OniMoono.Host.Perf`): N seconds
 of play into one JSON file each, for comparing builds, tweaks and colonies with
@@ -211,7 +245,7 @@ colony, the runtime's GC and JIT counts, the heap) are taken at the frame ends t
 recording, so their cost falls outside its frames and they cover exactly its frames. Nothing in
 the game is patched, so no tweak steps aside for a recording. Costs, by design:
 
-- not armed, panel closed: nothing (the phases' clock reads test `PlayerLoop.Timing` where they
+- not armed, window closed: nothing (the phases' clock reads test `PlayerLoop.Timing` where they
   tested `FrameStats`);
 - armed and waiting: one call a frame, three reads of the game's state;
 - recording: ten clock reads a frame for the phases, the device waits' clock reads, one GC

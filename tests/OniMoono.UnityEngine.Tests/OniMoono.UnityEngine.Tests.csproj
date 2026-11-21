@@ -153,6 +153,9 @@
     <!-- The performance recorder's spec and frame summary (PerfRecordTests). -->
     <Compile Include="../../src/OniMoono.Host/Perf/PerfSpec.cs" Link="Host/Perf/PerfSpec.cs" />
     <Compile Include="../../src/OniMoono.Host/Perf/PerfStats.cs" Link="Host/Perf/PerfStats.cs" />
+    <!-- The frame rate counter's light, history and advice rules (PerfTrackTests). -->
+    <Compile Include="../../src/OniMoono.GameTweaks/PerfTrack.cs" Link="GameTweaks/PerfTrack.cs" />
+    <Compile Include="../../src/OniMoono.GameTweaks/PerfAdvice.cs" Link="GameTweaks/PerfAdvice.cs" />
     <!-- The fast-symbol-overrides game tweak's block bookkeeping (OverrideBlockLogTests). -->
     <Compile Include="../../src/OniMoono.GameTweaks/OverrideBlockLog.cs" Link="GameTweaks/OverrideBlockLog.cs" />
     <!-- fast-anim-batches' loop over the dirty batches (WorkerLoopTests). -->

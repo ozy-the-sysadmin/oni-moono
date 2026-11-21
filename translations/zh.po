@@ -126,73 +126,637 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.OVERLAPS_TIP"
 msgid "Some mods patch the same code as Moono's tweaks. Open Moono Tweaks to see which."
 msgstr "有些模组修补了与 Moono 调整项相同的代码。打开 Moono 调整项查看是哪些。"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TITLE"
-msgid "Frame time: {0} fps, {1} ms a frame"
-msgstr "帧时间：{0} fps，每帧 {1} 毫秒"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_FPS"
+msgid "fps"
+msgstr "fps"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MS"
+msgid "ms"
+msgstr "毫秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_S"
+msgid "s"
+msgstr "秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GB"
+msgid "GB"
+msgstr "GB"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KB"
+msgid "KB"
+msgstr "KB"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WINDOW_TITLE"
+msgid "PERFORMANCE"
+msgstr "性能"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_COLONY"
+msgid "COLONY"
+msgstr "殖民地"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_FRAME"
+msgid "FRAME"
+msgstr "帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TAB_HITCHES"
+msgid "HITCHES"
+msgstr "卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_GOOD"
+msgid "Running well"
+msgstr "运行良好"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_GOOD_TEXT"
+msgid "{0} fps and the game keeps up with speed {1}. You don't need to change anything."
+msgstr "{0} fps，游戏跟得上速度 {1}。无需做任何更改。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_STUTTERING"
+msgid "Stuttering"
+msgstr "有卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_STUTTERING_TEXT"
+msgid "{0} fps, but the picture stops for a moment {1} times a minute."
+msgstr "{0} fps，但画面每分钟会停顿 {1} 次。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_BEHIND"
+msgid "Not keeping up"
+msgstr "跟不上"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_BEHIND_TEXT"
+msgid "The game runs at {0}× instead of the {1}× you chose: your colony's time passes more slowly than it should."
+msgstr "游戏以 {0}× 运行，而不是你选择的 {1}×：殖民地的时间流逝得比应有的慢。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_PAUSED"
+msgid "Paused"
+msgstr "已暂停"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_PAUSED_TEXT"
+msgid "The game is paused. Unpause it for a few seconds to see how it runs."
+msgstr "游戏已暂停。取消暂停几秒钟即可看到运行情况。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_NO_COLONY"
+msgid "No colony loaded"
+msgstr "未加载殖民地"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_VERDICT_NO_COLONY_TEXT"
+msgid "Load a colony to see how it runs and what you can do about it."
+msgstr "加载一个殖民地，即可查看它的运行情况以及可以做些什么。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_HEADING"
+msgid "What you can do, biggest gain first"
+msgstr "你可以做的，收益最大的在前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE"
+msgid "No change we have measured would make this colony run better."
+msgstr "我们测量过的更改都不会让这个殖民地运行得更好。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
+msgid "Nothing to advise yet: let the game run unpaused for half a minute."
+msgstr "暂无建议：让游戏不暂停地运行半分钟。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE"
+msgid "Turn on \"Simulation at its own pace\" in Moono Tweaks"
+msgstr "在 Moono 调整项中打开“按模拟自身的节奏运行”"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_GAIN"
+msgid "Would remove most of the {0} small stutters a minute (in our tests: {1} a minute down to about {2})."
+msgstr "可消除每分钟 {0} 次小卡顿中的大部分（我们的测试中：从每分钟 {1} 次降到约 {2} 次）。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_WHY"
+msgid "Dug and built tiles appear up to 0.2 s later. Off by default."
+msgstr "挖掘和建造的格子最多晚 0.2 秒出现。默认关闭。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_HEADING"
+msgid "Nothing to gain here"
+msgstr "这里没有可提升的"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_NONE"
+msgid "Nothing checked yet."
+msgstr "尚未检查任何项目。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_STEP_PACE_ON"
+msgid "Waiting for the simulation step: \"Simulation at its own pace\" is already on."
+msgstr "等待模拟步骤：“按模拟自身的节奏运行”已经打开。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_WAITS_FEW"
+msgid "Waiting for the simulation step causes few stutters here ({0} a minute)."
+msgstr "等待模拟步骤在这里造成的卡顿很少（每分钟 {0} 次）。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_HEADING"
+msgid "Right now"
+msgstr "当前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_FRAME_RATE"
+msgid "Frame rate"
+msgstr "帧率"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_KEEPS_UP"
+msgid "Keeps up with speed {0}"
+msgstr "跟得上速度 {0}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_YES"
+msgid "Yes"
+msgstr "是"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_AT"
+msgid "No, {0}×"
+msgstr "否，{0}×"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_STUTTERS"
+msgid "Small stutters"
+msgstr "小卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PER_MINUTE"
+msgid "{0} a minute"
+msgstr "每分钟 {0} 次"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_AUTOSAVE"
+msgid "Autosave pause"
+msgstr "自动保存停顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NONE_YET"
+msgid "None yet"
+msgstr "暂无"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_MEMORY"
+msgid "Memory used"
+msgstr "已用内存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GB_OF"
+msgid "{0} of {1} GB"
+msgstr "{0} / {1} GB"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_HELD_BACK"
+msgid "Held back by"
+msgstr "受限于"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_PROCESSOR"
+msgid "Processor"
+msgstr "处理器"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_GRAPHICS"
+msgid "Graphics"
+msgstr "显卡"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HELD_LIMIT"
+msgid "Frame rate limit"
+msgstr "帧率上限"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING"
+msgid "Your colony"
+msgstr "你的殖民地"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING_CYCLE"
+msgid "Your colony · cycle {0}"
+msgstr "你的殖民地 · 第 {0} 周期"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_DUPLICANTS"
+msgid "Duplicants"
+msgstr "复制人"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_CRITTERS"
+msgid "Critters"
+msgstr "小动物"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_LOOSE"
+msgid "Loose items"
+msgstr "散落物品"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_BUILDINGS"
+msgid "Buildings"
+msgstr "建筑"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_UTILITIES"
+msgid "Pipes, wires, rails"
+msgstr "管道、电线、轨道"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_ASTEROIDS"
+msgid "Asteroids visited"
+msgstr "到访过的小行星"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT"
+msgid "Advice is shown only where the gain was measured."
+msgstr "只显示收益经过测量的建议。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCAN_AGAIN"
+msgid "SCAN AGAIN"
+msgstr "重新扫描"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_AVERAGE"
+msgid "Average"
+msgstr "平均"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_SLOWEST"
+msgid "Slowest 1%"
+msgstr "最慢 1%"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_WORST"
+msgid "Worst frame"
+msgstr "最慢一帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_SPEED"
+msgid "Game speed"
+msgstr "游戏速度"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_KV_STUTTERS"
+msgid "Stutters"
+msgstr "卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PER_MIN"
+msgid "/ min"
+msgstr "/ 分钟"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEASURING"
 msgid "Measuring…"
-msgstr "正在测量…"
+msgstr "测量中…"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_EARLY"
-msgid "Input and physics"
-msgstr "输入与物理"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_UPDATE"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_UPDATE"
 msgid "Game update"
 msgstr "游戏更新"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LATE"
-msgid "Animation and late update"
-msgstr "动画与延后更新"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_LATE"
+msgid "Animation, late update"
+msgstr "动画、后期更新"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_POST_LATE"
-msgid "Interface layout"
-msgstr "界面布局"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PARTICLES"
-msgid "Particles"
-msgstr "粒子"
-
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RENDER"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_DRAWING"
 msgid "Drawing"
 msgstr "绘制"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GUI"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_INTERFACE"
+msgid "Interface"
+msgstr "界面"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ROW_ELSE"
+msgid "Everything else"
+msgstr "其他"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_RENDER"
+msgid "Drawing the scene"
+msgstr "绘制场景"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_GUI"
 msgid "Debug interface"
 msgstr "调试界面"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_END_OF_FRAME"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_END_OF_FRAME"
 msgid "End of frame"
-msgstr "帧末尾"
+msgstr "帧末"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PRESENT"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_PRESENT"
 msgid "Showing the picture"
 msgstr "显示画面"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OUTSIDE"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_EARLY"
+msgid "Input and physics"
+msgstr "输入和物理"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_POST_LATE"
+msgid "Interface layout"
+msgstr "界面布局"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_PARTICLES"
+msgid "Particles"
+msgstr "粒子"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PHASE_OUTSIDE"
 msgid "Between frames"
-msgstr "帧与帧之间"
+msgstr "帧之间"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WAIT_DEVICE"
-msgid "Of these, waiting for the graphics thread"
-msgstr "其中等待图形线程"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_WAIT_GRAPHICS"
+msgid "Waiting for graphics"
+msgstr "等待显卡"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_GC"
-msgid "Of these, memory cleanup"
-msgstr "其中内存清理"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SUB_GC"
+msgid "Memory clean-up"
+msgstr "内存清理"
 
-msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COUNTS"
-msgid "{0} frames; {1} graphics calls waited for a frame; {2} memory cleanups; longest frame {3} ms"
-msgstr "{0} 帧；每帧等待 {1} 次图形调用；{2} 次内存清理；最长一帧 {3} 毫秒"
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BUCKETS_NOTE"
+msgid "Measuring what is inside Game update costs some frame rate while the row is open."
+msgstr "展开此行时，测量游戏更新内部的内容会消耗一些帧率。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_INSIDE"
+msgid "Inside \"{0}\""
+msgstr "“{0}”内部"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_CALLS"
+msgid "calls"
+msgstr "调用"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_OBJECTS"
+msgid "objects"
+msgstr "对象"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_WORST"
+msgid "worst"
+msgstr "最慢"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_SMALLER"
+msgid "{0} smaller entries"
+msgstr "{0} 个较小的条目"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_DRILL_NOT_IN_BUCKETS"
+msgid "The rest (simulation step, other scripts)"
+msgstr "其余（模拟步骤、其他脚本）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_HEADING"
+msgid "Frame time spread"
+msgstr "帧时间分布"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_MEDIAN"
+msgid "Typical (median)"
+msgstr "典型（中位数）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_NINE_IN_TEN"
+msgid "9 frames in 10 under"
+msgstr "10 帧中 9 帧低于"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_NINETY_NINE"
+msgid "99 in 100 under"
+msgstr "100 帧中 99 帧低于"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SPREAD_LONGEST"
+msgid "Longest"
+msgstr "最长"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_HEADING"
+msgid "Threads"
+msgstr "线程"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_MAIN"
+msgid "Main thread busy"
+msgstr "主线程忙碌"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WAIT_GRAPHICS"
+msgid "Main thread waiting for graphics"
+msgstr "主线程等待显卡"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_SIM"
+msgid "Simulation (SimDLL) on the main thread"
+msgstr "主线程上的模拟（SimDLL）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_THREADS_WORKERS"
+msgid "Game's worker threads"
+msgstr "游戏工作线程"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_OF_N"
+msgid "{0} of {1}"
+msgstr "{0} / {1}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_HEADING"
+msgid "Memory"
+msgstr "内存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_IN_USE"
+msgid "In use"
+msgstr "使用中"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_PER_FRAME"
+msgid "New memory per frame"
+msgstr "每帧新分配内存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_CLEANUPS"
+msgid "Clean-ups per minute"
+msgstr "每分钟清理次数"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CLEANUPS_VALUE"
+msgid "{0} small · {1} full"
+msgstr "{0} 次小 · {1} 次完整"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MEMORY_LONGEST"
+msgid "Longest clean-up pause"
+msgstr "最长清理停顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_HEADING"
+msgid "Tweaks"
+msgstr "调整项"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_ACTIVE"
+msgid "Active"
+msgstr "生效中"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_STEPPED"
+msgid "Stepped aside for a mod"
+msgstr "为模组让步"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TWEAKS_OFF"
+msgid "Switched off by you"
+msgstr "被你关闭"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COMPARE"
+msgid "Compared with your last recording ({0}): {1}."
+msgstr "与你上次的记录（{0}）相比：{1}。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COMPARE_NONE"
+msgid "No earlier recording to compare with: Record 60 s makes one."
+msgstr "没有可比较的早先记录：“记录 60 秒”可以生成一个。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_S"
+msgid "{0} s ago"
+msgstr "{0} 秒前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_MIN"
+msgid "{0} min ago"
+msgstr "{0} 分钟前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_H"
+msgid "{0} h ago"
+msgstr "{0} 小时前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_AGO_DAYS"
+msgid "{0} days ago"
+msgstr "{0} 天前"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COPY_REPORT"
+msgid "COPY REPORT"
+msgstr "复制报告"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COPIED"
+msgid "COPIED"
+msgstr "已复制"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD"
-msgid "Record 60 s"
+msgid "RECORD 60 S"
 msgstr "记录 60 秒"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING"
-msgid "Recording…"
-msgstr "正在记录…"
+msgid "RECORDING…"
+msgstr "记录中…"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_LOAD"
+msgid "Loading"
+msgstr "加载"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_FIRST_FRAME"
+msgid "First frame after loading"
+msgstr "加载后的第一帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_AUTOSAVE"
+msgid "Autosave"
+msgstr "自动保存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SAVE"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_TIMELAPSE"
+msgid "Timelapse picture"
+msgstr "延时摄影截图"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_GC"
+msgid "Memory clean-up"
+msgstr "内存清理"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT"
+msgid "Waiting for the simulation step"
+msgstr "等待模拟步骤"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_UNKNOWN"
+msgid "Unknown"
+msgstr "未知"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_TWO_MIN"
+msgid "2 min"
+msgstr "2 分钟"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_TEN_MIN"
+msgid "10 min"
+msgstr "10 分钟"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RANGE_SESSION"
+msgid "This session"
+msgstr "本次游戏"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_FRAME"
+msgid "Frame time"
+msgstr "帧时间"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_STUTTER"
+msgid "Stutter"
+msgstr "卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LEGEND_FREEZE"
+msgid "Freeze"
+msgstr "冻结"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_FREEZES"
+msgid "No freezes in this range."
+msgstr "这段时间内没有冻结。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ONGOING"
+msgid "Ongoing"
+msgstr "持续中"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SIM_WAIT_FIX"
+msgid "Can be removed with \"Simulation at its own pace\" in Moono Tweaks."
+msgstr "可以通过 Moono 调整项中的“按模拟自身的节奏运行”消除。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SELECTED_HEADING"
+msgid "The selected freeze: {0}, {1}"
+msgstr "所选冻结：{0}，{1}"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_SAVE_DATA"
+msgid "Collecting and writing the colony's data"
+msgstr "收集并写入殖民地数据"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_FRAME"
+msgid "The rest of the frame"
+msgstr "该帧其余部分"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_GC"
+msgid "Memory clean-up"
+msgstr "内存清理"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_JIT"
+msgid "Compiling code (first time only)"
+msgstr "编译代码（仅首次）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_PREVIEW"
+msgid "Preview picture"
+msgstr "预览图"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_PART_BACKGROUND_WRITE"
+msgid "Compressing and writing the file (in the background, no freeze)"
+msgstr "压缩并写入文件（在后台进行，不会冻结）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_BY_CAUSE_HEADING"
+msgid "By cause, this session ({0} min)"
+msgstr "按原因，本次游戏（{0} 分钟）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_COLUMN"
+msgid "Cause"
+msgstr "原因"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TIMES_COLUMN"
+msgid "Times"
+msgstr "次数"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WORST_COLUMN"
+msgid "Worst"
+msgstr "最长"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_TOTAL_COLUMN"
+msgid "Total"
+msgstr "合计"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NO_CAUSES"
+msgid "No stutters or freezes yet."
+msgstr "尚无卡顿或冻结。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_HEADING"
+msgid "Time lost to freezes"
+msgstr "因冻结损失的时间"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_FREEZES"
+msgid "Freezes over 0.1 s"
+msgstr "超过 0.1 秒的冻结"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOST_STUTTERS"
+msgid "Stutters over 20 ms"
+msgstr "超过 20 毫秒的卡顿"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_S_PER_HOUR"
+msgid "{0} s per hour"
+msgstr "每小时 {0} 秒"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_MIN_PER_HOUR"
+msgid "{0} min per hour"
+msgstr "每小时 {0} 分钟"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_HEADING"
+msgid "Loading"
+msgstr "加载"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_MENU"
+msgid "Game start to menu"
+msgstr "启动到主菜单"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_COLONY"
+msgid "Loading this colony"
+msgstr "加载此殖民地"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_FRAME"
+msgid "First frame after loading"
+msgstr "加载后的第一帧"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_SAVE"
+msgid "First save"
+msgstr "首次保存"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_HITCHES_FOOT"
+msgid "A cause is named only when the game reports it. Click a red bar or a freeze to see what it was made of."
+msgstr "只有在游戏报告原因时才会给出原因。点击红色竖条或某次冻结，查看它由什么组成。"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION"
+msgid "RESET POSITION"
+msgstr "重置位置"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.POSITION_RESET"
+msgid "POSITION RESET"
+msgstr "位置已重置"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.RESET_POSITION_TIP"
+msgid "Puts the frame rate counter back at the top centre of the screen."
+msgstr "把帧率计数器放回屏幕顶部中央。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.GROUPS.GENERAL"
 msgid "General"
@@ -235,36 +799,12 @@ msgid "Frame rate counter"
 msgstr "帧率计数器"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.EFFECT"
-msgid "Shows the frame rate at the top of the screen. Click it to see where the frame time goes."
-msgstr "在屏幕顶部显示帧率。点击可查看每帧的时间花在哪里。"
+msgid "Shows the frame rate with a status light. Drag it anywhere; click it for the performance window."
+msgstr "显示帧率和状态灯。可拖到任意位置；点击打开性能窗口。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.FPS_COUNTER.DETAIL"
-msgid "The rate and the frame time, measured on the game's main thread. Clicking it opens a panel with the time of each part of the frame; it measures only while open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
-msgstr "帧率和帧时间，在游戏主线程上测量。点击它会打开一个面板，显示一帧中每个部分所用的时间；面板只在打开时测量，其“记录”按钮会把 60 秒的测量结果保存到 oni-moono 数据文件夹中的 perf 文件夹。关闭：不显示计数器，也不做任何测量。"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_CENTRE"
-msgid "top centre"
-msgstr "顶部居中"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_RIGHT"
-msgid "top right"
-msgstr "右上"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.TOP_LEFT"
-msgid "top left"
-msgstr "左上"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_RIGHT"
-msgid "bottom right"
-msgstr "右下"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.BOTTOM_LEFT"
-msgid "bottom left"
-msgstr "左下"
-
-msgctxt "STRINGS.MOONO.TWEAKS.CHOICES.FPS_COUNTER.OFF"
-msgid "off"
-msgstr "关闭"
+msgid "Green: running well. Yellow: stuttering. Red: the game does not keep up with the speed you chose. The window tells what you can do (only advice whose gain was measured), where the frame time goes and what caused each freeze; it measures more only while it is open, and its Record button saves 60 seconds of measurements to the perf folder in the oni-moono data folder. Off: no counter and nothing measured."
+msgstr "绿色：运行良好。黄色：有卡顿。红色：游戏跟不上你选择的速度。窗口会告诉你可以做什么（只给出收益经过测量的建议）、每帧的时间花在哪里，以及每次冻结的原因；只有在窗口打开时才会做更多测量，其“记录”按钮会把 60 秒的测量结果保存到 oni-moono 数据文件夹中的 perf 文件夹。关闭：不显示计数器，也不做任何测量。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.ROWS.LOG_PATHS.TITLE"
 msgid "Hide personal paths in the log"

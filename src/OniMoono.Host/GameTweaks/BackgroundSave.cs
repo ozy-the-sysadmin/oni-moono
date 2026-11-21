@@ -127,8 +127,13 @@ namespace OniMoono.Host.GameTweaks
             return false;
         }
 
+        /// How long the last background write took (compression and file, ms; 0 before one), for the
+        /// performance window's freeze details.
+        public static double LastWriteMs;
+
         static void Write(string path, byte[] header, byte[] body, int length)
         {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             string temporary = path + ".writing";
             try
             {
@@ -156,6 +161,7 @@ namespace OniMoono.Host.GameTweaks
             // The whole save is in the temporary file from here on, and it is never deleted unless it
             // took the save's place: another process holding the save (an antivirus scan, a cloud
             // client, the game closing its handle on the header) is waited out, then copied over.
+            LastWriteMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             if (Replace(temporary, path)) EngineLog.Engine($"background save written: {path}");
             else UnityEngine.Debug.LogError($"Background save of {path} could not replace the save file, which another program keeps open; the complete save is in {temporary}");
         }

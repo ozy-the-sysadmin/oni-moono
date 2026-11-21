@@ -48,5 +48,9 @@
     <Reference Include="$(OniManaged)/UnityEngine.UIModule.dll" Private="false" />
     <!-- TextAnchor, for the update badge's layout groups. -->
     <Reference Include="$(OniManaged)/UnityEngine.TextRenderingModule.dll" Private="false" />
+    <!-- The performance window: the mouse while the counter is dragged (Input), the report to the
+         clipboard (GUIUtility.systemCopyBuffer). -->
+    <Reference Include="$(OniManaged)/UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="$(OniManaged)/UnityEngine.IMGUIModule.dll" Private="false" />
   </ItemGroup>
 </Project>

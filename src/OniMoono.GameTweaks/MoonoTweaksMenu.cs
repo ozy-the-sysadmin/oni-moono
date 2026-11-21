@@ -61,6 +61,9 @@ namespace OniMoono.GameTweaks
         internal static string[][] Choices;
         internal static string SettingsPath;
         internal static Func<string[], int[], string> Save;
+        /// The frame rate counter, when it runs, puts its badge back at the top centre
+        /// (PerfOverlay.ResetPosition; the Reset position button).
+        internal static System.Action CounterReset;
         /// The header's version label ("Moono 2026.11.19.01", or a build's short commit; null for
         /// none), from the host (OniMoono.Host.UpdateCheck.VersionLabel).
         internal static string Version;
@@ -769,8 +772,40 @@ namespace OniMoono.GameTweaks
                 };
                 if (tip != null) tip.OnToolTip = () => shown[i] != 0 ? UI.FRONTEND.MODS.TOOLTIPS.ENABLED : UI.FRONTEND.MODS.TOOLTIPS.DISABLED;
             }
+            // The frame rate counter's row (GameTweakNames.FpsCounterRow) also puts the badge back.
+            if (MoonoTweaksMenu.Ids[i] == "fps-counter") ResetPositionButton(entry);
             entry.gameObject.SetActive(true);
             return entry.gameObject;
+        }
+
+        /// The frame rate counter's row: the Mods rows' Manage button beside its toggle, as "Reset
+        /// position": its place file deleted and the badge back at the top centre (CounterReset), now and after a
+        /// restart; its place is kept beside the settings file, OniMoono.Host.Perf.PerfHud).
+        static void ResetPositionButton(HierarchyReferences entry)
+        {
+            var button = entry.GetReference<KButton>("ManageButton");
+            button.gameObject.SetActive(true);
+            var label = button.GetComponentInChildren<LocText>();
+            label.text = MoonoTweaksMenu.Ui("RESET_POSITION");
+            var size = button.GetComponent<LayoutElement>();
+            if (size != null) size.minWidth = size.preferredWidth = 140f;
+            var tip = button.GetComponent<ToolTip>();
+            if (tip == null) tip = button.gameObject.AddComponent<ToolTip>();
+            tip.toolTip = MoonoTweaksMenu.Ui("RESET_POSITION_TIP");
+            string file = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(MoonoTweaksMenu.SettingsPath) ?? "", "perf-counter-position.txt");
+            button.onClick += () =>
+            {
+                try
+                {
+                    if (System.IO.File.Exists(file)) System.IO.File.Delete(file);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[Moono] fps counter: its place could not be reset: " + e.Message);
+                }
+                MoonoTweaksMenu.CounterReset?.Invoke();
+                label.text = MoonoTweaksMenu.Ui("POSITION_RESET");
+            };
         }
 
         /// A row with choices (the GPU's): the Mods rows' Manage button in the toggle's place,
