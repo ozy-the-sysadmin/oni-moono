@@ -124,8 +124,10 @@ namespace OniMoono.GameTweaks
             byte bits = 0;
             if (f.InColony) bits |= FColony;
             if (f.InColony && !f.Paused) bits |= FRunning;
-            if (f.Loading) bits |= FLoading;
-            if (f.GcMs > LongestGcMs) LongestGcMs = f.GcMs;
+            // The frame that arrives in a colony holds the end of its load.
+            bool arriving = f.InColony && !wasColony;
+            if (f.Loading || arriving) bits |= FLoading;
+            if (f.GcMs > LongestGcMs && f.InColony && !f.Loading && !arriving) LongestGcMs = f.GcMs;
 
             fpsMs += f.Ms;
             fpsFrames++;
@@ -140,7 +142,7 @@ namespace OniMoono.GameTweaks
             var cause = PerfCause.None;
             if (f.Ms >= StutterMs || f.Saved)
             {
-                cause = Classify(f);
+                cause = Classify(f, arriving);
                 if (cause != PerfCause.None)
                 {
                     bits |= f.Ms >= FreezeMs ? FFreeze : FStutter;
@@ -183,9 +185,9 @@ namespace OniMoono.GameTweaks
         }
 
         /// A slow frame's cause (None for frames that count as no stutter: the menus).
-        PerfCause Classify(in PerfFrame f)
+        PerfCause Classify(in PerfFrame f, bool arriving)
         {
-            if (f.Loading) return PerfCause.Load;
+            if (f.Loading || arriving) return PerfCause.Load;
             if (!f.InColony) return PerfCause.None;
             if (awaitFirstFrame && f.GameDt > 0)
             {
@@ -255,7 +257,7 @@ namespace OniMoono.GameTweaks
                 current.Colony = true;
                 ColonySeconds += f.Ms / 1000;
             }
-            if (cause == PerfCause.None) return;
+            if (cause == PerfCause.None || cause == PerfCause.Load) return;
             if (f.Ms >= FreezeMs) current.Freezes++;
             else current.Stutters++;
             if (cause == PerfCause.SimWait) current.SimWaits++;
@@ -402,7 +404,7 @@ namespace OniMoono.GameTweaks
                 double age = now - end[i];
                 if (age > window) break;
                 oldest = end[i];
-                int x = w - 1 - (int)(age / window * w);
+                int x = w - 1 - (int)(Math.Max(0, age) / window * w);
                 if (x < 0) continue;
                 if (ms[i] > maxMs[x]) maxMs[x] = ms[i];
                 byte kd = (flags[i] & FFreeze) != 0 ? (byte)2 : (flags[i] & FStutter) != 0 ? (byte)1 : (byte)0;
@@ -415,7 +417,7 @@ namespace OniMoono.GameTweaks
                 if (secEnd >= oldest) continue;
                 double age = now - secEnd;
                 if (age > window) break;
-                int x = w - 1 - (int)(age / window * w);
+                int x = w - 1 - (int)(Math.Max(0, age) / window * w);
                 if (x < 0) break;
                 var sec = seconds[sIdx];
                 if (sec.MaxMs > maxMs[x]) maxMs[x] = sec.MaxMs;
@@ -439,6 +441,10 @@ namespace OniMoono.GameTweaks
             }
             return (st, sw, fr, col);
         }
+
+        /// The newest frame's end (seconds, PerfFrame.Now's clock: the host's frame clock): the
+        /// window's "now".
+        public double Now => count > 0 ? end[(count - 1) & (Capacity - 1)] : 0;
 
         /// The time the per-second history's newest entry ended (seconds, PerfFrame.Now's clock).
         public double SecondsEnd => secondEnds - 1;

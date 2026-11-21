@@ -92,7 +92,9 @@ namespace OniMoono.GameTweaks
                 if (!byBucket.TryGetValue(bucket, out var kind))
                 {
                     rate = rate ?? group.updateRate.ToString();
-                    string label = bucket.name + " · " + Rate(rate);
+                    // Most buckets name their rate already ("RequireInputs SIM_200ms").
+                    string name = bucket.name ?? "?";
+                    string label = name.Contains("SIM_") || name.Contains("RENDER_") ? Rate(name) : name + " · " + Rate(rate);
                     if (!byLabel.TryGetValue(label, out kind)) byLabel[label] = kind = new Kind { Label = label };
                     byBucket[bucket] = kind;
                 }

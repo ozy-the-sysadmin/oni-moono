@@ -15,6 +15,8 @@ namespace OniMoono.GameTweaks
         static bool lastPaused = true, lastTimelapse;
         static double lastScale;
         static bool saved, autoSaved;
+        static string lastSaveFile;
+        static int lastSaveSize = -1;
         static bool listening;
         /// sim-step-pace is on: the game makes no zero-time calls, so none is counted.
         public static bool SimStepPaceOn;
@@ -23,7 +25,8 @@ namespace OniMoono.GameTweaks
         /// ended in this frame. An autosave's path is in its auto_save folder.
         static void OnLog(string condition, string stackTrace, LogType type)
         {
-            if (condition == null || !condition.StartsWith("Saved to", StringComparison.Ordinal)) return;
+            // The game's own logger puts its time and level first ("[00:06:20.614] [2] [INFO] Saved to [path]").
+            if (condition == null || condition.IndexOf("Saved to [", StringComparison.Ordinal) < 0) return;
             saved = true;
             autoSaved = condition.IndexOf("auto_save", StringComparison.OrdinalIgnoreCase) >= 0;
         }
@@ -50,6 +53,17 @@ namespace OniMoono.GameTweaks
                 bool colony = PerfGame.InColony();
                 f.InColony = colony;
                 f.Loading = KMonoBehaviour.isLoadingScene || (!colony && !f.InMenu) || (game != null && game.IsLoading());
+                // A save in a running colony: SaveLoader.Save sets both of these after writing (and a
+                // load before the colony runs). Its log line is the other sign (OnLog).
+                string file = KCrashReporter.MOST_RECENT_SAVEFILE;
+                int size = SaveLoader.Instance != null ? SaveLoader.Instance.lastUncompressedSize : -1;
+                if (colony && lastSaveSize >= 0 && (!ReferenceEquals(file, lastSaveFile) || size != lastSaveSize))
+                {
+                    f.Saved = true;
+                    f.AutoSave = file != null && file.IndexOf("auto_save", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                lastSaveFile = file;
+                lastSaveSize = colony ? size : -1;
                 if (!colony)
                 {
                     lastSub = -1;

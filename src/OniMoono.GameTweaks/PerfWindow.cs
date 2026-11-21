@@ -247,7 +247,7 @@ namespace OniMoono.GameTweaks
         void Build()
         {
             var track = PerfOverlay.Track;
-            double now = Time.realtimeSinceStartupAsDouble;
+            double now = track.Now;
             ui.Begin();
             float h;
             try
@@ -343,8 +343,10 @@ namespace OniMoono.GameTweaks
                 // The number in the title face, its unit in the body face, on one baseline.
                 string unit = boxes[i].Unit;
                 float nw = ui.Width(boxes[i].Number, 22f, PerfUi.Title);
-                ui.Text(bx + 10, y + 21, nw + 2, 26, boxes[i].Number, 22f, PerfUi.Ink, TextAlignmentOptions.BaselineLeft, PerfUi.Title);
-                if (unit.Length > 0) ui.Text(bx + 10 + nw + 4, y + 21, bw - 24 - nw, 26, unit, 12.5f, PerfUi.Muted, TextAlignmentOptions.BaselineLeft);
+                // TMP puts a Baseline-aligned line's baseline at its rectangle's middle: both rectangles
+                // centred on the baseline (y + 42).
+                ui.Text(bx + 10, y + 30, nw + 2, 24, boxes[i].Number, 22f, PerfUi.Ink, TextAlignmentOptions.BaselineLeft, PerfUi.Title);
+                if (unit.Length > 0) ui.Text(bx + 10 + nw + 4, y + 30, bw - 24 - nw, 24, unit, 12.5f, PerfUi.Muted, TextAlignmentOptions.BaselineLeft);
             }
             return y + bh + 12;
         }
@@ -372,7 +374,9 @@ namespace OniMoono.GameTweaks
 
         static string Fps(double fps) => double.IsNaN(fps) || fps <= 0 ? "–" : fps.ToString("F0", C);
         static string Ms(double ms, string format = "F1") => double.IsNaN(ms) ? "–" : ms.ToString(format, C) + " " + Ui("PERF_MS");
-        static string Seconds(double ms) => double.IsNaN(ms) ? "–" : (ms / 1000).ToString(ms >= 10000 ? "F1" : "F2", C) + " " + Ui("PERF_S");
+        /// A duration: under 0.1 s in ms ("61 ms"), else in seconds ("0.71 s", "17.3 s").
+        static string Seconds(double ms) => double.IsNaN(ms) ? "–" : ms < 100 ? ms.ToString("F0", C) + " " + Ui("PERF_MS")
+            : (ms / 1000).ToString(ms >= 10000 ? "F1" : "F2", C) + " " + Ui("PERF_S");
         static string Count(int n) => n < 0 ? "–" : n.ToString("N0", C);
         static string Gb(double bytes) => (bytes / (1024.0 * 1024 * 1024)).ToString("F1", C);
 
@@ -581,7 +585,8 @@ namespace OniMoono.GameTweaks
                 (Ui("PERF_KV_AVERAGE"), sum.Frames > 0 ? sum.MeanMs.ToString("F1", C) : "–", Ui("PERF_MS")),
                 (Ui("PERF_KV_SLOWEST"), sum.Frames > 0 ? sum.P99Ms.ToString("F0", C) : "–", Ui("PERF_MS")),
                 (Ui("PERF_KV_WORST"), sum.Frames > 0 ? (sum.MaxMs / 1000).ToString("F2", C) : "–", Ui("PERF_S")),
-                (Ui("PERF_KV_SPEED"), PerfGame.InColony() && !PerfGame.Paused() ? (track.KeepUp * track.Speed).ToString(double.IsNaN(track.KeepUp) ? "" : "F1", C) + "×" : "–", ""),
+                (Ui("PERF_KV_SPEED"), PerfGame.InColony() && !PerfGame.Paused() && !double.IsNaN(track.KeepUp) ? (track.KeepUp * track.Speed).ToString("F1", C) : "–",
+                    PerfGame.InColony() && !PerfGame.Paused() && !double.IsNaN(track.KeepUp) ? "×" : ""),
             });
             if (wall <= 0)
             {
@@ -946,7 +951,7 @@ namespace OniMoono.GameTweaks
             foreach (var cause in new[] { PerfCause.Autosave, PerfCause.Save, PerfCause.Timelapse, PerfCause.Gc, PerfCause.SimWait, PerfCause.FirstFrame, PerfCause.Load, PerfCause.Unknown })
             {
                 int c = (int)cause;
-                if (track.CauseTimes[c] > 0) causeLines.Add((CauseName(cause), track.CauseTimes[c], track.CauseWorst[c], track.CauseTotal[c]));
+                if (track.CauseTimes[c] > 0) causeLines.Add((cause == PerfCause.SimWait ? Ui("PERF_CAUSE_SIM_WAIT_SHORT") : CauseName(cause), track.CauseTimes[c], track.CauseWorst[c], track.CauseTotal[c]));
             }
             float ry = CauseTable(RightX, y, RightWidth, string.Format(C, Ui("PERF_BY_CAUSE_HEADING"), Math.Round(minutes).ToString("N0", C)), causeLines);
             double hours = Math.Max(track.ColonySeconds / 3600, 1e-9);
@@ -997,7 +1002,7 @@ namespace OniMoono.GameTweaks
             float h = 9 + 20 + 18 + rows * line + 6;
             ui.Box(x, y, w, h, PerfUi.Panel2, PerfUi.Round6);
             ui.Text(x + 12, y + 7, w - 24, 18, heading.ToUpperInvariant(), 13.5f, PerfUi.Muted, TextAlignmentOptions.MidlineLeft, PerfUi.Title);
-            float[] cols = { 48, 58, 54 };
+            float[] cols = { 44, 56, 50 };
             float nameW = w - 24 - cols.Sum() - 3 * 8;
             float ly = y + 29;
             void Cells(string a, string b, string c, string d, float size, Color colour, Color first)
@@ -1105,7 +1110,7 @@ namespace OniMoono.GameTweaks
         void CopyReport()
         {
             var track = PerfOverlay.Track;
-            double now = Time.realtimeSinceStartupAsDouble;
+            double now = track.Now;
             var r = new StringBuilder();
             var sum = track.Summarize(10, now);
             var s = Sums();

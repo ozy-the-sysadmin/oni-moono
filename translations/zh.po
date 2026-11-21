@@ -219,8 +219,8 @@ msgid "Turn on \"Simulation at its own pace\" in Moono Tweaks"
 msgstr "在 Moono 调整项中打开“按模拟自身的节奏运行”"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_GAIN"
-msgid "Would remove most of the {0} small stutters a minute (in our tests: {1} a minute down to about {2})."
-msgstr "可消除每分钟 {0} 次小卡顿中的大部分（我们的测试中：从每分钟 {1} 次降到约 {2} 次）。"
+msgid "Would remove most of the {0} stutters a minute that come from waiting for the simulation (in our tests: {1} a minute down to about {2})."
+msgstr "可消除每分钟 {0} 次因等待模拟而产生的卡顿中的大部分（我们的测试中：从每分钟 {1} 次降到约 {2} 次）。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_SIM_STEP_PACE_WHY"
 msgid "Dug and built tiles appear up to 0.2 s later. Off by default."
@@ -231,8 +231,8 @@ msgid "Nothing to gain here"
 msgstr "这里没有可提升的"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_NONE"
-msgid "Nothing checked yet."
-msgstr "尚未检查任何项目。"
+msgid "No other check has a measured gain yet."
+msgstr "暂无其他经过测量收益的检查项。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_STEP_PACE_ON"
 msgid "Waiting for the simulation step: \"Simulation at its own pace\" is already on."
@@ -609,6 +609,10 @@ msgstr "内存清理"
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT"
 msgid "Waiting for the simulation step"
 msgstr "等待模拟步骤"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT_SHORT"
+msgid "Waiting for simulation"
+msgstr "等待模拟"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_UNKNOWN"
 msgid "Unknown"
