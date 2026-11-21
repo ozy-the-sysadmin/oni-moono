@@ -6,7 +6,7 @@ using System.Threading;
 namespace OniMoono.Engine
 {
     /// The frame's time, frame by frame, for those who ask for it now: the performance recorder
-    /// (OniMoono.Host.PerfRecorder, a JSON file per recording) and the HUD's frame time panel.
+    /// (OniMoono.Host.PerfRecorder, a JSON file per recording) and the frame rate counter's performance window.
     /// Each opens a window (Open), which then sums every frame it sees whole: the main thread's
     /// time by PlayerLoop's phases, the time outside the loop (the host's input poll and frame
     /// cap), what the main thread waited for that the engine owns (the device, texel copies) and
@@ -75,7 +75,7 @@ namespace OniMoono.Engine
                 }
             }
 
-            /// Starts the window over (the panel's rolling view), keeping it open.
+            /// Starts the window over (the performance window's rolling view), keeping it open.
             public void Clear()
             {
                 Frames = DeviceCalls = FramesWithGc = 0;
@@ -87,7 +87,7 @@ namespace OniMoono.Engine
             }
         }
 
-        static readonly List<Window> open = new();
+        static readonly List<Window> open = new(), looping = new();
         static long lastEnd;
         static double lastPause = -1;
         static readonly long[] lastWaits = new long[Waits];
@@ -161,9 +161,14 @@ namespace OniMoono.Engine
             waits[4] = Interlocked.Read(ref FrameStatsWindow.PresenterQueueWait);
             long calls = FrameStatsWindow.DeviceCalls;
 
-            for (int w = open.Count - 1; w >= 0; w--)
+            // Over a copy: a callback may open or drop windows (a drop inside Began used to make
+            // the loop see a window twice and count its first frame early).
+            looping.Clear();
+            looping.AddRange(open);
+            for (int w = looping.Count - 1; w >= 0; w--)
             {
-                var window = open[w];
+                var window = looping[w];
+                if (window.closed) continue;
                 if (window.counting && whole)
                 {
                     window.Frames++;
@@ -189,7 +194,7 @@ namespace OniMoono.Engine
                 if (window.ending)
                 {
                     window.closed = true;
-                    open.RemoveAt(w);
+                    open.Remove(window);
                     if (window.counting) Call(window.Ended);
                 }
                 else if (!window.counting && whole)
