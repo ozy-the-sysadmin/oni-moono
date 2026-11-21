@@ -7,12 +7,12 @@ namespace OniMoono.GameTweaks
     /// What the Colony tab's advice is decided on: the colony and the frame as measured now.
     public sealed class PerfAdviceState
     {
-        /// A colony has run unpaused long enough to judge (the last minute had 20 colony seconds).
+        /// A colony has run unpaused long enough to judge (the last minute had 20 s of play).
         public bool Judged;
         public double Fps, KeepUp, Speed;
-        /// Per minute over the last minute: stutters (20 ms or more), and those from waiting for
-        /// the simulation step.
-        public int StuttersPerMinute, SimWaitsPerMinute;
+        /// A minute of play (PerfTrack.LastMinute, the verdict's numbers): stutters, those from
+        /// waiting for the simulation step and those with no cause the game reports.
+        public int StuttersPerMinute, SimWaitsPerMinute, UnknownPerMinute;
         /// Tweaks on this run (their names).
         public ISet<string> TweaksOn = new HashSet<string>(StringComparer.Ordinal);
         /// The colony's counts (-1: not read).
@@ -63,7 +63,7 @@ namespace OniMoono.GameTweaks
                     Ui("PERF_ADVICE_SIM_STEP_PACE_WHY")),
                 Nothing = (s, Ui) => !s.Judged ? null
                     : s.TweaksOn.Contains(SimStepPace) ? Ui("PERF_NOTHING_SIM_STEP_PACE_ON")
-                    : string.Format(C, Ui("PERF_NOTHING_SIM_WAITS_FEW"), s.SimWaitsPerMinute),
+                    : string.Format(C, Ui("PERF_NOTHING_SIM_WAITS_FEW"), s.SimWaitsPerMinute, s.StuttersPerMinute),
             },
         };
 

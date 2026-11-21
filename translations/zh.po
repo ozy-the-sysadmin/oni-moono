@@ -210,6 +210,10 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE"
 msgid "No change we have measured would make this colony run better."
 msgstr "我们测量过的更改都不会让这个殖民地运行得更好。"
 
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE_STUTTERS"
+msgid "No change we have measured would remove these stutters: the game reports no cause for {0} of the {1} a minute."
+msgstr "我们测量过的更改都无法消除这些卡顿：每分钟 {1} 次中有 {0} 次游戏没有报告原因。"
+
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
 msgid "Nothing to advise yet: let the game run unpaused for half a minute."
 msgstr "暂无建议：让游戏不暂停地运行半分钟。"
@@ -239,8 +243,8 @@ msgid "Waiting for the simulation step: \"Simulation at its own pace\" is alread
 msgstr "等待模拟步骤：“按模拟自身的节奏运行”已经打开。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_WAITS_FEW"
-msgid "Waiting for the simulation step causes few stutters here ({0} a minute)."
-msgstr "等待模拟步骤在这里造成的卡顿很少（每分钟 {0} 次）。"
+msgid "Waiting for the simulation step: {0} of the {1} stutters a minute, too few for \"Simulation at its own pace\" to help."
+msgstr "等待模拟步骤：每分钟 {1} 次卡顿中只有 {0} 次，太少，“按模拟自身的节奏运行”帮不上忙。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOW_HEADING"
 msgid "Right now"
@@ -307,8 +311,8 @@ msgid "Your colony"
 msgstr "你的殖民地"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING_CYCLE"
-msgid "Your colony · cycle {0}"
-msgstr "你的殖民地 · 第 {0} 周期"
+msgid "Your colony, cycle {0}"
+msgstr "你的殖民地，第 {0} 周期"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_DUPLICANTS"
 msgid "Duplicants"
@@ -331,8 +335,8 @@ msgid "Pipes, wires, rails"
 msgstr "管道、电线、轨道"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_ASTEROIDS"
-msgid "Asteroids visited"
-msgstr "到访过的小行星"
+msgid "Asteroids discovered"
+msgstr "已发现的小行星"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_FOOT"
 msgid "Advice is shown only where the gain was measured."
@@ -587,8 +591,8 @@ msgid "Loading"
 msgstr "加载"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_FIRST_FRAME"
-msgid "First frame after loading"
-msgstr "加载后的第一帧"
+msgid "First frames after loading"
+msgstr "加载后的最初几帧"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_AUTOSAVE"
 msgid "Autosave"
@@ -613,6 +617,18 @@ msgstr "等待模拟步骤"
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT_SHORT"
 msgid "Waiting for simulation"
 msgstr "等待模拟"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_JIT"
+msgid "Compiling code (first use)"
+msgstr "编译代码（首次使用）"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_WORLD"
+msgid "Switching asteroid"
+msgstr "切换小行星"
+
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WHILE_PAUSED"
+msgid "{0}, paused"
+msgstr "{0}（暂停时）"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_UNKNOWN"
 msgid "Unknown"
@@ -739,8 +755,8 @@ msgid "Loading this colony"
 msgstr "加载此殖民地"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_FRAME"
-msgid "First frame after loading"
-msgstr "加载后的第一帧"
+msgid "First frames after loading"
+msgstr "加载后的最初几帧"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_SAVE"
 msgid "First save"

@@ -51,8 +51,9 @@ namespace OniMoono.Tests
             double now = Feed(t, 0, 12, 5.6, slowEvery: 80, slowMs: 21);
             Assert.Equal(1, t.Light);
             Assert.True(t.Stutters10s >= 6);
-            var last = t.LastSeconds(10);
+            var last = t.LastMinute(10);
             Assert.True(last.SimWaits > 0 && last.SimWaits == last.Stutters);
+            Assert.InRange(last.PerMinute(last.Stutters), 115, 140);
             Assert.Equal(PerfCause.SimWait, (PerfCause)Array.IndexOf(t.CauseTimes, t.CauseTimes.Max()));
             // Smooth again: still yellow while the 10 s window holds the stutters, then green.
             now = Feed(t, now, 4, 5.6);
@@ -145,6 +146,83 @@ namespace OniMoono.Tests
             t.Columns(10, now, cols, kinds);
             Assert.Contains((byte)1, kinds);
             Assert.True(cols.Max() >= 25);
+        }
+
+        [Fact]
+        public void AMinuteOfPlayIsTheOneSourceAndPausedFramesAreNotStutters()
+        {
+            var t = new PerfTrack();
+            // 30 s paused with slow frames (the player in menus), then 30 s of play at 126 a minute.
+            double now = Feed(t, 0, 30, 5.6, slowEvery: 40, slowMs: 30, paused: true);
+            now = Feed(t, now, 30, 5.6, slowEvery: 80, slowMs: 21);
+            var last = t.LastMinute();
+            Assert.InRange(last.PlaySeconds, 28, 31);
+            // Only play's stutters, per second of play: the same number the verdict, Right now,
+            // the advice and the Hitches tab show.
+            Assert.InRange(last.PerMinute(last.Stutters), 115, 140);
+            Assert.Equal(last.Stutters, last.SimWaits);
+            Assert.Empty(t.Freezes);
+            // The light counts the same frames over its 10 s.
+            Assert.InRange(t.Stutters10s, 18, 24);
+        }
+
+        [Fact]
+        public void ARunOfSlowFramesIsALowRateNotStutters()
+        {
+            var t = new PerfTrack();
+            double now = Feed(t, 0, 5, 6);
+            // Ten 25 ms frames in a row: one stutter (the first), not ten.
+            for (int i = 0; i < 10; i++) t.Add(new PerfFrame { Now = now += 0.025, Ms = 25, InColony = true, Scale = 3, GameDt = 0.075 });
+            now = Feed(t, now, 2, 6);
+            Assert.Equal(1, t.Summarize(10, now).Stutters);
+        }
+
+        [Fact]
+        public void TheFramesAfterALoadUntilItSettlesAreLoadingNotPlay()
+        {
+            var t = new PerfTrack { StartedAt = 0 };
+            double now = 1;
+            t.Add(new PerfFrame { Now = now += 0.01, Ms = 10, InMenu = true });
+            // A 7 s frame in the menu (start-up work) is not play either.
+            t.Add(new PerfFrame { Now = now += 7, Ms = 7000, InMenu = true });
+            for (int i = 0; i < 10; i++) t.Add(new PerfFrame { Now = now += 1.7, Ms = 1700, Loading = true });
+            // Arrival, then the game finishing the load while paused: 3.3 s, 166 ms, 242 ms, 38 ms.
+            t.Add(new PerfFrame { Now = now += 0.2, Ms = 200, InColony = true, Paused = true });
+            foreach (double m in new[] { 3340.0, 166, 242, 38 })
+                t.Add(new PerfFrame { Now = now += m / 1000, Ms = m, InColony = true, Paused = true, JitMs = m > 1000 ? 2300 : 0 });
+            // 17 s between scenes, the arriving frame and the three frames before the first under 50 ms.
+            Assert.InRange(t.LoadMs, 20_800, 21_100);
+            Assert.Empty(t.Freezes);
+            Assert.Equal(14, t.CauseTimes[(int)PerfCause.Load]);
+            Assert.Equal(0, t.CauseTimes[(int)PerfCause.Unknown] + t.CauseTimes[(int)PerfCause.Jit]);
+            // Then the first frame with game time (the Loading panel's), then play.
+            t.Add(new PerfFrame { Now = now += 0.064, Ms = 64, InColony = true, Scale = 3, GameDt = 0.2 });
+            Assert.Equal(64, t.FirstFrameMs);
+            // The first 200 ms simulation step after the load (a 299 ms frame on McBench) is theirs too.
+            t.Add(new PerfFrame { Now = now += 0.299, Ms = 299, InColony = true, Scale = 3, GameDt = 0.2, SubTicks = 12, Step200 = true });
+            Assert.Equal(363, t.FirstFrameMs);
+            Assert.Equal(new[] { PerfCause.FirstFrame }, t.Freezes.Select(f => f.Cause).ToArray());
+            Assert.Equal(4, t.LoadFrames.Count);
+            now = Feed(t, now, 20, 5.6);
+            var play = t.Summarize(120, now, play: true);
+            Assert.True(play.MaxMs < 10, "play's worst frame leaves loading and the first frame out");
+            Assert.InRange(1000 / play.MeanMs, 170, 185);
+            Assert.Equal(0, t.PlayFreezeMs);
+        }
+
+        [Fact]
+        public void CompilingAndSwitchingAsteroidAreNamedAndPausedFreezesListedButNotPlay()
+        {
+            var t = new PerfTrack();
+            double now = Feed(t, 0, 5, 6);
+            t.Add(new PerfFrame { Now = now += 0.3, Ms = 300, JitMs = 220, InColony = true, Paused = true });
+            t.Add(new PerfFrame { Now = now += 0.13, Ms = 130, InColony = true, Paused = true, WorldSwitch = true });
+            now = Feed(t, now, 2, 6);
+            t.Add(new PerfFrame { Now = now += 0.2, Ms = 200, InColony = true, Scale = 3, GameDt = 0.6 });
+            Assert.Equal(new[] { PerfCause.Jit, PerfCause.World, PerfCause.Unknown }, t.Freezes.Select(f => f.Cause).ToArray());
+            Assert.Equal(new[] { true, true, false }, t.Freezes.Select(f => f.Paused).ToArray());
+            Assert.Equal(200, t.PlayFreezeMs);
+            Assert.Contains(t.SlowFrames(), f => f.Cause == PerfCause.Jit && f.JitMs == 220);
         }
 
         static string Ui(string name) => "<" + name + ">";

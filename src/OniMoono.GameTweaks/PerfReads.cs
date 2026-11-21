@@ -9,7 +9,7 @@ namespace OniMoono.GameTweaks
     /// the counter is on. Colony: counts, every few seconds while the Colony tab shows.
     public static class PerfReads
     {
-        static int lastSub = -1;
+        static int lastSub = -1, lastWorld = -1;
         static float lastSimDt;
         static double lastGameTime = -1;
         static bool lastPaused = true, lastTimelapse;
@@ -67,6 +67,7 @@ namespace OniMoono.GameTweaks
                 if (!colony)
                 {
                     lastSub = -1;
+                    lastWorld = -1;
                     lastGameTime = -1;
                     lastPaused = true;
                     return f;
@@ -85,8 +86,22 @@ namespace OniMoono.GameTweaks
                 int sub = game.simSubTick;
                 float simDt = game.simDt;
                 f.ZeroSubTick = !SimStepPaceOn && lastSub >= 0 && sub == lastSub && simDt > lastSimDt + 1e-6f;
+                if (lastSub >= 0)
+                {
+                    // Sub-ticks advanced; 12 when the counter came round: simDt did not grow
+                    // although the game ran (a frame with no sub-tick adds its time to simDt; one
+                    // capped at 0.2 s runs 12 and can leave simDt where it was). The 200 ms step
+                    // runs when the counter passes 0.
+                    int advanced = (sub - lastSub + 12) % 12;
+                    if (advanced == 0 && simDt <= lastSimDt + 1e-6f && f.Scale > 0 && !f.Paused) advanced = 12;
+                    f.SubTicks = advanced;
+                    f.Step200 = advanced > 0 && (sub < lastSub || advanced == 12 || sub == 0);
+                }
                 lastSub = sub;
                 lastSimDt = simDt;
+                int world = ClusterManager.Instance != null ? ClusterManager.Instance.activeWorldId : -1;
+                f.WorldSwitch = lastWorld >= 0 && world >= 0 && world != lastWorld;
+                lastWorld = world;
                 var timelapser = game.timelapser;
                 bool pending = timelapser != null && (timelapser.screenshotPending || timelapser.screenshotActive);
                 f.Timelapse = (pending || lastTimelapse) && !(timelapser != null && timelapser.previewScreenshot);
@@ -111,7 +126,7 @@ namespace OniMoono.GameTweaks
         /// The colony's counts (each -1 when it could not be read): duplicants, critters (brains
         /// that are not duplicants or robots), loose items (pickupables in no storage that are
         /// not creatures), buildings and utilities (pipes, wires, rails: buildings whose def is a
-        /// utility), asteroids duplicants have visited.
+        /// utility), asteroids discovered (those of the planetoid list, rocket interiors left out).
         public static ColonyCounts Colony()
         {
             var c = new ColonyCounts { Cycle = -1, Duplicants = -1, Critters = -1, LooseItems = -1, Buildings = -1, Utilities = -1, Asteroids = -1 };
@@ -149,13 +164,32 @@ namespace OniMoono.GameTweaks
             catch (Exception) { }
             try
             {
-                int visited = 0;
+                // The planetoid list's asteroids (WorldSelector shows the discovered worlds, rocket
+                // interiors under them): the simulation steps every discovered world.
+                int discovered = 0;
                 foreach (var world in ClusterManager.Instance.WorldContainers)
-                    if (world != null && !world.IsModuleInterior && world.IsDupeVisited) visited++;
-                c.Asteroids = visited;
+                    if (world != null && !world.IsModuleInterior && world.IsDiscovered) discovered++;
+                c.Asteroids = discovered;
             }
             catch (Exception) { }
             return c;
+        }
+
+        /// Every world with its flags (test runs: the Asteroids count against the planetoid list).
+        public static string Worlds()
+        {
+            try
+            {
+                var parts = new List<string>();
+                foreach (var world in ClusterManager.Instance.WorldContainers)
+                    if (world != null)
+                        parts.Add(world.GetComponent<ClusterGridEntity>()?.Name + (world.IsModuleInterior ? " interior" : "") + (world.IsDiscovered ? " discovered" : "") + (world.IsDupeVisited ? " visited" : ""));
+                return string.Join("; ", parts);
+            }
+            catch (Exception e)
+            {
+                return e.GetType().Name;
+            }
         }
 
         /// Tweaks that step aside for a mod's patch this run (ModOverlaps), distinct.

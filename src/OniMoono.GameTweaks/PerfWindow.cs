@@ -142,7 +142,7 @@ namespace OniMoono.GameTweaks
             if (timing != timingOn)
             {
                 timingOn = timing;
-                PerfOverlay.Timing?.Invoke(timing);
+                PerfOverlay.WindowTiming(timing);
                 takes.Clear();
                 PerfOverlay.Take?.Invoke();
             }
@@ -387,16 +387,12 @@ namespace OniMoono.GameTweaks
         float Colony(PerfTrack track, double now)
         {
             float y = 14;
-            var last = track.LastSeconds(60);
+            // One source for the verdict, Right now, the advice and the Hitches tab: a minute of play.
+            var last = track.LastMinute();
             bool inColony = PerfGame.InColony();
             bool paused = PerfGame.Paused();
             int speed = PerfReads.Speed();
-            int stutters = last.Stutters, simWaits = last.SimWaits;
-            if (last.ColonySeconds > 0 && last.ColonySeconds < 60)
-            {
-                stutters = (int)Math.Round(stutters * 60.0 / last.ColonySeconds);
-                simWaits = (int)Math.Round(simWaits * 60.0 / last.ColonySeconds);
-            }
+            int stutters = last.PerMinute(last.Stutters), simWaits = last.PerMinute(last.SimWaits), unknown = last.PerMinute(last.Unknown);
             int light = track.Light;
             string verdictTitle, verdictText;
             Color back, rule, ink;
@@ -443,12 +439,13 @@ namespace OniMoono.GameTweaks
             // Left: the advice.
             var state = new PerfAdviceState
             {
-                Judged = inColony && last.ColonySeconds >= 20,
+                Judged = inColony && last.PlaySeconds >= 20,
                 Fps = track.Fps,
                 KeepUp = track.KeepUp,
                 Speed = track.Speed,
                 StuttersPerMinute = stutters,
                 SimWaitsPerMinute = simWaits,
+                UnknownPerMinute = unknown,
                 TweaksOn = new HashSet<string>(PerfOverlay.TweaksOn, StringComparer.Ordinal),
                 Duplicants = counts.Duplicants,
                 Critters = counts.Critters,
@@ -461,7 +458,10 @@ namespace OniMoono.GameTweaks
             Color[] icons = { PerfUi.UiColour, PerfUi.Anim, PerfUi.Draw, PerfUi.Sim };
             if (cards.Count == 0)
             {
-                string none = !state.Judged ? Ui("PERF_ADVICE_NOT_YET") : Ui("PERF_ADVICE_NONE");
+                // While the verdict says it stutters, say what is known about the stutters instead of "nothing to do".
+                string none = !state.Judged ? Ui("PERF_ADVICE_NOT_YET")
+                    : inColony && !paused && light == 1 ? string.Format(C, Ui("PERF_ADVICE_NONE_STUTTERS"), unknown, stutters)
+                    : Ui("PERF_ADVICE_NONE");
                 ly = Fine(Pad, ly, LeftWidth, none) + 6;
             }
             for (int i = 0; i < cards.Count; i++)
@@ -494,7 +494,7 @@ namespace OniMoono.GameTweaks
                     keeps ? PerfUi.Good : PerfUi.Bad));
             }
             else nowLines.Add((string.Format(C, Ui("PERF_NOW_KEEPS_UP"), speed), "–", PerfUi.Ink));
-            nowLines.Add((Ui("PERF_NOW_STUTTERS"), inColony ? string.Format(C, Ui("PERF_PER_MINUTE"), stutters) : "–", stutters >= 30 ? PerfUi.Warn : PerfUi.Ink));
+            nowLines.Add((Ui("PERF_NOW_STUTTERS"), inColony ? string.Format(C, Ui("PERF_PER_MINUTE"), stutters) : "–", inColony && !paused && light == 1 ? PerfUi.Warn : PerfUi.Ink));
             nowLines.Add((Ui("PERF_NOW_AUTOSAVE"), double.IsNaN(track.LastSaveMs) ? Ui("PERF_NONE_YET") : Seconds(track.LastSaveMs), PerfUi.Ink));
             if (engineNow != null && engineNow[1] > 0)
                 nowLines.Add((Ui("PERF_NOW_MEMORY"), string.Format(C, Ui("PERF_GB_OF"), Gb(engineNow[0]), Gb(engineNow[1]).Replace(".0", "")), PerfUi.Ink));
@@ -586,7 +586,7 @@ namespace OniMoono.GameTweaks
             {
                 (Ui("PERF_KV_AVERAGE"), sum.Frames > 0 ? sum.MeanMs.ToString("F1", C) : "–", Ui("PERF_MS")),
                 (Ui("PERF_KV_SLOWEST"), sum.Frames > 0 ? sum.P99Ms.ToString("F0", C) : "–", Ui("PERF_MS")),
-                (Ui("PERF_KV_WORST"), sum.Frames > 0 ? (sum.MaxMs / 1000).ToString("F2", C) : "–", Ui("PERF_S")),
+                (Ui("PERF_KV_WORST"), sum.Frames > 0 ? sum.MaxMs.ToString("F0", C) : "–", Ui("PERF_MS")),
                 (Ui("PERF_KV_SPEED"), PerfGame.InColony() && !PerfGame.Paused() && !double.IsNaN(track.KeepUp) ? (track.KeepUp * track.Speed).ToString("F1", C) : "–",
                     PerfGame.InColony() && !PerfGame.Paused() && !double.IsNaN(track.KeepUp) ? "×" : ""),
             });
@@ -832,6 +832,8 @@ namespace OniMoono.GameTweaks
             PerfCause.Timelapse => Ui("PERF_CAUSE_TIMELAPSE"),
             PerfCause.Gc => Ui("PERF_CAUSE_GC"),
             PerfCause.SimWait => Ui("PERF_CAUSE_SIM_WAIT"),
+            PerfCause.Jit => Ui("PERF_CAUSE_JIT"),
+            PerfCause.World => Ui("PERF_CAUSE_WORLD"),
             _ => Ui("PERF_CAUSE_UNKNOWN"),
         };
 
@@ -841,15 +843,17 @@ namespace OniMoono.GameTweaks
         {
             float y = 14;
             double window = RangeSeconds(track);
-            var sum = track.Summarize(Math.Min(window, 120), now);
-            var last = track.LastSeconds(60);
-            int perMinute = last.ColonySeconds > 0 ? (int)Math.Round(last.Stutters * 60.0 / Math.Max(last.ColonySeconds, 1)) : last.Stutters;
+            // The headline boxes describe play: unpaused colony frames, loading left out.
+            var sum = track.Summarize(Math.Min(window, 120), now, play: true);
+            var last = track.LastMinute();
+            int perMinute = last.PerMinute(last.Stutters);
+            bool worstInS = sum.MaxMs >= 1000;
             float ly = Headlines(Pad, y, LeftWidth, new List<(string, string, string)>
             {
                 (Ui("PERF_KV_AVERAGE"), sum.Frames > 0 ? Fps(1000 / sum.MeanMs) : "–", Ui("PERF_FPS")),
                 (Ui("PERF_KV_SLOWEST"), sum.Frames > 0 ? Fps(1000 / sum.P99Ms) : "–", Ui("PERF_FPS")),
-                (Ui("PERF_KV_WORST"), sum.Frames > 0 ? (sum.MaxMs / 1000).ToString("F2", C) : "–", Ui("PERF_S")),
-                (Ui("PERF_KV_STUTTERS"), perMinute.ToString(C), Ui("PERF_PER_MIN")),
+                (Ui("PERF_KV_WORST"), sum.Frames == 0 ? "–" : worstInS ? (sum.MaxMs / 1000).ToString("F2", C) : sum.MaxMs.ToString("F0", C), worstInS ? Ui("PERF_S") : Ui("PERF_MS")),
+                (Ui("PERF_KV_STUTTERS"), last.PlaySeconds >= 1 ? perMinute.ToString(C) : "–", Ui("PERF_PER_MIN")),
             });
 
             // The graph.
@@ -859,15 +863,15 @@ namespace OniMoono.GameTweaks
             float k = (GraphH - 20) / 40f, baseY = GraphH - 10;
             ui.Text(Pad + 6, ly + baseY - 16.7f * k - 16, 80, 14, "60 " + Ui("PERF_FPS"), 11f, PerfUi.Muted);
             var inRange = track.Freezes.Where(f => now - f.At <= window).ToList();
-            int labels = 0;
-            for (int i = inRange.Count - 1; i >= 0 && labels < 3; i--)
+            // One label only, the selected freeze's (labels of neighbouring bars overlapped).
+            if (selected != null && inRange.Contains(selected))
             {
-                float fx = Pad + LeftWidth - (float)((now - inRange[i].At) / window * LeftWidth);
-                string name = CauseName(inRange[i].Cause);
-                float nw = ui.Width(name, 11.5f);
-                if (fx - nw - 6 < Pad) continue;
-                ui.Text(fx - nw - 6, ly + 4, nw, 14, name, 11.5f, PerfUi.Ink);
-                labels++;
+                float fx = Pad + LeftWidth - (float)((now - selected.At) / window * LeftWidth);
+                string name = CauseName(selected.Cause);
+                float nw = ui.Width(name, 11.5f) + 2;
+                float lx = fx - nw - 6 >= Pad + 2 ? fx - nw - 6 : Math.Min(fx + 6, Pad + LeftWidth - nw - 2);
+                ui.Box(lx - 3, ly + 3, nw + 6, 16, new Color(0.06f, 0.07f, 0.1f, 0.85f), PerfUi.Round4);
+                ui.Text(lx, ly + 4, nw, 14, name, 11.5f, PerfUi.Ink);
             }
             if (ui.Area(Pad, ly, LeftWidth, GraphH, out var at) && inRange.Count > 0)
             {
@@ -908,7 +912,8 @@ namespace OniMoono.GameTweaks
                 if (ui.Area(Pad, ly, LeftWidth, 26, out _)) selected = isSel ? null : f;
                 if (isSel) ui.Box(Pad - 4, ly + 1, LeftWidth + 8, 24, new Color(1, 1, 1, 0.06f), PerfUi.Round4);
                 ui.Text(Pad, ly, 70, 26, Ago(now - f.At), 13.5f, PerfUi.Muted);
-                ui.Text(Pad + 82, ly, LeftWidth - 82 - 90, 26, CauseName(f.Cause), 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineLeft, null, false, true);
+                string what = f.Paused ? string.Format(C, Ui("PERF_WHILE_PAUSED"), CauseName(f.Cause)) : CauseName(f.Cause);
+                ui.Text(Pad + 82, ly, LeftWidth - 82 - 90, 26, what, 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineLeft, null, false, true);
                 ui.Text(Pad + LeftWidth - 88, ly, 88, 26, Seconds(f.Ms), 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineRight);
                 ui.Box(Pad, ly + 25, LeftWidth, 1, PerfUi.Line);
                 ly += 26;
@@ -918,7 +923,7 @@ namespace OniMoono.GameTweaks
                 ui.Text(Pad, ly, 70, 26, Ui("PERF_ONGOING"), 13.5f, PerfUi.Muted);
                 ui.Text(Pad + 82, ly, LeftWidth - 82 - 120, 26, CauseName(PerfCause.SimWait), 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineLeft, null, false, true);
                 double typical = track.CauseTimes[(int)PerfCause.SimWait] > 0 ? track.CauseTotal[(int)PerfCause.SimWait] / track.CauseTimes[(int)PerfCause.SimWait] : 0;
-                ui.Text(Pad + LeftWidth - 118, ly, 118, 26, typical.ToString("F0", C) + " " + Ui("PERF_MS") + " × " + last.SimWaits.ToString(C), 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineRight);
+                ui.Text(Pad + LeftWidth - 118, ly, 118, 26, typical.ToString("F0", C) + " " + Ui("PERF_MS") + " × " + last.PerMinute(last.SimWaits).ToString(C) + " " + Ui("PERF_PER_MIN"), 13.5f, PerfUi.Ink, TextAlignmentOptions.MidlineRight);
                 ly += 24;
                 if (!PerfReads.SimStepPaceOn)
                 {
@@ -951,16 +956,16 @@ namespace OniMoono.GameTweaks
             // Right: by cause, time lost, loading.
             double minutes = track.ColonySeconds / 60;
             var causeLines = new List<(string, int, double, double)>();
-            foreach (var cause in new[] { PerfCause.Autosave, PerfCause.Save, PerfCause.Timelapse, PerfCause.Gc, PerfCause.SimWait, PerfCause.FirstFrame, PerfCause.Load, PerfCause.Unknown })
+            foreach (var cause in new[] { PerfCause.Autosave, PerfCause.Save, PerfCause.Timelapse, PerfCause.Gc, PerfCause.Jit, PerfCause.World, PerfCause.SimWait, PerfCause.FirstFrame, PerfCause.Load, PerfCause.Unknown })
             {
                 int c = (int)cause;
                 if (track.CauseTimes[c] > 0) causeLines.Add((cause == PerfCause.SimWait ? Ui("PERF_CAUSE_SIM_WAIT_SHORT") : CauseName(cause), track.CauseTimes[c], track.CauseWorst[c], track.CauseTotal[c]));
             }
             float ry = CauseTable(RightX, y, RightWidth, string.Format(C, Ui("PERF_BY_CAUSE_HEADING"), Math.Round(minutes).ToString("N0", C)), causeLines);
-            double hours = Math.Max(track.ColonySeconds / 3600, 1e-9);
-            // Time lost: the slow frames' whole time, freezes (100 ms or more) and stutters apart.
-            var (freezeMs, stutterMs) = Lost(track);
-            bool enough = track.ColonySeconds >= 60;
+            // Time lost during play (unpaused, loading left out) per hour of play.
+            double hours = Math.Max(track.PlaySeconds / 3600, 1e-9);
+            double freezeMs = track.PlayFreezeMs, stutterMs = track.PlayStutterMs;
+            bool enough = track.PlaySeconds >= 60;
             ry = Side(RightX, ry, RightWidth, Ui("PERF_LOST_HEADING"), new List<(string, string, Color)>
             {
                 (Ui("PERF_LOST_FREEZES"), enough ? PerHour(freezeMs / hours) : "–", PerfUi.Ink),
@@ -977,20 +982,6 @@ namespace OniMoono.GameTweaks
             return Foot(y, Ui("PERF_HITCHES_FOOT"), fy => RecordButton(fy, Width - Pad));
         }
 
-        /// The session's time in freezes and in stutters (ms), from the per-cause totals: frames
-        /// of 100 ms or more are freezes, the rest stutters. (PerfTrack keeps them by cause, not by
-        /// size, so the split is made from the freezes list for the freezes it still holds.)
-        (double Freezes, double Stutters) Lost(PerfTrack track)
-        {
-            double all = 0;
-            for (int c = 0; c < track.CauseTotal.Length; c++)
-                if (c != (int)PerfCause.Load && c != (int)PerfCause.None) all += track.CauseTotal[c];
-            double freezes = 0;
-            foreach (var f in track.Freezes)
-                if (f.Cause != PerfCause.Load) freezes += f.Ms - f.PreviewMs;
-            freezes = Math.Min(freezes, all);
-            return (freezes, Math.Max(0, all - freezes));
-        }
 
         static string PerHour(double ms)
         {
@@ -1137,9 +1128,10 @@ namespace OniMoono.GameTweaks
             if (PerfBuckets.On)
                 foreach (var k in PerfBuckets.Kinds.Where(k => k.Calls > 0).OrderByDescending(k => k.Ticks).Take(15))
                     r.Append(string.Format(C, "    bucket {0}: {1:F1} ms in all, {2} calls, {3} objects, longest {4:F2} ms\n", k.Label, PerfBuckets.TicksToMs(k.Ticks), k.Calls, k.Entries, PerfBuckets.TicksToMs(k.MaxTicks)));
-            var last = track.LastSeconds(60);
-            r.Append(string.Format(C, "Last minute: {0} stutters ({1} waiting for the simulation), {2} freezes\n", last.Stutters, last.SimWaits, last.Freezes));
-            r.Append(string.Format(C, "Session: {0:F0} min in a colony; longest GC pause {1:F0} ms\n", track.ColonySeconds / 60, track.LongestGcMs));
+            var last = track.LastMinute();
+            r.Append(string.Format(C, "Last minute: {0:F0} s of play, {1} stutters ({2} a minute: {3} waiting for the simulation, {4} unknown), {5} freezes\n",
+                last.PlaySeconds, last.Stutters, last.PerMinute(last.Stutters), last.PerMinute(last.SimWaits), last.PerMinute(last.Unknown), last.Freezes));
+            r.Append(string.Format(C, "Session: {0:F0} min in a colony, {1:F0} min of play; longest GC pause {2:F0} ms\n", track.ColonySeconds / 60, track.PlaySeconds / 60, track.LongestGcMs));
             foreach (PerfCause cause in Enum.GetValues(typeof(PerfCause)))
             {
                 int c = (int)cause;
@@ -1153,6 +1145,10 @@ namespace OniMoono.GameTweaks
             if (engineNow != null) r.Append(string.Format(C, "Memory: {0:F1} GB in use of {1:F1} GB\n", engineNow[0] / 1073741824.0, engineNow[1] / 1073741824.0));
             r.Append(string.Format(C, "Tweaks: {0} on of {1}, {2} stepped aside, {3} switched off\n", PerfOverlay.TweaksOn.Length, PerfOverlay.TweaksAll, PerfReads.SteppedAside(), PerfOverlay.TweaksSwitchedOff));
             r.Append("Tweaks on: ").Append(string.Join(", ", PerfOverlay.TweaksOn)).Append('\n');
+            if (track.LoadFrames.Count > 0)
+                r.Append("Last load's frames in the colony (ms, GC, JIT; phases): ").Append(string.Join(", ", track.LoadFrames.Select(LoadLine))).Append('\n');
+            r.Append("Newest slow frames (s ago, ms, cause; what the engine and the game reported):\n");
+            foreach (var f in track.SlowFrames().Reverse().Take(20).Reverse()) r.Append("  ").Append(SlowLine(f, now)).Append('\n');
             report = r.ToString();
             try
             {
@@ -1167,6 +1163,28 @@ namespace OniMoono.GameTweaks
         }
 
         internal string report;
+
+        /// A load's frame: its time, GC and JIT and, where the engine timed it, its phases. The
+        /// first timed frame's early phase is not clocked from its start, so "early and pending
+        /// Starts" is the frame's rest (its time less the other phases).
+        static string LoadLine(PerfTrack.Slow f)
+        {
+            string s = string.Format(C, "{0:F0} ({1:F0}, {2:F0}", f.Ms, f.GcMs, f.JitMs);
+            if (f.Phases != null)
+            {
+                double others = 0;
+                for (int p = 0; p < f.Phases.Length; p++) if (p != 4) others += f.Phases[p];
+                s += string.Format(C, "; update {0:F0}, late {1:F0}, canvases {2:F0}, render {3:F0}, present {4:F0}, end of frame {5:F0}, between frames {6:F0}, early and pending Starts {7:F0}",
+                    f.Phases[5], f.Phases[6], f.Phases[7], f.Phases[0], f.Phases[3], f.Phases[2], f.Phases[9], Math.Max(0, f.Ms - others));
+            }
+            return s + ")";
+        }
+
+        /// A slow frame and its signs, for the copy report and the test runs.
+        static string SlowLine(PerfTrack.Slow f, double now) => string.Format(C,
+            "{0:F1} s ago {1:F1} ms {2}{3}{4}: gc {5:F1} jit {6:F1} game_dt {7:F3} subticks {8}{9}{10}{11}{12}",
+            now - f.At, f.Ms, f.Cause, f.Stutter ? " stutter" : "", f.Freeze ? " freeze" : "", f.GcMs, f.JitMs, f.GameDt, f.SubTicks,
+            f.Step200 ? " step200" : "", f.ZeroSubTick ? " zero-time" : "", f.Paused ? " paused" : "", f.Loading ? " loading" : f.Colony ? "" : " no-colony") + (f.World ? " world-switch" : "");
 
         // ---- Test runs ----
 
@@ -1201,6 +1219,16 @@ namespace OniMoono.GameTweaks
                 case "copy":
                     CopyReport();
                     return "ok " + (report ?? "").Replace('\n', '|');
+                case "worlds":
+                    return "ok " + PerfReads.Worlds() + " | asteroids=" + counts.Asteroids;
+                case "slow":
+                {
+                    // slow [all|unknown|CAUSE]: the newest slow frames kept (up to 256), one a line.
+                    var track = PerfOverlay.Track;
+                    var lines = (arg == "load" ? (IEnumerable<PerfTrack.Slow>)track.LoadFrames : track.SlowFrames()).Where(f => string.IsNullOrEmpty(arg) || arg == "all" || string.Equals(f.Cause.ToString(), arg, StringComparison.OrdinalIgnoreCase))
+                        .Select(f => arg == "load" ? LoadLine(f) : SlowLine(f, track.Now));
+                    return "ok " + string.Join(" | ", lines);
+                }
                 case "build":
                     Sample();
                     Build();

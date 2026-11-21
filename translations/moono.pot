@@ -260,6 +260,11 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE"
 msgid "No change we have measured would make this colony run better."
 msgstr ""
 
+#. Colony tab, when no advice applies while it stutters; {0}: stutters a minute with no known cause, {1}: all stutters a minute
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NONE_STUTTERS"
+msgid "No change we have measured would remove these stutters: the game reports no cause for {0} of the {1} a minute."
+msgstr ""
+
 #. Colony tab, before enough play was measured
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_ADVICE_NOT_YET"
 msgid "Nothing to advise yet: let the game run unpaused for half a minute."
@@ -295,9 +300,9 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_STEP_PACE_ON"
 msgid "Waiting for the simulation step: \"Simulation at its own pace\" is already on."
 msgstr ""
 
-#. Colony tab, under Nothing to gain here; {0}: stutters a minute
+#. Colony tab, under Nothing to gain here; {0}: stutters a minute from waiting for the simulation step, {1}: all stutters a minute
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_NOTHING_SIM_WAITS_FEW"
-msgid "Waiting for the simulation step causes few stutters here ({0} a minute)."
+msgid "Waiting for the simulation step: {0} of the {1} stutters a minute, too few for \"Simulation at its own pace\" to help."
 msgstr ""
 
 #. Colony tab, panel heading (shown in capitals)
@@ -382,7 +387,7 @@ msgstr ""
 
 #. Colony tab, panel heading (shown in capitals); {0}: the cycle
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_HEADING_CYCLE"
-msgid "Your colony · cycle {0}"
+msgid "Your colony, cycle {0}"
 msgstr ""
 
 #. Colony tab, a count
@@ -410,9 +415,9 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_UTILITIES"
 msgid "Pipes, wires, rails"
 msgstr ""
 
-#. Colony tab, a count
+#. Colony tab, a count (the asteroids of the planetoid list, rockets left out)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_COLONY_ASTEROIDS"
-msgid "Asteroids visited"
+msgid "Asteroids discovered"
 msgstr ""
 
 #. Colony tab, the footer's note
@@ -730,9 +735,9 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_LOAD"
 msgid "Loading"
 msgstr ""
 
-#. A freeze's cause
+#. A freeze's cause (the first frame with game time after a load, and the first that runs the 200 ms simulation step)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_FIRST_FRAME"
-msgid "First frame after loading"
+msgid "First frames after loading"
 msgstr ""
 
 #. A freeze's cause
@@ -763,6 +768,21 @@ msgstr ""
 #. Hitches tab, the by-cause table's short name for waiting for the simulation step
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_SIM_WAIT_SHORT"
 msgid "Waiting for simulation"
+msgstr ""
+
+#. A freeze's cause (the runtime compiling code the first time it runs)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_JIT"
+msgid "Compiling code (first use)"
+msgstr ""
+
+#. A freeze's cause (the view changed to another asteroid)
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_CAUSE_WORLD"
+msgid "Switching asteroid"
+msgstr ""
+
+#. Hitches tab, a freeze that happened while the game was paused; {0}: its cause
+msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_WHILE_PAUSED"
+msgid "{0}, paused"
 msgstr ""
 
 #. A freeze's cause when the game reports none
@@ -915,14 +935,14 @@ msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_MENU"
 msgid "Game start to menu"
 msgstr ""
 
-#. Hitches tab, loading
+#. Hitches tab, loading (until the colony's first frames come at a normal pace)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_COLONY"
 msgid "Loading this colony"
 msgstr ""
 
-#. Hitches tab, loading
+#. Hitches tab, loading (the first frame with game time and the first that runs the 200 ms simulation step, together)
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_LOADING_FIRST_FRAME"
-msgid "First frame after loading"
+msgid "First frames after loading"
 msgstr ""
 
 #. Hitches tab, loading (the first save after the load)

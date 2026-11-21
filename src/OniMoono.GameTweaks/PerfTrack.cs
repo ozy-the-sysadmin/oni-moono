@@ -8,6 +8,10 @@ namespace OniMoono.GameTweaks
     public enum PerfCause : byte
     {
         None, Load, FirstFrame, Autosave, Save, Timelapse, Gc, SimWait, Unknown,
+        /// The runtime compiling code on its first use (the host's JIT time for the frame).
+        Jit,
+        /// The player switched to another asteroid (ClusterManager's active world changed).
+        World,
     }
 
     /// One frame as the monitor sees it (PerfReads fills it at the next frame's start).
@@ -25,25 +29,45 @@ namespace OniMoono.GameTweaks
         /// The game asked the simulation for its results with no time to step (Game.SimEveryTick's
         /// zero-time UnsafeSim200ms): the frame waited for the step under way (session AB).
         public bool ZeroSubTick;
+        /// The simulation sub-ticks the frame advanced, and whether one of them was the 200 ms
+        /// step (Game.simSubTick passed 0); the active asteroid changed in the frame.
+        public int SubTicks;
+        public bool Step200, WorldSwitch;
         /// A save finished in the frame (the game's "Saved to" log line) and was an autosave; the
         /// timelapse or a save's preview picture was being taken.
         public bool Saved, AutoSave, Timelapse, Preview;
     }
+
 
     /// The frame rate counter's and the performance window's memory (OniMoono.GameTweaks.
     /// PerfOverlay): plain .NET, fed one PerfFrame a frame while the counter is on. Everything
     /// here is O(1) a frame, except the light's check every half second (a walk over the last
     /// 10 s of frames into a histogram) and the window's reads, made only while it shows.
     ///
+    /// One definition of a stutter serves everything (the light, the Colony tab's verdict, its
+    /// Right now line and its advice, the Hitches tab): a frame of colony play (unpaused, not
+    /// loading) of 20 ms or more and at least twice the median frame, under 100 ms, that follows
+    /// a normal frame (a run of slow frames is a low frame rate, not stutters). A freeze is any
+    /// colony frame of 100 ms or more outside loading; only those of play count in the rates.
+    /// Rates are a minute of play: the last 60 s, per second of unpaused play in them (Rate).
+    ///
+    /// Loading is the load itself, the frame that arrives in the colony and the frames after it
+    /// until the first one under 50 ms (or the first with game time, or 10 s): the game is still
+    /// finishing the load then. The first frames after loading (the first with game time and the
+    /// first that runs the 200 ms simulation step) are the Loading panel's too. Neither ever
+    /// counts as play (rates, summaries, time lost).
+    ///
     /// The light (Light): red when the game does not keep up with the chosen speed (game seconds
     /// per real second more than 5 % below the speed over the last 5 s of unpaused play, frames
-    /// over 1 s left out), yellow when it stutters (6 or more unpaused frames of 20 ms or more, at
-    /// least twice the median and after a normal frame, in the last 10 s), green otherwise, and always while paused or
-    /// outside a colony. Each state needs two checks in a row to start (one second) and red two,
-    /// yellow four (two seconds) to end, so it does not flicker.
+    /// over 1 s left out), yellow with 6 or more stutters in the last 10 s, green otherwise, and
+    /// always while paused or outside a colony. Each state needs two checks in a row to start
+    /// (one second) and red two, yellow four (two seconds) to end, so it does not flicker.
     public sealed class PerfTrack
     {
         public const double StutterMs = 20, FreezeMs = 100;
+        /// The settling after a load ends at the first frame under this (ms).
+        public const double SettledMs = 50;
+        public const int CauseCount = 11;
         const int Capacity = 1 << 16;
 
         // The frame ring: wall ms, game seconds, speed, the frame's end, flags.
@@ -66,12 +90,13 @@ namespace OniMoono.GameTweaks
         public double Fps { get; private set; }
         double fpsMs; int fpsFrames;
 
-        /// One second of play: frames, their time, the longest, stutters (20-100 ms), freezes
-        /// (100 ms or more), stutters from waiting for the simulation, whether a colony ran.
+        /// One second: frames, their time, the longest and its cause; play's stutters, the colony's
+        /// freezes and play's, play's stutters from waiting for the simulation and of no known cause;
+        /// play's time in it (ms); whether a colony ran.
         public struct Second
         {
-            public int Frames, Stutters, Freezes, SimWaits;
-            public float SumMs, MaxMs;
+            public int Frames, Stutters, Freezes, PlayFreezes, SimWaits, Unknown;
+            public float SumMs, MaxMs, PlayMs;
             public bool Colony;
             public PerfCause Worst;
         }
@@ -82,33 +107,78 @@ namespace OniMoono.GameTweaks
         /// The session's seconds (oldest first), one entry a second.
         public IReadOnlyList<Second> Seconds => seconds;
 
-        /// A freeze (a frame of 100 ms or more) or a load, with what it was made of where known.
+        /// A freeze (a frame of 100 ms or more) or a save, with what it was made of where known.
         public sealed class Freeze
         {
             public double At, Ms, GcMs, JitMs, PreviewMs;
             public PerfCause Cause;
+            /// The game was paused (not play: listed, not in the rates).
+            public bool Paused;
         }
 
         readonly List<Freeze> freezes = new List<Freeze>();
         public IReadOnlyList<Freeze> Freezes => freezes;
         const int MaxFreezes = 500;
 
-        /// Per cause for the session (frames of 20 ms or more): times, the worst, the total (ms).
-        public readonly int[] CauseTimes = new int[9];
-        public readonly double[] CauseWorst = new double[9], CauseTotal = new double[9];
-        /// Real seconds of colony play this session (paused included), and the longest GC pause.
-        public double ColonySeconds, LongestGcMs;
+        /// Per cause for the session (stutters, freezes, saves and loading frames): times, the
+        /// worst, the total (ms).
+        public readonly int[] CauseTimes = new int[CauseCount];
+        public readonly double[] CauseWorst = new double[CauseCount], CauseTotal = new double[CauseCount];
+        /// Real seconds of colony play this session (paused included) and of unpaused play, the
+        /// longest GC pause, and the time of play's freezes and stutters (ms).
+        public double ColonySeconds, PlaySeconds, LongestGcMs, PlayFreezeMs, PlayStutterMs;
 
-        /// Loading: start-up to the first main menu, the last colony load, the first frame after
-        /// it, the first save after it (ms; NaN until known).
+        /// Loading: start-up to the first main menu, the last colony load (until it settled), the
+        /// first frame with game time after it, the first save after it (ms; NaN until known).
         public double StartToMenuMs = double.NaN, LoadMs = double.NaN, FirstFrameMs = double.NaN;
         public double FirstSaveMs => firstSave != null ? firstSave.Ms : double.NaN;
         /// The last save's pause (its frame and preview frames, ms; NaN before one).
         public double LastSaveMs => lastSave != null ? lastSave.Ms : double.NaN;
-        double loadStarted = -1;
-        bool wasColony, wasMenu, awaitFirstFrame, awaitFirstSave, menuSeen;
+        double loadStarted = -1, settleUntil, firstStepUntil;
+        bool wasColony, wasMenu, awaitFirstFrame, awaitFirstStep, awaitFirstSave, menuSeen, settling;
+        /// The last load's frames in the colony: the arriving frame and those until it settled
+        /// (the copy report: what the end of the load was made of).
+        public readonly List<Slow> LoadFrames = new List<Slow>();
+        /// A load is settling: the frames now are still the load's.
+        public bool Settling => settling;
+
+        /// The engine's phase sums (PerfOverlay.Take's layout) for the load's frame that ended at
+        /// `at`, kept with it.
+        public void LoadPhases(double at, double[] take)
+        {
+            int last = LoadFrames.Count - 1;
+            if (last < 0 || LoadFrames[last].At != at || take == null || take.Length < 12) return;
+            var s = LoadFrames[last];
+            s.Phases = new double[10];
+            Array.Copy(take, 2, s.Phases, 0, 10);
+            LoadFrames[last] = s;
+        }
         Freeze lastSave, firstSave;
         int previewFramesLeft;
+        double prevMs;
+
+        /// The newest slow frames (20 ms or more, and saves) with what the engine and the game
+        /// reported for them: the copy report's last lines, and the test runs' check of causes.
+        public struct Slow
+        {
+            public double At, Ms, GcMs, JitMs, GameDt;
+            public bool Paused, Colony, Loading, ZeroSubTick, Step200, World, Stutter, Freeze;
+            public int SubTicks;
+            public PerfCause Cause;
+            /// A load's frame: the engine's phases (ms; render, GUI, end of frame, present, early
+            /// and fixed (pending Starts included), update, late, post-late, particles, outside the
+            /// loop), when the frame window timed it.
+            public double[] Phases;
+        }
+
+        const int SlowCapacity = 256;
+        readonly Slow[] slow = new Slow[SlowCapacity];
+        long slowCount;
+        /// The newest slow frames, oldest first.
+        public IEnumerable<Slow> SlowFrames()
+        {
+            for (long k = Math.Max(0, slowCount - SlowCapacity); k < slowCount; k++) yield return slow[k % SlowCapacity];
+        }
 
         /// Start-up time in seconds on the same clock as PerfFrame.Now (the first main menu is
         /// measured from it).
@@ -121,13 +191,6 @@ namespace OniMoono.GameTweaks
             gameDt[i] = (float)f.GameDt;
             scale[i] = (float)f.Scale;
             end[i] = f.Now;
-            byte bits = 0;
-            if (f.InColony) bits |= FColony;
-            if (f.InColony && !f.Paused) bits |= FRunning;
-            // The frame that arrives in a colony holds the end of its load.
-            bool arriving = f.InColony && !wasColony;
-            if (f.Loading || arriving) bits |= FLoading;
-            if (f.GcMs > LongestGcMs && f.InColony && !f.Loading && !arriving) LongestGcMs = f.GcMs;
 
             fpsMs += f.Ms;
             fpsFrames++;
@@ -138,22 +201,73 @@ namespace OniMoono.GameTweaks
                 fpsFrames = 0;
             }
 
-            Transitions(f);
+            // The frame that arrives in a colony holds the end of its load; the frames after it
+            // until the game settles are the load's too.
+            bool arriving = f.InColony && !wasColony;
+            Transitions(f, arriving);
+            bool loading = f.Loading || arriving || settling;
+            // The first frame with game time after a load: the Loading panel's, not play.
+            // So is the first that runs the 200 ms simulation step (the sim's first full step after
+            // the load), when it comes within 5 s.
+            bool firstFrame = false;
+            if (awaitFirstFrame && f.InColony && !loading && f.GameDt > 0)
+            {
+                awaitFirstFrame = false;
+                firstFrame = true;
+                FirstFrameMs = f.Ms;
+                awaitFirstStep = !f.Step200;
+                firstStepUntil = f.Now + 5;
+            }
+            else if (awaitFirstStep && f.InColony && !loading && !f.Paused && f.Step200 && f.Now <= firstStepUntil)
+            {
+                awaitFirstStep = false;
+                firstFrame = true;
+                FirstFrameMs += f.Ms;
+            }
+            if (loading && f.InColony && !f.Loading)
+            {
+                if (arriving) LoadFrames.Clear();
+                if (LoadFrames.Count < 32) LoadFrames.Add(new Slow { At = f.Now, Ms = f.Ms, GcMs = f.GcMs, JitMs = f.JitMs, Paused = f.Paused, Colony = true, Loading = true, Cause = PerfCause.Load });
+            }
+            bool notPlay = loading || firstFrame;
+            bool play = f.InColony && !f.Paused && !notPlay;
+            byte bits = 0;
+            if (f.InColony) bits |= FColony;
+            if (f.InColony && !f.Paused) bits |= FRunning;
+            if (notPlay) bits |= FLoading;
+            if (f.GcMs > LongestGcMs && f.InColony && !notPlay) LongestGcMs = f.GcMs;
+
+            double over = Math.Max(StutterMs, 2 * MedianMs);
+            bool stutter = play && f.Ms >= over && f.Ms < FreezeMs && prevMs < over;
+            bool freeze = f.InColony && !notPlay && f.Ms >= FreezeMs;
+            prevMs = f.Ms;
             var cause = PerfCause.None;
             if (f.Ms >= StutterMs || f.Saved)
             {
-                cause = Classify(f, arriving);
+                cause = Classify(f, loading, firstFrame, freeze);
+                // Loading and saves are always named; other slow frames only when they are a
+                // stutter or a freeze (a run of slow frames is a low rate; the menus are not play).
+                bool named = cause == PerfCause.Load || cause == PerfCause.FirstFrame || cause == PerfCause.Autosave || cause == PerfCause.Save || stutter || freeze;
+                if (!named) cause = PerfCause.None;
                 if (cause != PerfCause.None)
                 {
-                    bits |= f.Ms >= FreezeMs ? FFreeze : FStutter;
                     int c = (int)cause;
                     CauseTimes[c]++;
                     CauseTotal[c] += f.Ms;
                     if (f.Ms > CauseWorst[c]) CauseWorst[c] = f.Ms;
                 }
+                if (f.Ms >= StutterMs || f.Saved) LogSlow(f, cause, loading, stutter, freeze);
             }
+            if (stutter) bits |= FStutter;
+            if (freeze) bits |= FFreeze;
             flags[i] = bits;
-            Seconds_(f, cause);
+            if (play)
+            {
+                PlaySeconds += f.Ms / 1000;
+                if (freeze) PlayFreezeMs += f.Ms;
+                else if (stutter) PlayStutterMs += f.Ms;
+            }
+            Seconds_(f, cause, play, stutter, freeze);
             if (f.Now >= nextCheck)
             {
                 nextCheck = f.Now + 0.5;
@@ -161,8 +275,19 @@ namespace OniMoono.GameTweaks
             }
         }
 
-        /// Loads, the first main menu, the first unpaused frame and the first save after a load.
-        void Transitions(in PerfFrame f)
+        void LogSlow(in PerfFrame f, PerfCause cause, bool loading, bool stutter, bool freeze)
+        {
+            slow[slowCount++ % SlowCapacity] = new Slow
+            {
+                At = f.Now, Ms = f.Ms, GcMs = f.GcMs, JitMs = f.JitMs, GameDt = f.GameDt, Paused = f.Paused, Colony = f.InColony,
+                Loading = loading, ZeroSubTick = f.ZeroSubTick, Step200 = f.Step200, World = f.WorldSwitch, Stutter = stutter,
+                Freeze = freeze, SubTicks = f.SubTicks, Cause = cause,
+            };
+        }
+
+        /// Loads (until the colony settles), the first main menu, the first frame with game time
+        /// and the first save after a load.
+        void Transitions(in PerfFrame f, bool arriving)
         {
             if (f.InMenu && !menuSeen)
             {
@@ -171,28 +296,39 @@ namespace OniMoono.GameTweaks
             }
             bool between = !f.InColony && !f.InMenu;
             if ((wasColony || wasMenu) && between && loadStarted < 0) loadStarted = f.Now - f.Ms / 1000;
-            if (f.InMenu) loadStarted = -1;
-            if (f.InColony && !wasColony)
+            if (f.InMenu)
+            {
+                loadStarted = -1;
+                settling = false;
+            }
+            if (arriving)
             {
                 if (loadStarted >= 0) LoadMs = (f.Now - loadStarted) * 1000;
-                loadStarted = -1;
                 awaitFirstFrame = awaitFirstSave = true;
+                awaitFirstStep = false;
                 FirstFrameMs = double.NaN;
                 firstSave = null;
+                settling = true;
+                settleUntil = f.Now + 10;
             }
+            else if (settling)
+            {
+                // Settled: the first frame under 50 ms, the first with game time, or 10 s on.
+                if (!f.InColony || f.Ms < SettledMs || f.GameDt > 0 || f.Now > settleUntil) settling = false;
+                else if (loadStarted >= 0) LoadMs = (f.Now - loadStarted) * 1000;
+            }
+            if (!settling && !arriving && f.InColony) loadStarted = -1;
             wasColony = f.InColony;
             wasMenu = f.InMenu;
         }
 
         /// A slow frame's cause (None for frames that count as no stutter: the menus).
-        PerfCause Classify(in PerfFrame f, bool arriving)
+        PerfCause Classify(in PerfFrame f, bool loading, bool firstFrame, bool freeze)
         {
-            if (f.Loading || arriving) return PerfCause.Load;
+            if (loading) return PerfCause.Load;
             if (!f.InColony) return PerfCause.None;
-            if (awaitFirstFrame && f.GameDt > 0)
+            if (firstFrame)
             {
-                awaitFirstFrame = false;
-                FirstFrameMs = f.Ms;
                 AddFreeze(f, PerfCause.FirstFrame);
                 return PerfCause.FirstFrame;
             }
@@ -215,25 +351,28 @@ namespace OniMoono.GameTweaks
                 lastSave.Ms += f.Ms;
                 return lastSave.Cause;
             }
+            double excess = Math.Max(1, f.Ms - Math.Max(MedianMs, 1));
             PerfCause cause;
             if (f.Timelapse || f.Preview) cause = PerfCause.Timelapse;
-            else if (f.GcMs >= 0.5 * Math.Max(1, f.Ms - Math.Max(MedianMs, 1))) cause = PerfCause.Gc;
+            else if (f.GcMs >= 0.5 * excess) cause = PerfCause.Gc;
+            else if (f.JitMs >= 0.5 * excess) cause = PerfCause.Jit;
+            else if (f.WorldSwitch) cause = PerfCause.World;
             else if (f.ZeroSubTick && !f.Paused) cause = PerfCause.SimWait;
             else cause = PerfCause.Unknown;
-            if (f.Ms >= FreezeMs) AddFreeze(f, cause);
+            if (freeze) AddFreeze(f, cause);
             return cause;
         }
 
         Freeze AddFreeze(in PerfFrame f, PerfCause cause, bool always = false)
         {
             if (!always && f.Ms < FreezeMs) return null;
-            var freeze = new Freeze { At = f.Now, Ms = f.Ms, GcMs = f.GcMs, JitMs = f.JitMs, Cause = cause };
+            var freeze = new Freeze { At = f.Now, Ms = f.Ms, GcMs = f.GcMs, JitMs = f.JitMs, Cause = cause, Paused = f.Paused };
             freezes.Add(freeze);
             if (freezes.Count > MaxFreezes) freezes.RemoveAt(0);
             return freeze;
         }
 
-        void Seconds_(in PerfFrame f, PerfCause cause)
+        void Seconds_(in PerfFrame f, PerfCause cause, bool play, bool stutter, bool freeze)
         {
             if (previewFramesLeft > 0) previewFramesLeft--;
             if (secondEnds < 0) secondEnds = f.Now + 1;
@@ -257,10 +396,15 @@ namespace OniMoono.GameTweaks
                 current.Colony = true;
                 ColonySeconds += f.Ms / 1000;
             }
-            if (cause == PerfCause.None || cause == PerfCause.Load) return;
-            if (f.Ms >= FreezeMs) current.Freezes++;
-            else current.Stutters++;
+            if (freeze) current.Freezes++;
+            if (!play) return;
+            current.PlayMs += (float)f.Ms;
+            if (stutter) current.Stutters++;
+            if (freeze) current.PlayFreezes++;
+            // Of the stutters (so they compare with Stutters): from the simulation wait, unknown.
+            if (!stutter) return;
             if (cause == PerfCause.SimWait) current.SimWaits++;
+            else if (cause == PerfCause.Unknown) current.Unknown++;
         }
 
         // The light's histogram: 0.25 ms bins up to 100 ms.
@@ -271,13 +415,14 @@ namespace OniMoono.GameTweaks
             double now = f.Now;
             double realMs = 0, gameS = 0, expectS = 0;
             Array.Clear(bins, 0, bins.Length);
-            int n = 0;
+            int n = 0, stutters = 0;
             long last = count - 1, first = Math.Max(0, count - Capacity);
             for (long k = last; k >= first; k--)
             {
                 long i = k & (Capacity - 1);
                 double age = now - end[i];
                 if (age > 10) break;
+                if ((flags[i] & FStutter) != 0) stutters++;
                 if ((flags[i] & FColony) == 0 || (flags[i] & FLoading) != 0) continue;
                 bins[Math.Min(400, (int)(ms[i] * 4))]++;
                 n++;
@@ -289,15 +434,6 @@ namespace OniMoono.GameTweaks
                 }
             }
             MedianMs = n > 0 ? Quantile(bins, n, 0.5) / 4 : 0;
-            int stutters = 0;
-            double over = Math.Max(StutterMs, 2 * MedianMs);
-            for (long k = last; k >= first; k--)
-            {
-                long i = k & (Capacity - 1);
-                if (now - end[i] > 10) break;
-                // A spike: the frame before was a normal one (a run of slow frames is a low rate, not stutters).
-                if ((flags[i] & FRunning) != 0 && (flags[i] & FLoading) == 0 && ms[i] >= over && ms[i] < 1000 && k > first && ms[(k - 1) & (Capacity - 1)] < over) stutters++;
-            }
             Stutters10s = stutters;
             KeepUp = realMs >= 3000 && expectS > 0 ? gameS / expectS : double.NaN;
             Speed = f.Scale;
@@ -336,11 +472,11 @@ namespace OniMoono.GameTweaks
             return bins.Length;
         }
 
-        /// The frames of the last `window` seconds: their count, mean, median, 90th and 99th
-        /// percentiles and the longest (ms), the stutters and freezes, and whether all of them
-        /// ran unpaused in a colony. A histogram (0.1 ms bins up to 50 ms, 1 ms up to 1 s), so
-        /// a 2-minute window costs a walk over its frames and no sort.
-        public Summary Summarize(double window, double now)
+        /// The frames of the last `window` seconds outside loading (with `play`, only those of
+        /// unpaused colony play): their count, mean, median, 90th and 99th percentiles and the
+        /// longest (ms), the stutters and freezes. A histogram (0.1 ms bins up to 50 ms, 1 ms up
+        /// to 1 s; the longest kept exactly), so a 2-minute window costs a walk and no sort.
+        public Summary Summarize(double window, double now, bool play = false)
         {
             var s = new Summary();
             Array.Clear(fine, 0, fine.Length);
@@ -351,6 +487,7 @@ namespace OniMoono.GameTweaks
                 long i = k & (Capacity - 1);
                 if (now - end[i] > window) break;
                 if ((flags[i] & FLoading) != 0) continue;
+                if (play && (flags[i] & FRunning) == 0) continue;
                 double m = ms[i];
                 s.Frames++;
                 sum += m;
@@ -426,20 +563,32 @@ namespace OniMoono.GameTweaks
             }
         }
 
-        /// The last `n` whole seconds summed: stutters, stutters from waiting for the simulation,
-        /// freezes, and the seconds a colony ran in.
-        public (int Stutters, int SimWaits, int Freezes, int ColonySeconds) LastSeconds(int n)
+        /// Play over a span of whole seconds: its stutters, its freezes, the stutters from waiting
+        /// for the simulation and those of no known cause, and its seconds of unpaused
+        /// play. PerMinute scales a count to a minute of play.
+        public struct Rate
         {
-            int st = 0, sw = 0, fr = 0, col = 0;
+            public int Stutters, Freezes, SimWaits, Unknown;
+            public double PlaySeconds;
+            public int PerMinute(int n) => PlaySeconds >= 1 ? (int)Math.Round(n * 60.0 / PlaySeconds) : 0;
+        }
+
+        /// The last `n` whole seconds (a minute by default): the one source of every "a minute".
+        public Rate LastMinute(int n = 60)
+        {
+            var r = new Rate();
+            double playMs = 0;
             for (int i = seconds.Count - 1; i >= 0 && i >= seconds.Count - n; i--)
             {
                 var s = seconds[i];
-                st += s.Stutters;
-                sw += s.SimWaits;
-                fr += s.Freezes;
-                if (s.Colony) col++;
+                r.Stutters += s.Stutters;
+                r.Freezes += s.PlayFreezes;
+                r.SimWaits += s.SimWaits;
+                r.Unknown += s.Unknown;
+                playMs += s.PlayMs;
             }
-            return (st, sw, fr, col);
+            r.PlaySeconds = playMs / 1000;
+            return r;
         }
 
         /// The newest frame's end (seconds, PerfFrame.Now's clock: the host's frame clock): the

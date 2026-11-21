@@ -84,9 +84,34 @@ namespace OniMoono.GameTweaks
             long start = Stopwatch.GetTimestamp();
             var f = PerfReads.Frame(now, ms, gcMs, jitMs);
             Track.Add(f);
+            // Outside a colony (menus, between scenes) and until a load settles, the engine's frame
+            // window times each frame's phases (it counts only from the second frame after it
+            // opens, so it is open before a load starts): the copy report's account of the
+            // arriving frame and those after it. A few µs a frame, in the menus and loads only.
+            // (Not while the window's own tabs read the frame window: its sums are theirs then.)
+            if (loadTiming && !windowTiming && Take?.Invoke() is double[] phases && phases[0] == 1) Track.LoadPhases(f.Now, phases);
+            bool want = !f.InColony || Track.Settling;
+            if (want != loadTiming)
+            {
+                loadTiming = want;
+                ApplyTiming();
+                if (loadTiming) Take?.Invoke();
+            }
             Frames++;
             FrameTicks += Stopwatch.GetTimestamp() - start;
         }
+
+        static bool loadTiming, windowTiming;
+
+        /// The window's Colony and Frame tabs keep the engine's frame window open; so does a load
+        /// settling. One window serves both.
+        internal static void WindowTiming(bool on)
+        {
+            windowTiming = on;
+            ApplyTiming();
+        }
+
+        static void ApplyTiming() => Timing?.Invoke(windowTiming || loadTiming);
 
         static PerfOverlay instance;
 
@@ -426,9 +451,11 @@ namespace OniMoono.GameTweaks
                 case "state":
                     if (o == null) return "no overlay";
                     var px = o.BadgePixels;
-                    return string.Format(c, "light={0} fps={1:F0} badge={2:F0},{3:F0} scale={4:F3} window={5} tab={6} rect={7} keepup={8:F3} median={9:F2} stutters10s={10} place={11}",
+                    var rate = Track.LastMinute();
+                    return string.Format(c, "light={0} fps={1:F0} badge={2:F0},{3:F0} scale={4:F3} window={5} tab={6} rect={7} keepup={8:F3} median={9:F2} stutters10s={10} place={11} minute: play_s={12:F0} stutters={13}/min simwait={14}/min unknown={15}/min sim-step-pace={16}",
                         Track.Light, Track.Fps, px.x, px.y, o.scale, o.window.Open, o.window.TabName, o.window.RectText, Track.KeepUp, Track.MedianMs, Track.Stutters10s,
-                        o.place.HasValue ? o.place.Value.x.ToString("F4", c) + "," + o.place.Value.y.ToString("F4", c) : "default");
+                        o.place.HasValue ? o.place.Value.x.ToString("F4", c) + "," + o.place.Value.y.ToString("F4", c) : "default",
+                        rate.PlaySeconds, rate.PerMinute(rate.Stutters), rate.PerMinute(rate.SimWaits), rate.PerMinute(rate.Unknown), PerfReads.SimStepPaceOn);
                 case "open": if (o != null && !o.window.Open) o.ToggleWindow(); return "ok";
                 case "close": if (o != null && o.window.Open) o.window.Close(); return "ok";
                 case "reset": ResetPosition(); return "ok";
