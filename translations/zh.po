@@ -1719,8 +1719,8 @@ msgid "Your screen ({0} Hz)"
 msgstr "你的屏幕（{0} Hz）"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNING"
-msgid "SCANNING…"
-msgstr "扫描中…"
+msgid "SCANNING"
+msgstr "扫描中"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNED"
 msgid "SCANNED"
@@ -1799,8 +1799,8 @@ msgid "Effect: the colony summary is written during the autosave pause again, ab
 msgstr "影响：殖民地摘要重新在自动存档暂停期间写入，后期殖民地每次存档约多 0.1 秒（实测 100 至 126 毫秒）。"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING_LEFT"
-msgid "RECORDING… {0} S"
-msgstr "录制中… {0} 秒"
+msgid "RECORDING {0} S"
+msgstr "录制中 {0} 秒"
 
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORD_SAVED"
 msgid "SAVED"

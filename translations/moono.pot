@@ -457,7 +457,7 @@ msgstr ""
 
 #. Colony tab, the Scan again button while it counts
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_SCANNING"
-msgid "SCANNING…"
+msgid "SCANNING"
 msgstr ""
 
 #. Colony tab, the Scan again button just after it counted
@@ -852,7 +852,7 @@ msgstr ""
 
 #. The record button while a recording runs; {0}: seconds left
 msgctxt "STRINGS.MOONO.TWEAKS.UI.PERF_RECORDING_LEFT"
-msgid "RECORDING… {0} S"
+msgid "RECORDING {0} S"
 msgstr ""
 
 #. The record button for a few seconds after a recording was saved

@@ -498,6 +498,22 @@ namespace OniMoono.GameTweaks
                 case "open": if (o != null && !o.window.Open) o.ToggleWindow(); return "ok";
                 case "close": if (o != null && o.window.Open) o.window.Close(); return "ok";
                 case "reset": ResetPosition(); return "ok";
+                case "hits":
+                {
+                    // What the event system's raycast finds under the pointer now, top first, and the
+                    // badge's pointer events so far (test runs: a click that does nothing).
+                    var es = UnityEngine.EventSystems.EventSystem.current;
+                    var parts = new List<string>();
+                    if (es != null)
+                    {
+                        var data = new PointerEventData(es) { position = Input.mousePosition };
+                        var hits = new List<RaycastResult>();
+                        es.RaycastAll(data, hits);
+                        foreach (var h in hits) parts.Add(h.gameObject != null ? h.gameObject.name + "(" + h.sortingOrder + ")" : "null");
+                    }
+                    return string.Format(c, "ok mouse={0:F0},{1:F0} button0={2} eventsystem={3} hits=[{4}] badge downs={5} enters={6}", Input.mousePosition.x, Input.mousePosition.y,
+                        Input.GetMouseButton(0), es != null ? es.name : "none", string.Join(",", parts), PerfPress.Downs, PerfPress.Enters);
+                }
                 case "cost":
                 {
                     double f = Math.Max(1, Frames), us = 1e6 / Stopwatch.Frequency;
@@ -517,12 +533,20 @@ namespace OniMoono.GameTweaks
         internal System.Action Pressed;
         internal Action<bool> Hover;
 
+        /// Pointer events the badge and title bar received (test runs).
+        internal static int Downs, Enters;
+
         public void OnPointerDown(PointerEventData e)
         {
+            Downs++;
             if (e.button == PointerEventData.InputButton.Left) Pressed?.Invoke();
         }
 
-        public void OnPointerEnter(PointerEventData e) => Hover?.Invoke(true);
+        public void OnPointerEnter(PointerEventData e)
+        {
+            Enters++;
+            Hover?.Invoke(true);
+        }
 
         public void OnPointerExit(PointerEventData e) => Hover?.Invoke(false);
     }

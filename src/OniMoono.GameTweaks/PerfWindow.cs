@@ -676,6 +676,9 @@ namespace OniMoono.GameTweaks
             var s = Sums();
             if (s[1] <= 0) return "–";
             double queued = s[12 + 3] / s[1], device = (s[12] + s[13] + s[14]) / s[1], outside = s[11] / s[1];
+            // With vsync on, waiting for queued pictures is the screen's pace even while the rate
+            // dips below the refresh for a moment (seen in game right after a UI scale change).
+            if (queued > 0.2 && screen.On && screen.Hz > 0) return string.Format(C, Ui("PERF_HELD_SCREEN"), Hz(screen.Hz));
             if (queued > 0.2 || outside > 0.2) return Ui("PERF_HELD_LIMIT");
             if (device > 0.25) return Ui("PERF_HELD_GRAPHICS");
             return Ui("PERF_HELD_PROCESSOR");
@@ -997,8 +1000,14 @@ namespace OniMoono.GameTweaks
             }
             else
             {
+                // "Showing the picture" without the waits shown in their own row (RowMs); its worst
+                // frame includes them, so it is left out.
+                double waits = Math.Min(PhaseMs(s, 3), s[12] + s[15]);
                 foreach (int p in RowPhases[row])
-                    lines.Add((PhaseName(p), (PhaseMs(s, p) / frames).ToString("F2", C), "–", "–", PhaseMax(s, p).ToString("F1", C)));
+                {
+                    bool present = p == 3;
+                    lines.Add((PhaseName(p), ((PhaseMs(s, p) - (present ? waits : 0)) / frames).ToString("F2", C), "–", "–", present ? "–" : PhaseMax(s, p).ToString("F1", C)));
+                }
             }
             float h = 6 + 20 + Math.Max(1, lines.Count) * 21 + 6;
             ui.Box(x, y + 4, w, h, PerfUi.Panel2, PerfUi.Round6);
