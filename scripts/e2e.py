@@ -161,6 +161,7 @@ TOP_KEYS = {
     'extra_saves',
     'retired_colonies',
     'display_dpi',
+    'window_manager',
     'workshop',
     'update_check',
     'game_tweaks',
@@ -189,6 +190,7 @@ NO_SHOTS = os.environ.get('E2E_NO_SHOTS') == '1'
 MOONO_ITEM_ID = '3999999999'
 TEST_MODS = (
     'OverlapTestMod',
+    'UnpauseProbeTestMod',
     'SelectCycleTestMod',
     'CommandLineTestMod',
     'ReachStressTestMod',
@@ -258,6 +260,7 @@ DRIVER_COMMANDS = {
     'canvas.hide',
     'canvas.show',
     'setup.call',
+    'setup.set',
     'seed',
     'count',
     'stopwatch',
@@ -462,7 +465,7 @@ def check_step(where, kind, value, in_setup):
             ((command, _),) = value.items()
             need(command in DRIVER_COMMANDS, f'unknown E2eDriver command {command!r}')
             # Reflection may prepare a test, never perform the thing under test (§1, issue #6).
-            need(in_setup or command != 'setup.call', 'driver setup.call is only allowed in setup:')
+            need(in_setup or command not in ('setup.call', 'setup.set'), f'driver {command} is only allowed in setup:')
     return problems
 
 
@@ -485,7 +488,7 @@ def check_spec(spec):
         problems.append('`game_tweaks` is a list of `--game-tweak` values')
     needs = spec.get('ours_needs', {})
     if not isinstance(needs, dict) or not all(isinstance(f, str) and f and '/' not in f and isinstance(w, str) and w for f, w in needs.items()):
-        problems.append('`ours_needs` maps a file beside our host to what it is')
+        problems.append('`ours_needs` maps a file beside our host (FILE, or FILE:TEXT for a file holding TEXT) to what it is')
     game_args = spec.get('game_args', [])
     if not isinstance(game_args, list) or not all(isinstance(a, str) for a in game_args):
         problems.append('`game_args` is a list of strings')
@@ -506,6 +509,8 @@ def check_spec(spec):
         problems.append('`scaled_screen` is true or false')
     if 'display_dpi' in spec and not (type(spec['display_dpi']) is int and 1 <= spec['display_dpi'] <= 1000):
         problems.append('`display_dpi` is a whole number of dots per inch (1-1000)')
+    if not isinstance(spec.get('window_manager', False), bool):
+        problems.append('`window_manager` is true or false')
     blocked = spec.get('blocked_plugins', {})
     if not isinstance(blocked, dict) or not all(isinstance(n, str) and n and '/' not in n and how in BLOCKED_HOW for n, how in blocked.items()):
         problems.append('`blocked_plugins` maps plugin file names to ' + ' or '.join(BLOCKED_HOW))
@@ -2151,12 +2156,19 @@ class JobQueue:
 
 
 def ours_missing(spec, host_dir=None):
-    """Why ours can't run SPEC here (`ours_needs`: a file beside our release host, such as the
-    native allocator only Windows has), or None. Such a run is skipped, not failed."""
+    """Why ours can't run SPEC here (`ours_needs`: a file beside our release host, or FILE:TEXT,
+    a file holding TEXT, such as Moono's own executable with FMOD's allocator, which the SDK's
+    apphost has not), or None. Such a run is skipped, not failed."""
     host_dir = host_dir or os.path.join(ROOT, 'out', 'bin', 'OniMoono.Host', 'release')
     for name, what in spec.get('ours_needs', {}).items():
-        if not os.path.exists(os.path.join(host_dir, name)):
-            return f'needs {name} beside our host ({what}), not in {os.path.relpath(host_dir, ROOT)}'
+        file, _, text = name.partition(':')
+        path = os.path.join(host_dir, file)
+        if not os.path.exists(path):
+            return f'needs {file} beside our host ({what}), not in {os.path.relpath(host_dir, ROOT)}'
+        if text:
+            with open(path, 'rb') as f:
+                if text.encode() not in f.read():
+                    return f'needs {file} holding {text} ({what}), not the one in {os.path.relpath(host_dir, ROOT)}'
     return None
 
 
@@ -3132,6 +3144,7 @@ class Player:
         extra_saves=(),
         retired_colonies=(),
         display_dpi=None,
+        window_manager=False,
         workshop=None,
         update_check=None,
         stray_plugins=(),
@@ -3153,6 +3166,7 @@ class Player:
         self.stray_plugins = list(stray_plugins or ())
         self.keyboard = keyboard
         self.display_dpi = display_dpi
+        self.window_manager = window_manager
         self.tweaks_menu = tweaks_menu
         self.update_check = update_check
         self.home = os.path.join(out, 'home')
@@ -3161,7 +3175,7 @@ class Player:
         self.save_dir = os.path.join(self.profile, 'save_files', 'e2e')
         self.fixture = fixture and os.path.join(self.save_dir, os.path.basename(fixture))
         self.display = self.xauthority = None
-        self.process = self.xvfb = self.scope = None
+        self.process = self.xvfb = self.wm = self.scope = None
         self.watchdog = Watchdog(self)
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(os.path.join(self.profile, 'mods', 'Local'))
@@ -3439,8 +3453,10 @@ class Player:
             # OniMcp, in every spec, transpiles LoadScreen methods background-save patches: test
             # infrastructure, left out of the Moono Tweaks screen's mod overlaps.
             env['ONI_MOD_OVERLAPS_IGNORE'] = 'LIghtJUNction.OniMcp'
-            # A start-up failure goes to the log, never to a desktop dialog (DesktopDialog).
+            # A start-up failure goes to the log, never to a desktop dialog (DesktopDialog); a
+            # crash writes its record and ends the run, with no crash window to wait on.
             env['ONI_HOST_NO_DIALOG'] = '1'
+            env['ONI_MOONO_CRASH_DIALOG'] = 'off'
             env.update(self.extra_env)
             # `env: {ONI_TWEAK_SETTINGS: "1"}`: the tweaks as a player has them (the defaults and
             # the run home's settings, every tweak's row changeable), so no `--game-tweak` at all;
@@ -3478,8 +3494,12 @@ class Player:
         # A preferred OOM victim in the memory-capped test slice: an over-committed machine loses a
         # player (a machine failure, rerun), never the user's sessions (scripts/contain.sh).
         command = [os.path.join(ROOT, 'scripts', 'contain.sh'), *command]
+        if self.window_manager and not self.lane.display:
+            raise SpecFailure('`window_manager` needs a lane display (not --xvfb-run)')
         if self.lane.display:
             self.start_xvfb(self.lane.display)
+            if self.window_manager:
+                self.start_window_manager(self.lane.display)
             env['DISPLAY'] = self.display = self.lane.display
             self.process = subprocess.Popen(command, env=env, stdout=open(stdout, 'w'), stderr=subprocess.STDOUT, start_new_session=True)
             self.lane.track('player', self.process.pid, self.scope)
@@ -3541,6 +3561,25 @@ class Player:
             time.sleep(0.2)
         # The spec's layout, before the player connects (-noreset keeps it).
         set_keyboard(display, None, self.keyboard)
+
+    def start_window_manager(self, display):
+        """`window_manager`: scripts/e2e-wm.py on the lane's display, a model of a desktop whose
+        panel takes the bottom 76 pixels, before the player connects (GLFW and SDL look for a
+        window manager once, as they start)."""
+        log = os.path.join(self.out, 'wm.txt')
+        self.wm = subprocess.Popen(
+            [sys.executable, '-I', os.path.join(ROOT, 'scripts', 'e2e-wm.py'), display, log],
+            stdout=subprocess.DEVNULL,
+            stderr=open(os.path.join(self.out, 'wm-stderr.txt'), 'w'),
+            start_new_session=True,
+            env=dict(os.environ, **child_marks(getattr(self, 'lane', None))),
+        )
+        self.lane.track('wm', self.wm.pid)
+        deadline = time.time() + 20
+        while not (os.path.exists(log) and open(log).read().startswith('ready')):
+            if self.wm.poll() is not None or time.time() > deadline:
+                raise SpecFailure(f'the window manager did not start on {display} (wm-stderr.txt)')
+            time.sleep(0.1)
 
     def find_display(self):
         """The display and X authority file xvfb-run gave the player (from its environment)."""
@@ -3630,10 +3669,10 @@ class Player:
         # The player outlives xvfb-run when its X server goes first: every descendant is known
         # before anything is signalled, and whatever survives SIGTERM gets SIGKILL. The game
         # quits first, alone: xvfb-run's group holds its X server too.
-        family = [p for process in (self.process, self.xvfb) if process for p in descendants(process.pid)]
+        family = [p for process in (self.process, self.wm, self.xvfb) if process for p in descendants(process.pid)]
         if self.alive():
             self.quit()
-        for process in (self.process, self.xvfb):
+        for process in (self.process, self.wm, self.xvfb):
             if process and process.poll() is None:
                 os.killpg(process.pid, signal.SIGTERM)
                 try:
@@ -3650,7 +3689,7 @@ class Player:
         # Whatever the player started in its scope, out of its process group.
         if self.scope:
             stop_scope(self.scope)
-        for process in (self.process, self.xvfb):
+        for process in (self.process, self.wm, self.xvfb):
             if process:
                 self.lane.untrack(process.pid)
         deadline = time.time() + 30
@@ -5115,6 +5154,7 @@ class Run:
                 extra_saves=spec.get('extra_saves', ()),
                 retired_colonies=spec.get('retired_colonies', ()),
                 display_dpi=spec.get('display_dpi'),
+                window_manager=spec.get('window_manager', False),
                 workshop=spec.get('workshop'),
                 update_check=spec.get('update_check'),
                 player_args=spec.get('player_args', ()),

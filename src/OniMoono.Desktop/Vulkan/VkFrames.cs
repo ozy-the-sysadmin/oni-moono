@@ -24,6 +24,7 @@ namespace OniMoono.Desktop.Vulkan
         /// Moves the allocation to another kind in the ledger (a mesh's buffer kept as a spare).
         public void Relabel(string to)
         {
+            if (kind != null && kind.EndsWith(VkMemoryPlacement.SystemMemory, StringComparison.Ordinal)) to += VkMemoryPlacement.SystemMemory;
             if (Buffer.IsNull() || to == kind) return;
             VideoMemoryLedger.Add(kind, -bytes, -1);
             kind = to;
@@ -42,21 +43,12 @@ namespace OniMoono.Desktop.Vulkan
             var result = vk.Allocator.CreateBuffer(info, alloc, out var buffer, out var allocation, out var allocationInfo);
             VkCheck.Ok(result, "vmaCreateBuffer");
             var made = new VkBufferAlloc { Buffer = buffer, Allocation = allocation, Mapped = (byte*)allocationInfo.PMappedData.Pointer, Size = size };
-            made.kind = kind;
             made.bytes = (long)allocationInfo.Size.Value;
-            VideoMemoryLedger.Add(kind, made.bytes, 1);
-            bool first;
-            lock (loggedUsages) first = loggedUsages.Add(usage);
-            if (first)
-            {
-                var memory = vk.Physical.GetMemoryProperties();
-                OniMoono.Engine.EngineLog.Engine($"vulkan: buffers for {usage} in memory type {allocationInfo.MemoryType} ({memory.MemoryTypes[(int)allocationInfo.MemoryType].PropertyFlags})");
-            }
+            made.kind = VkMemoryPlacement.Note(vk, $"buffers for {usage}", $"a buffer of {size} bytes", kind, allocationInfo.MemoryType, made.bytes,
+                expectHost: preferHost || readback);
+            VideoMemoryLedger.Add(made.kind, made.bytes, 1);
             return made;
         }
-
-        /// Buffer usages whose memory type was logged (diagnostics).
-        static readonly HashSet<VkBufferUsageFlags> loggedUsages = new();
 
         /// Host writes made visible to the device (a no-op on coherent memory).
         public void Flush(VkContext vk, long size = -1) => VkCheck.Ok(vk.Allocator.FlushAllocation(Allocation, default, new Brutal.ByteSize((nuint)(size < 0 ? Size : size))), "vmaFlushAllocation");
@@ -114,10 +106,12 @@ namespace OniMoono.Desktop.Vulkan
             public readonly List<Chunk> Uniforms = new();
             public int UniformIndex;
             public readonly List<Action> Retired = new();
+            public readonly List<Action> RetiredStorage = new();
             public readonly List<VkDescriptorPool> DescriptorPools = new();
             public int DescriptorPoolIndex;
             public VkQueryPool Timestamps;
             public bool TimestampsWritten;
+            public int Index;
         }
 
         readonly VkContext vk;
@@ -143,6 +137,9 @@ namespace OniMoono.Desktop.Vulkan
         public double GpuMilliseconds;
         public int GpuFrames;
 
+        /// --gpu-profile: each pass's GPU time (null when off, or without timestamps).
+        public readonly VkGpuProfile Profile;
+
         public VkFrames(VkContext vk)
         {
             this.vk = vk;
@@ -151,11 +148,12 @@ namespace OniMoono.Desktop.Vulkan
             timestampPeriodNs = vk.Limits.TimestampPeriod;
             for (int i = 0; i < InFlight; i++)
             {
-                var s = slots[i] = new Slot();
+                var s = slots[i] = new Slot { Index = i };
                 s.Pool = vk.Device.CreateCommandPool(new VkCommandPoolCreateInfo { QueueFamilyIndex = vk.QueueFamily, Flags = VkCommandPoolCreateFlags.TransientBit }, null);
                 s.Fence = vk.Device.CreateFence(new VkFenceCreateInfo(), null);
                 if (timestamps) s.Timestamps = vk.Device.CreateQueryPool(new VkQueryPoolCreateInfo { QueryType = VkQueryType.Timestamp, QueryCount = 2 }, null);
             }
+            if (timestamps && GlGpuProfile.Enabled) Profile = new VkGpuProfile(vk, InFlight, timestampPeriodNs, 64);
         }
 
         Slot Current => slots[current];
@@ -176,6 +174,7 @@ namespace OniMoono.Desktop.Vulkan
                         vk.Device.PInvoke.vkCmdResetQueryPool.Invoke(main.Handle, s.Timestamps, 0, 2);
                         vk.Device.PInvoke.vkCmdWriteTimestamp2.Invoke(main.Handle, VkPipelineStageFlags2.TopOfPipeBit, s.Timestamps, 0);
                         s.TimestampsWritten = true;
+                        Profile?.BeginFrame(main, s.Index);
                     }
                 }
                 return main;
@@ -222,10 +221,19 @@ namespace OniMoono.Desktop.Vulkan
         {
             var s = Current;
             if (endFrame && timestamps && s.TimestampsWritten)
+            {
+                Profile?.Mark(Main, s.Index, "after the last pass");
                 vk.Device.PInvoke.vkCmdWriteTimestamp2.Invoke(Main.Handle, VkPipelineStageFlags2.BottomOfPipeBit, s.Timestamps, 1);
+            }
             Span<VkCommandBufferSubmitInfo> buffers = stackalloc VkCommandBufferSubmitInfo[2];
             int n = 0;
-            if (uploadsOpen)
+            // Closed before they are ended: a vkEndCommandBuffer that fails leaves its buffer
+            // invalid (only a reset or free may follow), so the next command must begin another
+            // rather than be recorded into it (#114). The pool's reset at the slot's next use
+            // makes the failed one usable again.
+            bool endUploads = uploadsOpen, endMain = mainOpen;
+            uploadsOpen = mainOpen = false;
+            if (endUploads)
             {
                 // Copies into fresh buffers (meshes) before the rendering reads them; images
                 // have barriers of their own.
@@ -238,8 +246,7 @@ namespace OniMoono.Desktop.Vulkan
                 uploads.PipelineBarrier2(new VkDependencyInfo { MemoryBarrierCount = 1, MemoryBarriers = &barrier });
                 buffers[n++] = new VkCommandBufferSubmitInfo { CommandBuffer = End(uploads) };
             }
-            if (mainOpen) buffers[n++] = new VkCommandBufferSubmitInfo { CommandBuffer = End(main) };
-            uploadsOpen = mainOpen = false;
+            if (endMain) buffers[n++] = new VkCommandBufferSubmitInfo { CommandBuffer = End(main) };
             if (n > 0 || endFrame)
             {
                 fixed (VkCommandBufferSubmitInfo* b = buffers)
@@ -271,11 +278,15 @@ namespace OniMoono.Desktop.Vulkan
                 VkCheck.Ok(VkFenceWait.Wait(vk, fence, "frames: a frame slot's fence", current), "vkWaitForFences");
                 vk.Device.PInvoke.vkResetFences.Invoke(vk.Device.Handle, 1, &fence);
                 s.Pending = false;
-                if (s.TimestampsWritten) CollectTimestamps(s);
+                if (s.TimestampsWritten)
+                {
+                    CollectTimestamps(s);
+                    Profile?.Collect(s.Index);
+                }
             }
             s.TimestampsWritten = false;
-            foreach (var release in s.Retired) release();
-            s.Retired.Clear();
+            Release(s.Retired);
+            Release(s.RetiredStorage);
             vk.Device.PInvoke.vkResetCommandPool.Invoke(vk.Device.Handle, s.Pool, 0);
             s.NextBuffer = 0;
             RecycleChunks(s.Chunks);
@@ -296,6 +307,12 @@ namespace OniMoono.Desktop.Vulkan
             if (r != VkResult.Success) return;
             GpuMilliseconds += (values[1] - values[0]) * timestampPeriodNs / 1e6;
             GpuFrames++;
+        }
+
+        /// --gpu-profile: ends the GPU segment since the last mark as `label` (outside any pass).
+        public void ProfileMark(string label)
+        {
+            if (Profile != null && Current.TimestampsWritten) Profile.Mark(Main, current, label);
         }
 
         /// Releases `release` once the GPU has finished the frame being recorded (resources the
@@ -355,6 +372,23 @@ namespace OniMoono.Desktop.Vulkan
             foreach (var c in s.Staging) c.Used = 0;
             s.StagingIndex = 0;
             Staged = 0;
+        }
+
+        /// A texture's replaced storage, released as Retire does, or sooner by ReleaseStorage.
+        public void RetireStorage(Action release) => Current.RetiredStorage.Add(release);
+
+        /// The storage RetireStorage took in any frame slot released now: the caller has
+        /// submitted everything recorded and the GPU has finished it (ReuseStaging's condition),
+        /// so no command names it. Its memory is then free for what the caller makes next.
+        public void ReleaseStorage()
+        {
+            foreach (var s in slots) Release(s.RetiredStorage);
+        }
+
+        static void Release(List<Action> retired)
+        {
+            foreach (var release in retired) release();
+            retired.Clear();
         }
 
         public (VkBuffer Buffer, long Offset) Staging(ReadOnlySpan<byte> data, long alignment)
@@ -478,8 +512,8 @@ namespace OniMoono.Desktop.Vulkan
                     VkFenceWait.Wait(vk, fence, "frames: a frame slot's fence at disposal");
                     s.Pending = false;
                 }
-                foreach (var release in s.Retired) release();
-                s.Retired.Clear();
+                Release(s.Retired);
+                Release(s.RetiredStorage);
                 foreach (var c in s.Chunks) c.Buffer.Destroy(vk);
                 foreach (var c in s.Staging) c.Buffer.Destroy(vk);
                 foreach (var c in s.Uniforms) c.Buffer.Destroy(vk);
@@ -488,6 +522,7 @@ namespace OniMoono.Desktop.Vulkan
                 vk.Device.DestroyFence(s.Fence, null);
                 vk.Device.DestroyCommandPool(s.Pool, null);
             }
+            Profile?.Dispose();
         }
     }
 }

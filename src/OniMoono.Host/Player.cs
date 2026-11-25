@@ -42,12 +42,9 @@ namespace OniMoono.Host
                 (platform, var device) = OpenDevice(options);
                 OniMoono.Engine.Platform.PlatformLoop.Install(platform);
                 OniMoono.Engine.Rendering.GraphicsDevice.Install(device);
-                // The crash window opens on the game window's monitor and names its GPU.
-                if (OperatingSystem.IsWindows())
-                {
-                    NativeCrashes.Describe("window", ((long)platform.Win32Handle).ToString("x"));
-                    NativeCrashes.Describe("gpu", device.Caps.DeviceName);
-                }
+                // The crash window opens on the game window's monitor (Windows) and names its GPU.
+                if (OperatingSystem.IsWindows()) NativeCrashes.Describe("window", ((long)platform.Win32Handle).ToString("x"));
+                NativeCrashes.Describe("gpu", device.Caps.DeviceName);
             }
             StartupStats.Mark("window and device ready");
             StartupProgress.Checkpoint("window");
@@ -134,6 +131,13 @@ namespace OniMoono.Host
                 // wait by the process's end has been followed by a kernel soft lockup on WSL.
                 OniMoono.Engine.Rendering.GraphicsDevice.Current.StopForQuit();
                 OniMoono.Engine.Rendering.GraphicsDevice.Install(new OniMoono.Engine.Rendering.NullRenderDevice());
+                // A quit for an error (the graphics device stopped working): the error stays on
+                // screen until the player closes it, then the quit goes on.
+                if (PlayerLoop.QuitError is { } error)
+                {
+                    EngineLog.Engine($"Quit: the error for the player: {Launch.StandaloneLaunch.TellBeforeQuit(error)}");
+                    QuitStats.Mark("the error");
+                }
             }
             SceneLoader.UnloadAll();
             Lifecycle.ProcessDestroyQueue(drain: true);

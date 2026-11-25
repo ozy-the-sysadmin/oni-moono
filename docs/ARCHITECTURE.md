@@ -140,6 +140,39 @@ can't export data.
 - **Crash watcher.** It also starts a second copy of itself as the crash watcher before the
   runtime starts (`crash.c`; §7, "Native crashes").
 
+**The Linux executable.** On Linux `OniMoono` is our own too (`src/OniMoono.NativeHost/host_linux.c`,
+C only), so a crash in native code can be recorded and shown (§7, "Native crashes").
+
+- **Starting .NET.** As on Windows: `libhostfxr.so` from its own folder (the self-contained
+  player), else the installed .NET's, looked for where the apphost looks (`DOTNET_ROOT`,
+  `/etc/dotnet/install_location`, `/usr/share/dotnet`, `/usr/lib/dotnet`); then
+  `hostfxr_initialize_for_dotnet_command_line`, `hostfxr_run_app`, `hostfxr_close`. hostfxr
+  reads the runtimeconfig, so its options (Server GC, the tiering delay) apply as before.
+- **GC option.** It sets `System.GC.Server` from `--gc` or the settings file, as `OniMoono.exe`
+  does, so the player no longer starts itself again to apply it (`GcMode` still does under the
+  SDK's apphost).
+- **Exports.** FMOD's quarantine allocator (`fmod_heap.c`, game tweak fmod-quarantine) and the
+  crash records' functions, in its dynamic symbol table (`exports_linux.list`), which the player
+  finds through `NativeLibrary.GetMainProgramHandle`.
+- **Failures.** A failure to start goes to stderr and as a line to the game's `Player.log`
+  (test runs, `ONI_HOST_NO_DIALOG=1`: to `ONI_HOST_MESSAGES`' file instead).
+- **Versioned install.** With no `OniMoono.dll` beside it and a `player/` folder, it is the
+  install's entry point ([INSTALL-MODES.md](INSTALL-MODES.md), "The entry point").
+- **Build.** `build-linux.sh` builds it with gcc or clang, no C++ runtime. Releases and
+  `check.sh` build it in the Steam Runtime's sniper SDK container (Docker, the image pinned by
+  its digest; glibc 2.31) through `scripts/build-native-host-linux.sh`, which also checks
+  `sdl_min.h` (the crash window's SDL declarations) against SDL's own headers and runs
+  `fmod_heap_test`. The host's build copies `out/native/linux/OniMoono` over the apphost when it
+  is there. `setup.sh` builds it with the machine's `cc`; without one the apphost stays, with a
+  line saying so: that player plays the same but records no native crash.
+- **Check.** `scripts/check-linux-host.py` checks the ELF file: x86-64 PIE for
+  `/lib64/ld-linux-x86-64.so.2`, newest glibc symbol version at most 2.31 (2.27 now), only libc's
+  own libraries needed, no RPATH or RUNPATH, no C++ runtime or libgcc_s, immediate binding, a
+  non-executable stack, and exactly the exports the player looks up.
+- **Size.** About 480 KB, 300 KB of it the crash window's fonts and icon. SDL 3 and SDL3_ttf
+  (BRUTAL's `Ahwoo.BRUTAL.Sdl.Native` and `Sdl.Ttf.Native`, 4.2 and 2.4 MB) go beside it, loaded
+  only by the crash window.
+
 **The GPU option** (`GpuChoice`; Moono Tweaks' "Graphics card", settings.json `"gpu"`, `--gpu
 default|discrete|integrated`) is applied in `Program.Main` before the window opens, so before
 anything loads the OpenGL driver.
@@ -183,6 +216,24 @@ never one that lacks a requirement, and a software one only with `--renderer vul
 - `default` matches the original on each system. On Windows it takes a discrete GPU, as the
   exports ask the drivers. On Linux, where the original sets nothing and OpenGL draws on the
   driver's default GPU, it takes the first GPU the driver lists.
+- Under auto, `default` and `discrete` never move off a discrete GPU to a lesser one. When
+  discrete GPUs are listed and none meets the requirements (an old card or driver: Vulkan 1.2, no
+  dynamic rendering), Vulkan doesn't start and OpenGL does, which the exports and PRIME
+  variables steer to the discrete GPU as they steer the original's renderer. Taking the
+  integrated GPU instead cost such a laptop most of its frame rate, and nothing showed it. The
+  log says so (`renderer: OpenGL (Vulkan unavailable: GeForce GTX 680 (discrete, the GPU gpu
+  option default asks for): Vulkan 1.2.x, 1.3 needed; OpenGL draws on it instead (--renderer
+  vulkan uses Intel(R) HD Graphics 4000))`). On Linux under `default` this applies only when
+  the discrete GPU is the first listed, since otherwise OpenGL draws on the first one too.
+  Another discrete GPU that meets the requirements is still taken, and `--renderer vulkan` and
+  `integrated` keep the integrated GPU.
+- On Windows the log also names any hardware GPU that DXGI lists and Vulkan doesn't, matched by
+  LUID or by vendor and device id. DXGI can list one GPU twice: the RTX 3090 desktop has a
+  second entry whose LUID Vulkan never reports. (`vulkan: Windows lists the GPU …, which Vulkan does not; its Vulkan driver may be
+  missing or broken`). Without a Vulkan driver, that GPU is invisible to the choice above. It is
+  a log line only: DXGI also lists remote, indirect and virtual displays, and DXGI doesn't say
+  which adapters are discrete, so it changes nothing. Microsoft's adapters (Basic Render Driver,
+  WARP) are left out, and nothing is said when a Vulkan device gives no LUID.
 - The log names the devices Vulkan lists and the one taken (`vulkan: using NVIDIA GeForce RTX
   3090 (discrete, gpu option default)`, `…; gpu option integrated prefers an integrated GPU, and
   none is usable`, or on Linux `…: the first GPU the driver lists`).
@@ -357,8 +408,10 @@ game or mod code can notice. Each says how it is resolved, or why it is kept.
   `GetObjectUnderCursor`'s three, `this` and it; on Linux in other shapes, such as a static method
   with four), the walk stops at the stub, and code compiled for the instantiation calls the shared
   code without it. The shared code had been compiled when MonoMod prepared the method, before the
-  detour existed, so the original ran until the first recompile: tiering counts 30 calls, and only
-  once the JIT has been idle for 100 ms, which after a load can take many seconds. Fast Track's
+  detour existed, so the original ran until the first recompile: tiering counts 30 calls, and with
+  the runtime's default only once the JIT has been idle for 100 ms, which after a load can take
+  many seconds (Moono now sets that delay to 0, so counting starts at once; see "Tier-up timing"
+  under D34). Fast Track's
   click prefix is the method's only caller (its `LateUpdate` replaces the game's), so the first 30
   or so clicks of each session selected the topmost object every time (issue #52, reported with the
   automation overlay open; on Linux the walk reaches its shared code, and clicks cycled from the
@@ -938,6 +991,19 @@ game or mod code can notice. Each says how it is resolved, or why it is kept.
   prefix runs from the running loop on every later call when the method is marked, and on none
   when it is not; `tests/e2e/issue-52-fast-track-no-tiering.yaml` loads a colony with Fast Track
   with tiering off and checks that PLib's later stage made Fast Track's `DescriptorSorter`.
+  **Tier-up timing.** The runtime counts a tier-0 method's calls only after a call-counting
+  delay, 100 ms by default, which every new tier-0 compile starts again; during a load the JIT
+  never idles that long, so nothing tiers up and the colony's first big pass
+  (`World.UpdateCellInfo`) runs tier-0 code. `OniMoono.Host.csproj` sets
+  `System.Runtime.TieredCompilation.CallCountingDelayMs` to 0 in the runtimeconfig, so a method
+  goes to tier 1 from its 30th call (the load 5 to 7 s shorter, its slow frame 3 to 5 times
+  faster: [research/tiered-compilation.md](research/tiered-compilation.md)). A
+  `DOTNET_TC_CallCountingDelayMs` in the environment (hexadecimal) still wins, and the log's
+  `tiering:` line names the delay in effect. Exactness: methods reach tier 1 sooner, some while
+  mods load; frames already running keep their code (Live frames above), a late patch
+  of a method inlined into tier-1 code takes the copy path above, and tier-1 tail calls are D41's.
+  `--check-types`, `late-patch`, the `issue-52-*` specs that run on U60 and ten Harmony-heavy
+  mod specs pass with it.
 - **D35 Strings of fields and events.** Mono prints a field as its type's full name and its name
   (`RuntimeFieldInfo.ToString`, `String.Format("{0} {1}", FieldType, name)`), an event likewise
   (`RuntimeEventInfo.ToString`, `EventHandlerType + " " + Name`; Unity's fork, branch
@@ -1192,6 +1258,18 @@ game or mod code can notice. Each says how it is resolved, or why it is kept.
   or in a trampoline for a conditional branch). A method whose depths differ otherwise (two
   non-empty depths, a switch, code after the join taking the values) is left as it was, and
   each change is logged. `--check-types` transpiles a `foreach` so and runs it.
+  Mono's leniency is narrower than the pass's. `handle_stack_args` keeps the depth the first
+  path to bring values sets, so when that path comes first the values flow on past the join,
+  and a `ret` they reach fails (`if (sp != stack_start) UNVERIFIED` in `MONO_CEE_RET`); only a
+  `leave` empties the stack on the way. The pass evens such methods too, so they load in ours
+  where the original refuses them. Better Info Cards [AI FIX] (3843914778) is one: its
+  transpiler leaves a `KSelectable` on the stack before `GetComponent<PrimaryElement>()` in
+  `SelectToolHoverTextCard.UpdateHoverElements`. In U59 the loop body walked the status items
+  with two `foreach` loops, whose `leave` dropped it each pass. U60 made them indexed `for`
+  loops over `StatusItemGroup`, so the value now reaches the method's final `ret` and the
+  original refuses the patch at start (measured: InvalidProgramException "IL_227b: ret", the mod
+  disabled and the game exiting). Ours pops it before the loop's increment and, through D17's
+  try-entry pass, before a try block, and the mod loads and draws its cards.
 - **D44 Nested types named with '/'.** Mono's lookup of a class by name takes '/' between a
   nested type and its outer type as well as '+' (`metadata/class.c`: the name is split at its
   first '/', and `return_nested_in` follows the rest one '/' at a time), so
@@ -1729,7 +1807,27 @@ game or mod code can notice. Each says how it is resolved, or why it is kept.
   prefix reads its `CellOffset[]` with array instructions; the probe saw the game pass it arrays
   only).
   An attribute scan of the downloaded Workshop mods (U60 764025) finds 57 such patches in 43
-  mods, most an `__instance` of a derived type on a base class's method.
+  mods, most an `__instance` of a derived type on a base class's method. `___field` parameters
+  are compared with the field's type the same way.
+  **A field of an unrelated class gets null.** When a `___field` parameter's class and the
+  field's share no base class but `object`, no object is both, and the patch gets null for it.
+  Pipe Color Overlay (3678142367) postfixes `OverlayModes.ConduitMode.Update` with
+  `HashSet<SaveLoadRoot> ___layerTargets`; U60 made the field a `HybridListHashSet<SaveLoadRoot>`,
+  a class of its own. In the original player the postfix's `HashSet` calls read the other class's
+  fields and throw IndexOutOfRangeException every frame, which Unity logs, and the mod does
+  nothing; CoreCLR read past the object and the process died of an AccessViolationException
+  (issue #109). With null the postfix throws a NullReferenceException. `PatchParameterTypes`
+  postfixes Harmony's `MethodCreatorTools.EmitCallParameter`: for such a patch the values from
+  the first such parameter on are stored in locals and loaded back, null in its place; other
+  patches' IL is not touched. Everything else keeps the real object, with no method inlined into
+  the patch, because the original may work there: arguments (MaterialColor and Big Storage
+  declare `Tag[] tags` for the `HashSet<Tag>` of `FilteredStorage.OnFilterChanged` and only
+  check its length, which reads non-zero on both runtimes), `__instance` (often a sibling class
+  that only uses the common base's members, or not used at all), `ref` fields (WannaPrint's
+  `ref CarePackageInfo[] ___carePackages`) and interface or base-class mismatches. A scan of
+  the downloaded Workshop mods (U60 764025) finds 4 such patches in 3 mods: Pipe Color
+  Overlay, Multi Channel Utilities and Pinned Resource List Extended (which fails to load in the
+  original player). Five more take such a field by `ref` and keep it.
 - **ZEROs (2337612362) patches a method only Mono's class library has.** Its OnLoad patches
   `System.Number.FormatSingle(float, string, NumberFormatInfo)` with a prefix that widens custom
   formats with a '.' ("0.0" becomes "0.0##"), and `StringBuilder.AppendFormat(string, object)`.
@@ -2136,7 +2234,12 @@ DriverDenyList).
   Another one tries Vulkan again.
 - **`--renderer vulkan`** always tries Vulkan, and its clean start clears the key.
 - **A clean fallback** (Vulkan unavailable) leaves no line.
-- **Later failures.** The guard is not consulted for anything that happens later. A device lost
+- **Out of video memory.** A run whose device ran out of video memory, at any time, leaves
+  `out of memory KEY`, kept when the start is cleared, and auto starts that key on OpenGL as for
+  a crash. VMA has tried every memory type the resource allows by then. The failed allocations
+  stay engine faults, and the run goes on. (#114: AMD's 25.8.1 driver for Vega iGPUs offered a
+  1.9 GB device-local heap, and textures and the back buffer could not be made before the menu.)
+- **Later failures.** Otherwise the guard is not consulted for anything that happens later. A device lost
   in play, or presenting that fails for good, quits the game with an error naming Vulkan, Moono
   Tweaks' "Renderer" row and `--renderer opengl` and giving the log's path, and the next start
   tries Vulkan as before.
@@ -2284,15 +2387,17 @@ renderer, restricted to what the game uses (*usage §1*):
     -1, and after its own main its vertex stage turns gl_Position's y back, so only the
     coordinates change. Ours on OpenGL against the original on Direct3D 11 went from 17 % to
     0.5 % (more than 40 levels) on those shots.
-  - *The animations' light row (read as Direct3D does).* `Klei/BatchedAnimation` and
-    `Klei/BatchedAnimationHuman` turn their pixel's world row into `1 - y / height` in their
-    GLCore text only, from a world position their vertex stage gives unturned, so on GLCore
-    buildings, plants, critters and Duplicants are shaded by the light at the world position
-    mirrored about the world's middle row: lights on screen there (Beakons in a tank above a
-    farm) make animations far from any light brighten and darken as they move (issue #76). On
-    Windows the device drops that turn (`AnimationLight`): a building's light-grey parts,
-    which varied by up to 13 levels on `-force-glcore` and in ours, vary by none, at the
-    original's Direct3D 11 levels.
+  - *The animations' light row (read as Direct3D does).* `Klei/BatchedAnimation`,
+    `Klei/BatchedAnimationHuman` and `Klei/BatchedAnimationConduit` turn their pixel's world row
+    into `1 - y / height` in their GLCore text only, from a world position their vertex stage
+    gives unturned, so on GLCore buildings, plants, critters, Duplicants and conduits are shaded
+    by the light at the world position mirrored about the world's middle row: lights on screen
+    there (Beakons in a tank above a farm) make animations far from any light brighten and
+    darken as they move (issue #76). On Windows the device drops that turn (`AnimationLight`): a
+    building's light-grey parts, which varied by up to 13 levels on `-force-glcore` and in ours,
+    vary by none, at the original's Direct3D 11 levels. With the conduits' turn dropped too, the
+    pixels more than 40 levels off the original's in `gl-lightpool`'s power overlay went from
+    0.41 % to 0.22 %.
   - *GLCore-only `1 - v` (kept: GLCore parity).* About 16 Klei shaders read the property pages
     `Klei/TexturePage` writes, which the two APIs store turned over, at `1 - v` in their GLCore
     text only. The same coordinates also read textures the CPU uploads, whose rows both APIs
@@ -2525,9 +2630,12 @@ window is the same in both (a borderless popup the monitor's size, measured); on
 presentation differed. The swap chain: a D3D11 device on the rendering device's adapter (by its
 LUID: Vulkan's `VkPhysicalDeviceIDProperties`, OpenGL's `EXT_external_objects_win32`, else
 `GL_VENDOR`/`GL_RENDERER` against the DXGI adapters' descriptions; the GPU option's choice is the
-device's), `R8G8B8A8_UNORM`, `FLIP_DISCARD`, two buffers, the default colour space
-(`RGB_FULL_G22_NONE_P709`), `DXGI_SCALING_STRETCH`, a frame-latency waitable object at a maximum
-latency of 2, and `ALLOW_TEARING` when the system supports it, used only without vsync. Each
+device's) and the original's measured settings (`IDXGISwapChain1::GetDesc1` of its swap chain):
+`R8G8B8A8_UNORM`, `FLIP_SEQUENTIAL`, two buffers, usage `SHADER_INPUT | RENDER_TARGET_OUTPUT`,
+alpha mode `UNSPECIFIED`, the default colour space (`RGB_FULL_G22_NONE_P709`),
+`DXGI_SCALING_STRETCH`, a frame-latency waitable object at a maximum latency of 2,
+`ALLOW_MODE_SWITCH` (inert: the swap chain never enters DXGI's fullscreen state), and
+`ALLOW_TEARING` when the system supports it, used only without vsync. Each
 device renders the picture into one D3D11 texture of its own, made anew (a quarter larger) only
 when the window outgrows it, which `CopySubresourceRegion` copies into the back buffer before
 `Present` at `QualitySettings.vSyncCount` (0 to 4); with vsync the presenter then waits on the
@@ -2553,6 +2661,37 @@ which would cap the frame rate; the interop lock or keyed mutex bounds what is i
     thread until Vulkan's release is done (Microsoft: the calling CPU thread stalls while another
     device owns the surface).
   - No VkSwapchainKHR is made while DXGI presents.
+  - Checked before DXGI is chosen (`VkDxgiSupport`; any failure keeps Vulkan's swapchain, with
+    the reason in the `present:` line): both device extensions (the reason names the missing
+    one); `vkGetPhysicalDeviceImageFormatProperties2` with `VkPhysicalDeviceExternalImageFormatInfo`
+    for `D3D11_TEXTURE` (the NT handle we import) at our format, tiling and usage must succeed,
+    give `IMPORTABLE` and list `D3D11_TEXTURE` in `compatibleHandleTypes` (creating the image with that handle type is
+    valid only then, VUID-VkImageCreateInfo-pNext-00990); `DEDICATED_ONLY` needs nothing, as the import is always a
+    dedicated allocation; `vkGetMemoryWin32HandlePropertiesKHR` on the handle and the image's
+    `memoryTypeBits` must share a type (device-local first). `VK_KHR_external_semaphore_win32` is
+    not used (the keyed mutex orders the two APIs) and only reported.
+  - Not knowable by query: whether the keyed mutex works. `VK_KHR_win32_keyed_mutex` has no
+    feature or property struct; the extension being there is the whole of the driver's claim, so a
+    driver that advertises it and does not honour the acquire or release (#107, below) is found
+    only by the first picture's timeout.
+  - Logged once per session: `vulkan: driver ID … (N), driverVersion 0x…, conformance a.b.c.d;
+    VK_KHR_external_memory_win32 yes|no, VK_KHR_win32_keyed_mutex yes|no,
+    VK_KHR_external_semaphore_win32 yes|no (not used)` at device creation, and at the first
+    import `present: Vulkan imports the shared texture by D3D11_TEXTURE …` with the query's
+    features, compatible and exportable handle types, both memory-type masks, the type chosen
+    and whether the image requires or prefers a dedicated allocation.
+  - On D3D11's `AcquireSync(1)` timeout, one `present: DXGI handover timed out …` line: the
+    picture's number, the keys and timeouts used (Vulkan acquires key 0 within 1000 ms and
+    releases key 1; D3D11 waits 1000 ms), the submit's result (`vkQueueSubmit2` throws on any
+    other than `VK_SUCCESS`), the batch's fence status at the timeout (`vkGetFenceStatus`:
+    `Success`, `NotReady`, or `ErrorDeviceLost`) and after up to 2 s more, then whether key 1 and
+    key 0 are free (`AcquireSync` with a zero timeout, handed back at once), D3D11's
+    `GetDeviceRemovedReason`, and a verdict: the release came late (key 1 free once the batch
+    was done), the driver did not apply the batch's acquire and release (batch done, key 1 never
+    released, key 0 free), it took key 0 and did not release key 1 (neither free), the GPU work
+    itself is stuck (the fence still unsignalled), or the device is lost. D3D11 calls that fail
+    with a removed device add `GetDeviceRemovedReason` to their line; a `D3D11CreateDevice` that
+    fails has no device to ask.
 
 A size change calls `ResizeBuffers` before the next picture; between the window's resize and that
 picture DXGI stretches the last one. A minimized window keeps its framebuffer size (§3.6), so the
@@ -2628,7 +2767,11 @@ never completes is not known to happen; if one did, the game would freeze (the p
 device thread wait for the queue, which cannot finish the batch), and nothing here handles it.
 Restarts come in bursts of ten tries,
 1, 2, 4 then 8 s apart (about a minute, outlasting a slow driver reset); a restart that presents
-for 60 s ends its burst, so a later failure gets ten tries again. Until a restart succeeds
+for 60 s ends its burst, so a later failure gets ten tries again. On Vulkan, a keyed-mutex
+timeout before DXGI has presented any picture in the session gives DXGI up at once: the
+handover does not work on that device (an Intel UHD on driver 101.7092 timed out on each of ten
+starts and once failed `D3D11CreateDevice` with `DXGI_ERROR_DEVICE_REMOVED`, #107), and Vulkan's
+swapchain presents from then on. Until a restart succeeds
 Vulkan's own swapchain stands in and reaches the screen (measured); OpenGL's window keeps its
 last picture, and once no restart is left SwapBuffers stands in, which does not reach the screen
 on a window whose flip-model swap chain has presented (measured: the window kept DXGI's last
@@ -3049,6 +3192,20 @@ Only the work posted for resources differs (`IResourceWork`).
   - **Render textures.** Into a render texture the projection's y is negated as well
     (`_ProjectionParams.x` -1). That leaves render textures' rows in OpenGL's order, so sampling
     them reads what OpenGL's do.
+  - **Cameras drawing to the screen.** A camera with no target texture draws its passes with a
+    render texture's projection (`RenderTargetBinding.CameraBackBuffer`) and the viewport turned
+    over (a negative height), so the pixels and front faces are the back buffer's. The original
+    on Direct3D 11 renders those cameras into a render texture of its own and draws only the UI
+    after it into the back buffer (its frame recordings: the overlay camera's last image effect
+    writes a screen-sized render texture, with a render texture's front faces, and the
+    animations drawn after it go there too). The projection shows where a program reads it outside its position:
+    `Klei/BatchedAnimation`, `BatchedAnimationHuman` and `BatchedAnimationConduit` take the light
+    buffer at `(MatrixVP · world position).xy · (0.5, -0.5) + 0.5`. The overlays draw the
+    buildings and pipes they show with `overlayNoDepth`, a camera to the screen with no image
+    effects; with the back buffer's projection they took their light from the position mirrored
+    about the screen's middle row. Against the original in a mid-game colony's materials overlay,
+    the pixels more than 40 levels off went from 1.6 % to 0.01 % (`gl-lightpool`); what is left
+    in the other overlays is status icons and pipe contents, which move with real time.
   - **`Klei/Stars`.** A program that derives texture coordinates from its clip-space position
     therefore reads them turned over in a render texture. `Klei/Stars` (the space and nebula
     background, drawn into the base camera's render texture) takes its UVs from clip y, so its
@@ -3110,7 +3267,11 @@ Only the work posted for resources differs (`IResourceWork`).
     maps (resizable BAR, where VMA puts it on NVIDIA), written across the bus. Texels written there
     took 1.8 ms a frame on a late-game colony against 0.7 in host memory (RTX 3090).
     `ONI_VULKAN_STAGING=device` stages in that stream again.
-  - **Memory** comes from VMA, and the first buffer of each use logs the memory type it got.
+  - **Memory** comes from VMA, and the first image or buffer of each use logs the memory type it
+    got. VMA moves on to the next memory type when one is full, and says nothing: a resource the
+    GPU reads that ends up outside device-local memory is logged (the first eight, then each
+    power of two) and counted in the `video memory:` line as its kind "in system memory". The
+    memory line at start says whether resizable BAR is on (#115).
   - **Barriers.** Each image tracks its layout and last access, and each use makes the barrier it
     needs (a render target's colour writes before it is sampled; transfers before and after copies).
   - **Failures.**
@@ -3146,8 +3307,21 @@ Only the work posted for resources differs (`IResourceWork`).
     by a copy from the staging stream ahead of the batch's rendering (0.16 ms of mesh uploads a
     frame on a late-game colony against 0.74 written across the bus). An integrated GPU's are
     written directly. `ONI_VULKAN_MESHES=staged|mapped` decides.
+  - **Render target memory.** Colour and depth targets get memory of their own (a dedicated
+    allocation) at the highest priority when the driver has `VK_EXT_memory_priority`. Textures
+    share VMA's blocks. A shared block the system moves out of video memory would take the
+    targets in it along, and every pass would then read and write them across the bus (#115).
+    With `VK_EXT_memory_budget` the heap budgets in the video memory line are the driver's.
+    `ONI_VULKAN_TARGETS=pooled` puts the targets back in the shared blocks.
   - **Partial re-uploads.** Re-uploads into unchanged storage send only the changed rows, as on
     OpenGL.
+  - **Replaced storage.** A burst of uploads waits for the queue once its staging passes 64 MB.
+    The texture storage it replaced is destroyed there, not at the frame's end, so the textures
+    made next reuse its place in VMA's blocks. A mipmap limit's change (Low Res Textures) uploads
+    every loaded texture again. Its old storage held to the frame's end left blocks that the
+    surviving textures beside it kept: 2.9 GB of video memory and 4.7 GB of commit at the menu
+    on an RTX 3090, 2.3 GB and 4.1 GB now (OpenGL 0.9 GB and 2.7 GB, the original 0.9 GB and
+    2.5 GB). The rest is VMA's partly used blocks (#114).
 - *Presentation.* `VkPresenter` keeps `GlPresenter`'s design:
   - three offscreen back buffers;
   - at most two frames queued (one with vsync);
@@ -3178,7 +3352,11 @@ Only the work posted for resources differs (`IResourceWork`).
     need the same. So the device thread stops recording, the log names the loss, and the game quits
     with an error. The error says that Vulkan stopped working, that OpenGL can be chosen under
     Renderer in Moono Tweaks or with `--renderer opengl` if it keeps happening, and where the log
-    is.
+    is. Once the window has left the screen, the error stays up until the player closes it, then
+    the quit goes on: a message box on Windows, on Linux a desktop dialog when stderr is not a
+    terminal (zenity, kdialog or notify-send), as for start-up failures. Test runs
+    (`ONI_HOST_NO_DIALOG=1`) show none; the log's `Quit: the error for the player:` line says
+    which was shown.
   - **Presenting that fails for good** (a lost surface, a swapchain still not made after its
     retries, a swapchain format that takes no copies) quits the same way rather than running on with
     a black window.
@@ -3189,12 +3367,14 @@ Only the work posted for resources differs (`IResourceWork`).
     - `present-oom-after:N` makes three swapchain creations run out of memory from frame N;
     - `alloc-every:N`, `pipeline-every:N` and `program-every:N` make every Nth texture or mesh
       allocation, pipeline or program build run out of memory;
+    - `heap-limit:MB` caps VMA's device-local heaps at MB (a small iGPU heap, #114: 1,879 MB);
     - `crash-at:N` ends the process at presented frame N as a crash would;
     - `guard-build:X` keys the start-up guard to build X.
 - *Diagnostics.*
   - **Validation.** `--vulkan-validation` (or `ONI_VULKAN_VALIDATION=1`) enables the Khronos
     validation layer, its messages in the log. `ONI_VULKAN_VALIDATION=sync` adds its synchronization
-    checks.
+    checks, `ONI_VULKAN_VALIDATION=best` its best-practices checks (performance warnings; the
+    vendor-specific ones are the layer's own settings, such as `VK_LAYER_VALIDATE_BEST_PRACTICES_AMD=true`; the layer has none for Intel).
   - **The layer.** Without an installed one, `scripts/get-vulkan-validation.sh` fetches a pinned
     release (Vulkan-ValidationLayers vulkan-sdk-1.4.363.0 from LunarG's SDK packages, checked by
     SHA-256; on Linux the distro's `vulkan-validationlayers` is used when installed) into the
@@ -3202,7 +3382,10 @@ Only the work posted for resources differs (`IResourceWork`).
     `vulkan-validation/` beside its executable, where `scripts/run-windows.sh` copies it) and points
     the loader at it through `VK_ADD_LAYER_PATH`.
   - **Counts.** `--frame-stats` counts draws, pipeline binds, render passes, passes ended by uploads
-    and submits. GPU frame time comes from timestamp queries.
+    and submits. GPU frame time comes from timestamp queries. With `--gpu-profile` too, a
+    `gpu by pass` line gives each pass's GPU time (timestamps at every pass's start and end), by
+    target and the program of its first draw, with the work between passes as `outside passes`
+    (VkGpuProfile; #115).
   - **`--check-shaders`** on Vulkan builds every variant and a pipeline for its pass's state, and
     counts what fails.
   - **`ONI_VK_ALT=NAME,...`** (measurement only, with `--frame-stats`; `writes-first`,
@@ -3475,14 +3658,32 @@ does.
   fullscreen window there); and whether Unity scales a hardware cursor with the picture (ours
   does not).
 
+Off Windows a fullscreen window asks the window manager for fullscreen, as the original does: it
+is the monitor's window in GLFW (`glfwSetWindowMonitor` at the monitor's current video mode, which
+changes no mode), and GLFW sets `_NET_WM_STATE_FULLSCREEN` on X11 and xdg_toplevel's fullscreen on
+Wayland, so it covers the desktop's panels.
+- **The original** runs on SDL 2 (bundled in its `UnityPlayer.so`, Unity 6000.3) as an X11 client,
+  XWayland under a Wayland compositor; native Wayland only with `-force-wayland` ("Activate
+  experimental Wayland support", Unity's player command-line reference). Its Fullscreen option asks
+  the window manager for `_NET_WM_STATE_FULLSCREEN` (measured under the model below, and taken off
+  again for a window). Ours prefers GLFW's X11 backend too (DISPLAY set).
+- **Before (issue #108)**, the window was only undecorated and monitor-sized: KDE Plasma 6 on
+  Wayland kept it above its panel, 1920x1004 on a 1920x1080 monitor, and the game rendered at that
+  size. `tests/e2e/issue-108-fullscreen-over-panel.yaml` plays the Fullscreen option under
+  `scripts/e2e-wm.py`, a model of that desktop (EWMH, a 76-pixel panel, undecorated windows kept
+  above it), in both players. KDE itself is not measured.
+- GLFW minimizes a monitor's window when it loses the focus; that is off (`GLFW_AUTO_ICONIFY`), as
+  SDL leaves a fullscreen-desktop window up.
+- At start a fullscreen window is shown before it takes the monitor (GLFW maps it then anyway), so
+  for a moment a window manager may still keep it above its panel.
+- **On Windows** the fullscreen window stays a monitor-sized popup, which covers the taskbar.
+
 Known limitations, not handled:
 - X11 layouts with several groups (us,ru and a group switch) are unmeasured in the original;
   ours maps keys through the group in effect at each press.
 - Wayland has no window positions (`-monitor`, centring and restore placement do nothing there),
   no window icons, and a layout's first level only for key codes; the original's Wayland app ID
   is unmeasured.
-- On X11 a fullscreen window is an undecorated monitor-sized window, without
-  `_NET_WM_STATE_FULLSCREEN`, so a window manager may keep its panels above it.
 - Outside the window the pointer is read each frame (`FollowCursorOutside`); over another window
   that covers ours it is inside our client area, where GLFW reports no movement, so
   `Input.mousePosition` stays where the pointer was last over ours.
@@ -3705,8 +3906,9 @@ U60's are the same in this; from U60-761654 they also pass the arguments (below)
     `Restarter.exe`, the native host runs `player\<state\current>\Restarter.dll` with its
     arguments, and that Restarter starts the entry point again, which chooses the version
     again. Before this, the restart failed with "The system cannot find the file specified".
-  - The versioned install on Linux: the entry point is a script that starts
-    `player/<version>/OniMoono`, which `App.Restart` names, beside its `Restarter`. The host
+  - The versioned install on Linux: the entry point (our `OniMoono`, or for a version built with
+    the SDK's apphost a script) starts `player/<version>/OniMoono` as a child, which
+    `App.Restart` names, beside its `Restarter`. The host
     records the entry point in `ONI_MOONO_RESTART_EXE` (`RestartEntry`, for a version folder
     of the install, not a bootstrap copy), and both Restarters start it in place of the
     executable they are given.
@@ -3960,11 +4162,11 @@ The original writes them all as they are. How it works:
   replaced too.
 - **Start.** The settings are read before the log opens, so its first lines are covered.
 
-**Native crashes** (Windows; `src/OniMoono.NativeHost/crash.c`, `NativeCrashes.cs`). A crash in
-native code (the GPU driver, Klei's SimDLL, a mod's library, the runtime) has no managed
-exception, so before this the log just stopped. Now Player.log ends with what crashed, the
-native stack (module+offset frames, runs of managed code counted), the runtime's own text, how
-the process ended and a minidump beside the log:
+**Native crashes** (`src/OniMoono.NativeHost`: `crash.c` on Windows, `crash_linux.c` on Linux;
+`NativeCrashes.cs`). A crash in native code (the GPU driver, Klei's SimDLL, a mod's library, the
+runtime) has no managed exception, so before this the log just stopped. Now Player.log ends with
+what crashed, the native stack (module+offset frames, runs of managed code counted), the
+runtime's own text, how the process ended and a dump beside the log. On Windows:
 
 ```
 [engine] native crash: 0xC0000005 access violation (writing 0x0) in OniMoono.exe+0x41FE (1.0.0.0, %USERPROFILE%\...\OniMoono.exe) on thread 65064 "Test worker"
@@ -3988,6 +4190,7 @@ with .NET 10 (`--test-native-crash`):
 | Heap corruption (0xC0000374) | raised to the vectored handlers just before the heap ends the process | line, stack, dump |
 | `__fastfail`, a /GS check, `abort()` (0xC0000409) | nothing; Windows Error Reporting records it (its Application Error event 1000) before the process ends | the line from that record (module, offset and the fast fail's code, as `0xC0000409 fast fail 5 (an invalid parameter to the C runtime) in SimDLL.dll+0x9F1CB`), the exit code; no dump, as the process is gone (`--test-native-crash fastfail-reported`; the other cases turn Windows Error Reporting off) |
 | `TerminateProcess` by another module | nothing | the exit code alone |
+| A fault noted at first chance (a native stack overflow its thread handles), then an end with another code that no handler saw: a second fault on a thread with no stack left to run handlers on, or `TerminateProcess` (#117) | our vectored handler, for the first fault only | the first fault's line and stack as an earlier fault, with how long before the end it was; then as when nothing saw the end (Windows Error Reporting's record, if it has one; the exit code with `; no handler saw it`); no dump, as nothing asked for one before the process was gone (`--test-native-crash earlier-fault`) |
 | `Environment.FailFast`; a stack overflow on a managed thread (in managed code or native code it called) | the runtime's text (`Process terminated.`, `Stack overflow.`), which it handles first | that text with the managed stack, the exit code, a dump |
 | A managed null reference, caught or not; the mods' stack probes | the runtime's vectored handler, which is first, handles it | nothing (the managed exception is logged as before) |
 
@@ -4011,9 +4214,23 @@ with the game.
   at its own offset and would write over lines added while the game runs.
 - **Noting a fault.** In the game, a vectored handler added after the runtime's notes a fault
   the runtime left alone (so not one in managed code). Native code may still handle it then, so
-  the note is used only when the game then ends with that fault's code. The
-  unhandled-exception filter, set over the runtime's once it is up, notes a fault and calls the
-  runtime's after.
+  the note explains the end only when the game then ends with that fault's code. When it ends
+  with another, the note is written as an earlier fault, before the end's own record:
+
+  ```
+  [engine] native crash: an earlier fault, 0.0 s before the end (native code may have handled it):
+  [engine] native crash: 0xC00000FD stack overflow in OniMoono.exe+0x7B73 (1.0.0.0, %USERPROFILE%\...\OniMoono.exe) on thread 25012
+  [engine] native crash stack: OniMoono.exe+0x7B73, OniMoono.exe+0x7B8A (x95), ...
+  [engine] native crash: the process ended with 0xC0000005 (access violation); no handler saw it
+  ```
+
+  The unhandled-exception filter, set over the runtime's once it is up, notes a fault and calls
+  the runtime's after.
+- **Dumps.** The watcher writes a dump only while the game is still there: when the game's
+  handlers ask for one (a fault nothing handled, a heap failure) or when the runtime's
+  `Fatal error.` text starts. A fault noted at first chance asks for none, as native code may
+  handle it, and once the game has ended its memory is gone, so an end no handler saw has no
+  dump.
 - **Formatting.** A note copies the fault into the shared page and a thread made at start
   formats it there (the faulting thread may have no stack left; nothing allocates; a structured
   exception handler covers a broken stack).
@@ -4061,8 +4278,88 @@ runs) writes a dump with memory, for diagnosing heap corruption (issue #56):
   else the process read). So it is for test runs and for a player who agrees to send it. The
   default stays the small dump.
 
-**The crash window** (`crash_dialog.cpp`). Once the watcher has written a crash record it shows
-a window, the onimaxxing site's dialog in its light or dark palette. It has:
+**On Linux** our `OniMoono` (§2, "The Linux executable") records the same, the other way round:
+it forks the game before any runtime loads and stays its parent, the watcher. Only a parent
+learns how a process ended (the signal, an end by SIGKILL), and only an ancestor may read its
+memory under the kernel's default ptrace rule (Yama scope 1).
+
+```
+[engine] native crash: SIGSEGV invalid memory access (address not mapped, reading 0x1) in libc.so.6+0x19BC5C (build-id 8cebda42…, /usr/lib/x86_64-linux-gnu/libc.so.6) on thread 208715 "Test worker"
+[engine] native crash stack: libc.so.6+0x19BC5C, 5 frames of generated code, libcoreclr.so+0x458835, …
+[engine] native crash: managed:    at OniMoono.Host.NativeCrashes.Fault(System.String)
+[engine] native crash: the process ended with SIGSEGV (invalid memory access)
+[engine] native crash dump: ~/.config/unity3d/Klei/Oxygen Not Included/crash-20261121-214530.dmp (10740 KB)
+```
+
+- **Seeing a fault.** The game installs our handlers for SIGSEGV, SIGBUS, SIGILL, SIGFPE and
+  SIGABRT before the runtime starts. The runtime's own handlers keep them as their previous
+  action and call them only for a fault they don't turn into a managed exception, so a managed
+  null reference never reaches them. Ours copy the fault (signal, address, registers, the top
+  64 KB of the stack) into a page shared with the watcher, wake a thread made at start that
+  formats it (module and offset from `/proc/self/maps`, the module's build id, the thread's
+  name), and set the signal back to its default action: the runtime then writes its dump and
+  returns, and the fault, run again, ends the process with its signal.
+- **The stack** comes from the runtime's crash report (createdump's `.crashreport.json`): the
+  crashing thread's frames from the fault on, native ones as module+offset, runs of managed
+  ones counted, and the managed methods by name (`native crash: managed:`). With no report, it
+  is a scan of the copied stack for return addresses (`native crash stack (scanned):`).
+- **Standard error** goes to the watcher through a pipe and on to where it went (a terminal
+  keeps it). The watcher keeps the runtime's text (`Fatal error.`, `Process terminated.`,
+  `Stack overflow.`) and glibc's lines before an `abort()` (`free(): double free detected in
+  tcache 2`, `*** stack smashing detected ***`, assertions). A player App.Restart starts
+  inherits the first game's pipe; `ONI_MOONO_STDERR` names a copy of the original standard
+  error the game kept, which it takes instead.
+- **How it ended.** The watcher waits for the game and appends the record when it ended without
+  the player's own exit: a signal, or an exit code from native code (`_exit`). For SIGKILL the
+  cgroup's `memory.events` tells the out-of-memory killer (its `oom_kill` count went up) from
+  `kill -9`. SIGTERM, SIGINT, SIGHUP and SIGQUIT end it as before. Its exit status is the game's
+  (128 + the signal), so a shell sees 139 or 134 as it did.
+- **The watcher** is the process Steam started; the game is its child, in the same process
+  group. It ignores SIGINT and SIGQUIT (a terminal's Ctrl+C reaches the game too, which handles
+  it) and passes SIGTERM and SIGHUP on. Its command line reads `OniMoono --crash-watch`, so
+  scripts that find the game by its run home find the game only. It costs a fork and about
+  2.5 MB, nothing measurable at start. `ONI_MOONO_CRASH_WATCH=off` leaves it out.
+
+| Crash | In the process | The record |
+|---|---|---|
+| Fault in native code called from managed code (libc, the GL driver, SimDLL) | the runtime calls our handler, then writes its dump | the line, the stack and managed frames, the end (139), the dump |
+| Fault on a native thread | the same | the same, the thread's name when it has one |
+| Native stack overflow on a thread with an alternate stack | the same | the stack with the recursion counted (`(x121)`) |
+| A stack overflow on the main thread | the runtime's `Stack overflow.` or `Fatal error.` text, then `abort()` | that text, SIGABRT (134), the dump |
+| `abort()`, glibc's checks (double free, stack protector), `assert` | glibc's line, then SIGABRT | the line, the reason (`runtime: free(): double free…`), 134, the dump |
+| `Environment.FailFast` | `Process terminated.` and the managed stack, then SIGABRT | that text, 134, the dump |
+| `_exit` from native code | nothing | the exit code, "without the player's own exit" |
+| SIGKILL | nothing | the signal, and whether the out-of-memory killer sent it |
+| A managed null reference, caught or not; an exception on a thread | the runtime handles it (the player logs it and plays on, as Mono did) | nothing |
+
+The dump is the runtime's own (createdump), which it starts from the crashing process; the
+launcher sets it up before the runtime starts, through `DOTNET_DbgEnableMiniDump`,
+`DOTNET_DbgMiniDumpType`, `DOTNET_DbgMiniDumpName` and `DOTNET_EnableCrashReport`:
+
+- **Kinds.** `--crash-dumps on` (`ONI_CRASH_DUMPS` takes its place): Mini, the threads, their
+  stacks and the modules, about 10.7 MB at start-up and 67 MB in a 204-Duplicant colony, written
+  in 1.5 s there. `full`: Heap, all memory but the mapped images, 98 MB at start-up. `off`: the
+  crash report alone, for the stack.
+- **Where.** Written as `crash-PID.dmp` in the game's folder of per-user files, then renamed by
+  the watcher to `crash-YYYYMMDD-hhmmss.dmp` beside `Player.log` (moved there with `--log`),
+  with its report as `crash-YYYYMMDD-hhmmss.crashreport.json`. The two newest are kept.
+- **The user's own.** A `DOTNET_DbgEnableMiniDump` set by the user wins, with all its settings,
+  and the log says so; the launcher marks its own (`ONI_MOONO_DUMP_ENV`), so a restarted player
+  sets them again.
+- **System cores.** While our dump is on, the game's soft `RLIMIT_CORE` is 0, so no core of the
+  kernel's comes on top (systemd-coredump heeds it; a piped core handler may not).
+- **No dump.** createdump needs ptrace on the game: with `kernel.yama.ptrace_scope` 2 or 3, or a
+  sandbox that blocks ptrace, there is none, and the record says why.
+- **Reading one.** `dotnet-dump analyze crash-….dmp` (`clrstack -all`, `pe`, `threads`) on
+  Linux or Windows; `lldb --core crash-….dmp …/OniMoono` with SOS for mixed frames; `gdb` for
+  native frames, with the libraries' build ids for debuginfod.
+- **Privacy.** As on Windows: stacks and nearby memory, module paths with the home folder,
+  written only on a crash and never sent.
+
+**The crash window** (`crash_window.c`, with each platform's canvas and window:
+`crash_dialog.cpp` on Windows, `crash_window_linux.c` on Linux). Once the watcher has written a
+crash record it shows a window, the onimaxxing site's dialog in its light or dark palette. It
+has:
 
 - The heading "The game closed unexpectedly".
 - The error line taken from the record: the fault's code, its name and module, as
@@ -4087,7 +4384,7 @@ Reporting:
    and `doing` (the note). The link stays under 7,500 characters; a long note is cut with "…".
    The form's `zip` field is required and left empty, so GitHub takes no report without the zip.
 3. It shows the zip as a chip to drag into the form's zip field (a shell data object, as
-   Explorer drags a file; clicking it shows it in Explorer).
+   Explorer drags a file; clicking it shows it in Explorer). Linux has no drag: see below.
 
 Nothing is sent by the window: the player submits the issue, or not.
 
@@ -4095,9 +4392,11 @@ Where the details come from: the game gives the watcher what only it knows throu
 `moono_crash_describe` (`NativeCrashes.Describe`): its release, its window (the crash window opens
 centred on that monitor), the GPU's renderer string, and from the main menu the game's build, its
 language (English, or Simplified Chinese for `zh`) and the mods' count. The watcher adds Windows'
-version, the driver version (DXGI) and the memory itself.
+version, the driver version (DXGI) and the memory itself; on Linux the distribution (the host's
+`os-release`, inside Steam's container too) and the kernel, NVIDIA's driver version from its
+kernel module, and the memory.
 
-How it is drawn:
+How it is drawn on Windows (Linux: "The Linux crash window", below):
 
 - **Without the GPU,** as the driver may be what crashed: Direct2D into a WIC bitmap through a
   software render target, with DirectWrite text in Gabarito and Red Hat Mono (the site's fonts,
@@ -4135,24 +4434,63 @@ When it shows:
 - An end by Ctrl+C, by Windows shutting down or from outside with exit code -1 shows none.
 - While it is open the watcher is still running, so Steam counts the game as running until it
   closes.
-- Linux has no crash window (no native host).
+- On Linux the same rules apply (an end by SIGTERM, SIGINT, SIGHUP, SIGQUIT or a SIGKILL that
+  was not the out-of-memory killer's shows none; for that one the error line says the system
+  ran out of memory). Test players (`run.sh`, e2e) set `ONI_MOONO_CRASH_DIALOG=off`.
 
 `OniMoono.exe --crash-dialog-render OUT.png [--theme light|dark] [--scale S] [--text-size T]
 [--sample gpu|managed|fastfail] [--language zh] [--details-open] [--reported]` draws it to a PNG from sample
-facts, with a drawn title bar, showing nothing. `check-native-crash.sh` checks such renders, the
+facts, with a drawn title bar, showing nothing (on Linux `OniMoono --crash-dialog-render`, the
+same, its samples' errors and paths Linux's; its title bar in Gabarito, as Segoe UI is Windows'). `check-native-crash.sh` checks such renders, the
 zip (with Python's `zipfile`) and the issue link, and that no crash case leaves a watcher
 running.
 
-On Linux nothing is recorded. The Linux player is the SDK's apphost, with no native code of ours
-to install a signal handler, and the runtime reads its own dump settings only from the environment
-at start. A player can set them in the launch options, before the command:
-`DOTNET_DbgEnableMiniDump=1 DOTNET_DbgMiniDumpType=1 DOTNET_EnableCrashReport=1 "…/OniMoono" --
-%command%` writes a dump and a `.crashreport.json` (each thread's frames, with modules) to `/tmp`,
-or to `DOTNET_DbgMiniDumpName`.
+**The Linux crash window.** The watcher starts itself again in place as
+`OniMoono --crash-window FD` with the report in a memfd: a fresh image, no game libraries,
+Steam's overlay dropped from `LD_PRELOAD`. It looks as Windows' does (the same layout, palette,
+fonts, strings and measures):
+
+- **Drawing.** Into memory, with no GPU: a small coverage-accumulating rasterizer of ours for
+  the shapes (antialiased as Direct2D's are) and SDL3_ttf's text (FreeType and HarfBuzz,
+  unhinted as DirectWrite's natural rendering is) in the embedded Gabarito and Red Hat Mono, with
+  fontconfig's Chinese and symbol fonts after them (no Chinese font: the English strings). The
+  image is copied to an SDL 3 window surface (`SDL_FRAMEBUFFER_ACCELERATION=0`: X11's XShm; on
+  Wayland through XWayland, else Mesa's software OpenGL). SDL 3 and SDL3_ttf load from beside the
+  player only here; `sdl_min.h` declares what of them it uses.
+- **Controls** are drawn and handled by the window: the focus ring (after a key press, not a
+  click), hover and press, the check box, Tab order, Enter (Report on GitHub), Esc (Close);
+  selection in the error line and the details (drag, double and triple click, Shift+arrows,
+  Ctrl+A, Ctrl+C); the note's own editing (caret, selection, Ctrl+X, Ctrl+V, Ctrl+Enter for a
+  new line, input methods through SDL's text input).
+- **The zip.** No drag and drop: after reporting, **Show in folder** (the file manager's
+  `FileManager1.ShowItems`, else the folder through `xdg-open`) and **Copy path**, and a copy of
+  the zip in Downloads (`xdg-user-dirs`), where a browser's file picker looks first. The issue
+  opens through `steam-runtime-urlopen` inside Steam's container, else `xdg-open`, with the
+  user's library path and preloads (Steam keeps them as `SYSTEM_LD_*`).
+- **Desktop.** The theme from SDL (the desktop portal's colour scheme); high contrast from
+  GNOME's setting or a high-contrast GTK theme; the scale from the display (`Xft.dpi`, the
+  compositor's), the text size from GNOME's text-scaling-factor (100 to 225%).
+- **Steam Deck, Gaming Mode** (gamescope: `XDG_CURRENT_DESKTOP=gamescope` or
+  `GAMESCOPE_WAYLAND_DISPLAY`): the window names a Steam game (`STEAM_GAME`), as gamescope shows
+  no other; the issue opens in Steam's browser (`steam://openurl/`); the zip's line says to
+  attach it from Desktop Mode or another device; the gamepad moves the focus (A presses, B
+  closes). Gamescope stretches the window to fill the screen, so it is drawn at the largest
+  quarter-step scale at which its tallest state still fits (1.5 on a Deck's 1280×800), not
+  blurred up from scale 1. Tried with gamescope's environment under Xvfb, not on a Deck.
+- **Tests.** `ONI_MOONO_CRASH_OPEN=FILE` records what would be opened instead of opening it,
+  `ONI_MOONO_CRASH_WINDOW_AT=X,Y` places the window, `ONI_MOONO_CRASH_THEME`,
+  `ONI_MOONO_CRASH_WINDOW_SCALE` and `ONI_MOONO_CRASH_TEXT_SIZE` set what the desktop would;
+  `ONI_MOONO_CRASH_DECK=1` makes `--crash-dialog-render` draw Gaming Mode's variant.
+- **Not yet:** screen readers (AT-SPI), and placing the window on the game's monitor (it opens
+  centred on the primary display).
 
 `scripts/check-native-crash.sh` (in `check.sh`) runs every case above on Windows, as Steam
-starts the player and with standard error redirected, and on Linux the caught null reference
-and that recipe.
+starts the player and with standard error redirected, and every Linux case headless in its own
+run home (with the SDK's apphost, only the runtime's own dump recipe:
+`DOTNET_DbgEnableMiniDump=1 DOTNET_DbgMiniDumpType=1 DOTNET_EnableCrashReport=1`). On both it
+checks the window's renders, zip and link offscreen; on Linux also live under Xvfb, driven by
+key presses (XTest): the window shows, a note, Enter writes the zip and its Downloads copy and
+opens the issue, Esc ends the watcher with the game's status.
 
 **The sim data check** (`src/OniMoono.GameTweaks/SimDataCheck.cs`, always on, #91). The game
 reads element and building temperatures through `Game.simData`, five pointers into the sim's

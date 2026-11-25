@@ -14,7 +14,8 @@ namespace OniMoono.Desktop.Vulkan
     internal sealed class VulkanUnavailableException(string message, Exception inner = null) : Exception(message, inner);
 
     /// A physical device as the selection sees it.
-    internal sealed record VkCandidate(string Name, VkPhysicalDeviceType Type, int ApiVersion, string Missing)
+    /// `Luid`: Windows' adapter LUID (0 when the driver gives none or off Windows).
+    internal sealed record VkCandidate(string Name, VkPhysicalDeviceType Type, int ApiVersion, string Missing, long Luid = 0, uint VendorId = 0, uint DeviceId = 0)
     {
         public bool Software => Type == VkPhysicalDeviceType.Cpu;
     }
@@ -38,10 +39,21 @@ namespace OniMoono.Desktop.Vulkan
         public VkPhysicalDeviceLimits Limits => Properties.Limits;
         public string DeviceName = "", DriverName = "", DriverInfo = "";
         public bool TextureCompressionBC, SamplerAnisotropy, MirrorClampToEdge, PushDescriptors;
+        /// VK_EXT_memory_budget (VMA's heap budgets are then the driver's, not its estimate)
+        /// and VK_EXT_memory_priority (render targets ask to stay in video memory), when the
+        /// driver has them (#115).
+        public bool MemoryBudget, MemoryPriority;
+        /// Render targets get memory of their own at the highest priority rather than a place
+        /// in VMA's shared blocks (#115); ONI_VULKAN_TARGETS=pooled shares the blocks, as
+        /// before.
+        public readonly bool OwnTargetMemory = Environment.GetEnvironmentVariable("ONI_VULKAN_TARGETS") != "pooled";
         /// Windows: the device's LUID (0 when the driver gives none), and whether the DXGI
-        /// interop extensions are on (VK_KHR_external_memory_win32, VK_KHR_win32_keyed_mutex).
+        /// interop extensions are on (VK_KHR_external_memory_win32, VK_KHR_win32_keyed_mutex),
+        /// with which of them (and VK_KHR_external_semaphore_win32, not used) the driver has.
         public long Luid;
-        public bool DxgiInterop;
+        public bool DxgiInterop, ExternalMemoryWin32, Win32KeyedMutex, ExternalSemaphoreWin32;
+        /// The driver's ID, raw driverVersion and conformance version (VkPhysicalDeviceDriverProperties).
+        public string DriverIdentity = "";
         public VkPipelineCache PipelineCache;
         VkDebugUtilsMessengerEXT messenger;
         readonly string pipelineCachePath;
@@ -76,9 +88,26 @@ namespace OniMoono.Desktop.Vulkan
         /// rasterizer (Mesa's lavapipe) only when `allowSoftware` (an explicit `--renderer
         /// vulkan`): auto would otherwise trade a hardware OpenGL device for a CPU one. Returns
         /// -1 with the reason when none fits.
+        ///
+        /// Under auto (not `allowSoftware`), "default" and "discrete" also never move off a
+        /// discrete GPU to a lesser one: when GPUs of that type are listed and none meets the
+        /// requirements, -1, so OpenGL starts, which the exports and PRIME variables steer to the
+        /// discrete GPU as they steer the original. Otherwise an old discrete GPU's driver
+        /// (Vulkan 1.2, say) would put the game on the integrated GPU. On Linux under "default"
+        /// only when the discrete GPU is the first listed (the driver's default, OpenGL's GPU).
         public static int Choose(IReadOnlyList<VkCandidate> candidates, string gpuChoice, bool allowSoftware, bool defaultInDriverOrder, out string reason)
         {
             bool driverOrder = defaultInDriverOrder && gpuChoice is not ("integrated" or "discrete");
+            var asked = candidates.FirstOrDefault(c => c.Type == VkPhysicalDeviceType.DiscreteGpu);
+            if (!allowSoftware && gpuChoice != "integrated" && asked != null
+                && !candidates.Any(c => c.Type == VkPhysicalDeviceType.DiscreteGpu && c.Missing == null)
+                && (!driverOrder || ReferenceEquals(candidates.FirstOrDefault(c => !c.Software), asked)))
+            {
+                var other = candidates.FirstOrDefault(c => !ReferenceEquals(c, asked) && c.Missing == null && !c.Software);
+                reason = $"{asked.Name} ({TypeName(asked.Type)}, the GPU gpu option {gpuChoice} asks for): {asked.Missing}; OpenGL draws on it instead"
+                         + (other != null ? $" (--renderer vulkan uses {other.Name})" : "");
+                return -1;
+            }
             int Rank(VkCandidate c) => (c.Type, gpuChoice) switch
             {
                 (VkPhysicalDeviceType.Cpu, _) => 4,
@@ -167,20 +196,23 @@ namespace OniMoono.Desktop.Vulkan
             for (int i = 0; i < count; i++) extensions.Add(Marshal.PtrToStringUTF8((nint)required[i]));
             var layers = new HashSet<string>();
             // "info": the layer's and the loader's informational messages too (to see it is there);
-            // "sync": synchronization validation too (VK_EXT_validation_features), off by default.
+            // "sync": synchronization validation too (VK_EXT_validation_features), off by default;
+            // "best": the layer's best-practices checks, which report slow patterns as performance
+            // warnings (its vendor checks are layer settings: VK_LAYER_VALIDATE_BEST_PRACTICES_AMD
+            // and the like in the environment).
             var validationSetting = Environment.GetEnvironmentVariable("ONI_VULKAN_VALIDATION");
-            Validation |= validationSetting is "1" or "info" or "sync";
-            bool syncValidation = false;
+            Validation |= validationSetting is "1" or "info" or "sync" or "best";
+            bool extraValidation = false;
             if (Validation)
             {
                 if (LayerAvailable(VK.LAYER_KHRONOS_VALIDATION) || (AddLocalValidationLayer() && LayerAvailable(VK.LAYER_KHRONOS_VALIDATION)))
                 {
                     layers.Add(VK.LAYER_KHRONOS_VALIDATION);
                     extensions.Add(VK.EXT_DEBUG_UTILS_EXTENSION_NAME);
-                    if (validationSetting == "sync")
+                    if (validationSetting is "sync" or "best")
                     {
                         extensions.Add("VK_EXT_validation_features");
-                        syncValidation = true;
+                        extraValidation = true;
                     }
                 }
                 else
@@ -193,11 +225,11 @@ namespace OniMoono.Desktop.Vulkan
             fixed (byte* engineName = "Moono\0"u8)
             {
                 var app = new VkApplicationInfo { ApplicationName = appName, EngineName = engineName, ApiVersion = RequiredApi };
-                var syncFeature = VkValidationFeatureEnableEXT.SynchronizationValidationEXT;
+                var syncFeature = validationSetting == "best" ? VkValidationFeatureEnableEXT.BestPracticesEXT : VkValidationFeatureEnableEXT.SynchronizationValidationEXT;
                 var validationFeatures = new VkValidationFeaturesEXT { EnabledValidationFeatureCount = 1, EnabledValidationFeatures = &syncFeature };
                 Instance = Brutal.VulkanApi.Vulkan.CreateInstance(new Instance.CreateInfo
                 {
-                    AppInfo = app, EnabledExtensions = extensions, EnabledLayers = layers, Next = syncValidation ? &validationFeatures : null,
+                    AppInfo = app, EnabledExtensions = extensions, EnabledLayers = layers, Next = extraValidation ? &validationFeatures : null,
                 });
             }
             if (Validation)
@@ -206,21 +238,27 @@ namespace OniMoono.Desktop.Vulkan
                 {
                     MessageSeverity = VkDebugUtilsMessageSeverityFlagsEXT.ErrorBitEXT | VkDebugUtilsMessageSeverityFlagsEXT.WarningBitEXT
                                       | (validationSetting == "info" ? VkDebugUtilsMessageSeverityFlagsEXT.InfoBitEXT : 0),
-                    MessageType = VkDebugUtilsMessageTypeFlagsEXT.GeneralBitEXT | VkDebugUtilsMessageTypeFlagsEXT.ValidationBitEXT,
+                    MessageType = VkDebugUtilsMessageTypeFlagsEXT.GeneralBitEXT | VkDebugUtilsMessageTypeFlagsEXT.ValidationBitEXT
+                                  | VkDebugUtilsMessageTypeFlagsEXT.PerformanceBitEXT,
                     PfnUserCallback = new PfnVkDebugUtilsMessengerCallbackEXT(&OnValidationMessage),
                 };
                 messenger = Instance.CreateDebugUtilsMessengerEXT(info, null);
-                EngineLog.Engine(syncValidation ? "vulkan: Khronos validation layer on, with synchronization validation" : "vulkan: Khronos validation layer on");
+                EngineLog.Engine(!extraValidation ? "vulkan: Khronos validation layer on"
+                                 : validationSetting == "best" ? "vulkan: Khronos validation layer on, with its best-practices checks"
+                                 : "vulkan: Khronos validation layer on, with synchronization validation");
             }
 
             var candidates = new List<VkCandidate>();
             foreach (var pd in Instance.PhysicalDevices)
             {
                 var p = pd.GetProperties();
-                candidates.Add(new VkCandidate(Utf8(p.DeviceName, 256), p.DeviceType, p.ApiVersion, MissingRequirements(pd, p)));
+                candidates.Add(new VkCandidate(Utf8(p.DeviceName, 256), p.DeviceType, p.ApiVersion, MissingRequirements(pd, p), OperatingSystem.IsWindows() ? LuidOf(pd, p) : 0, (uint)p.VendorID, (uint)p.DeviceID));
             }
             foreach (var c in candidates)
                 EngineLog.Engine($"vulkan: device {c.Name} ({TypeName(c.Type)}, Vulkan {Version(c.ApiVersion)}){(c.Missing != null ? ": " + c.Missing : "")}");
+            if (OperatingSystem.IsWindows())
+                foreach (var name in UnlistedByVulkan(OniMoono.Desktop.Gl.Dxgi.Adapters(), candidates))
+                    EngineLog.Engine($"vulkan: Windows lists the GPU {name}, which Vulkan does not; its Vulkan driver may be missing or broken");
             int chosen = Choose(candidates, gpuChoice, allowSoftware, OperatingSystem.IsLinux(), out var why);
             if (chosen < 0) throw new VulkanUnavailableException(why);
             Physical = Instance.PhysicalDevices[chosen];
@@ -230,17 +268,28 @@ namespace OniMoono.Desktop.Vulkan
             var features = new VkPhysicalDeviceFeatures2();
             var f12 = new VkPhysicalDeviceVulkan12Features();
             var f13 = new VkPhysicalDeviceVulkan13Features();
+            var fPriority = new VkPhysicalDeviceMemoryPriorityFeaturesEXT();
+            bool priorityExtension = Physical.SupportsExtension("VK_EXT_memory_priority"u8);
             features.Next = &f12;
             f12.Next = &f13;
+            if (priorityExtension) f13.Next = &fPriority;
             Physical.GetFeatures2(ref features);
             TextureCompressionBC = features.Features.TextureCompressionBC;
             SamplerAnisotropy = features.Features.SamplerAnisotropy;
             MirrorClampToEdge = f12.SamplerMirrorClampToEdge;
             PushDescriptors = Physical.SupportsExtension("VK_KHR_push_descriptor"u8);
+            MemoryBudget = Physical.SupportsExtension("VK_EXT_memory_budget"u8);
+            MemoryPriority = priorityExtension && fPriority.MemoryPriority;
             // Windows, presenting through DXGI (VkDxgiTarget): a D3D11 texture imported as an
             // image, its keyed mutex taken and given back by the presenter's submissions.
+            if (OperatingSystem.IsWindows())
+            {
+                ExternalMemoryWin32 = Physical.SupportsExtension("VK_KHR_external_memory_win32"u8);
+                Win32KeyedMutex = Physical.SupportsExtension("VK_KHR_win32_keyed_mutex"u8);
+                ExternalSemaphoreWin32 = Physical.SupportsExtension("VK_KHR_external_semaphore_win32"u8);
+            }
             DxgiInterop = OperatingSystem.IsWindows() && OniMoono.Desktop.Gl.DxgiSwapChain.Enabled
-                          && Physical.SupportsExtension("VK_KHR_external_memory_win32"u8) && Physical.SupportsExtension("VK_KHR_win32_keyed_mutex"u8);
+                          && VkDxgiSupport.MissingExtensions(ExternalMemoryWin32, Win32KeyedMutex) == null;
             DriverInfo = DriverDescription(out int driverId);
             Identity = new VkGpuIdentity((uint)Properties.VendorID, (uint)Properties.DeviceID, (uint)Properties.DriverVersion, driverId, DriverName, DeviceName);
             if (admit?.Invoke(Identity) is { } refused) throw new VulkanUnavailableException(refused);
@@ -250,13 +299,17 @@ namespace OniMoono.Desktop.Vulkan
             enable.Features.SamplerAnisotropy = SamplerAnisotropy;
             var e12 = new VkPhysicalDeviceVulkan12Features { SamplerMirrorClampToEdge = MirrorClampToEdge };
             var e13 = new VkPhysicalDeviceVulkan13Features { DynamicRendering = true, Synchronization2 = true };
+            var ePriority = new VkPhysicalDeviceMemoryPriorityFeaturesEXT { MemoryPriority = true };
             enable.Next = &e12;
             e12.Next = &e13;
+            if (MemoryPriority) e13.Next = &ePriority;
             QueueFamily = Physical.GetFirstQueueFamilyWithFlag(VkQueueFlags.GraphicsBit);
             float priority = 1f;
             var queueInfo = new VkDeviceQueueCreateInfo { QueueFamilyIndex = QueueFamily, QueueCount = 1, QueuePriorities = &priority };
             var deviceExtensions = new HashSet<string> { VK.KHR_SWAPCHAIN_EXTENSION_NAME };
             if (PushDescriptors) deviceExtensions.Add("VK_KHR_push_descriptor");
+            if (MemoryBudget) deviceExtensions.Add("VK_EXT_memory_budget");
+            if (MemoryPriority) deviceExtensions.Add("VK_EXT_memory_priority");
             if (DxgiInterop)
             {
                 deviceExtensions.Add("VK_KHR_external_memory_win32");
@@ -269,17 +322,45 @@ namespace OniMoono.Desktop.Vulkan
                 Next = new Brutal.Pointers.Ptr(&enable),
             });
             Queue = Device.GetQueue(QueueFamily, 0);
+            // ONI_VULKAN_FAIL=heap-limit:MB (tests): VMA treats each device-local heap as at
+            // most MB, as a small iGPU heap would be (#114: 1,879 MB).
+            var memory = Physical.GetMemoryProperties();
+            memoryTypeFlags = new VkMemoryPropertyFlags[memory.MemoryTypeCount];
+            for (int i = 0; i < memoryTypeFlags.Length; i++) memoryTypeFlags[i] = memory.MemoryTypes[i].PropertyFlags;
+            var limits = stackalloc Brutal.ByteSize[Math.Max(1, (int)memory.MemoryHeapCount)];
+            long heapLimit = (long)VkFault.Number("heap-limit") * 1_000_000;
+            for (int i = 0; i < memory.MemoryHeapCount; i++)
+                limits[i] = (Brutal.ByteSize)HeapSizeLimit(heapLimit, (long)memory.MemoryHeaps[i].Size.Value, (memory.MemoryHeaps[i].Flags & VkMemoryHeapFlags.DeviceLocalBit) != 0);
             Allocator = Device.CreateVmaAllocator(new VmaAllocatorCreateInfo
             {
                 PhysicalDevice = Physical,
                 Device = Device,
                 VulkanApiVersion = (uint)RequiredApi,
+                Flags = (MemoryBudget ? VmaAllocatorCreateFlags.ExtMemoryBudgetBit : 0) | (MemoryPriority ? VmaAllocatorCreateFlags.ExtMemoryPriorityBit : 0),
+                PHeapSizeLimit = heapLimit > 0 ? limits : null,
             });
             PipelineCache = CreatePipelineCache();
             FailAt("context");
             EngineLog.Engine($"vulkan: using {why}; {DriverInfo}; BC textures {(TextureCompressionBC ? "sampled" : "decoded on upload")}, "
-                             + $"descriptors {(PushDescriptors ? "pushed" : "from per-frame pools")}");
+                             + $"descriptors {(PushDescriptors ? "pushed" : "from per-frame pools")}; memory budgets {(MemoryBudget ? "from the driver" : "estimated")}, "
+                             + $"render targets {(OwnTargetMemory ? "in memory of their own" : "in shared blocks (ONI_VULKAN_TARGETS)")}{(OwnTargetMemory && MemoryPriority ? " at high priority" : "")}");
+            // What tells drivers apart when the DXGI handover fails (#107); once per session.
+            if (OperatingSystem.IsWindows())
+                EngineLog.Engine($"vulkan: {DriverIdentity}; VK_KHR_external_memory_win32 {YesNo(ExternalMemoryWin32)}, VK_KHR_win32_keyed_mutex {YesNo(Win32KeyedMutex)}, "
+                                 + $"VK_KHR_external_semaphore_win32 {YesNo(ExternalSemaphoreWin32)} (not used){(DxgiInterop ? "" : "; DXGI interop off")}");
         }
+
+        static string YesNo(bool b) => b ? "yes" : "no";
+
+        VkMemoryPropertyFlags[] memoryTypeFlags = Array.Empty<VkMemoryPropertyFlags>();
+
+        /// A memory type's property flags (none for a type the device does not have).
+        public VkMemoryPropertyFlags MemoryTypeFlags(uint type) => type < memoryTypeFlags.Length ? memoryTypeFlags[type] : 0;
+
+        /// VMA's limit for a heap under ONI_VULKAN_FAIL=heap-limit (`limit` bytes, 0: none):
+        /// device-local heaps at most `limit`, the others unlimited (VK_WHOLE_SIZE).
+        internal static ulong HeapSizeLimit(long limit, long heapSize, bool deviceLocal)
+            => limit > 0 && deviceLocal ? (ulong)Math.Min(limit, heapSize) : ulong.MaxValue;
 
         /// Descriptors a pushed set may hold.
         public int MaxPushDescriptors;
@@ -300,6 +381,10 @@ namespace OniMoono.Desktop.Vulkan
             MaxPushDescriptors = PushDescriptors ? push.MaxPushDescriptors : 0;
             DriverName = Utf8(driver.DriverName, 256);
             driverId = (int)driver.DriverID;
+            var c = driver.ConformanceVersion;
+            string idName = driver.DriverID.ToString();
+            if (idName.EndsWith("KHR", StringComparison.Ordinal)) idName = idName[..^3];
+            DriverIdentity = $"driver ID {idName} ({driverId}), driverVersion 0x{(uint)Properties.DriverVersion:X8}, conformance {c.Major}.{c.Minor}.{c.Subminor}.{c.Patch}";
             return $"Vulkan {Version(Properties.ApiVersion)}, driver {DriverName} {Utf8(driver.DriverInfo, 256)}".TrimEnd();
         }
 
@@ -308,6 +393,33 @@ namespace OniMoono.Desktop.Vulkan
             int n = 0;
             while (n < max && p[n] != 0) n++;
             return System.Text.Encoding.UTF8.GetString(p, n);
+        }
+
+        /// Windows' LUID for a physical device (0 when the driver gives none). Only asked of a
+        /// Vulkan 1.1 device: vkGetPhysicalDeviceProperties2 is core from 1.1, and the GPUs this
+        /// is about are old.
+        static long LuidOf(PhysicalDevice pd, VkPhysicalDeviceProperties p)
+        {
+            if (p.ApiVersion < ((1 << 22) | (1 << 12))) return 0;
+            var ids = new VkPhysicalDeviceIdProperties();
+            var props = new VkPhysicalDeviceProperties2 { Next = &ids };
+            pd.GetProperties2(ref props);
+            return ids.DeviceLUIDValid ? *(long*)ids.DeviceLUID : 0;
+        }
+
+        /// The hardware GPUs DXGI lists that no Vulkan device is (by LUID, or by vendor and
+        /// device id: DXGI may list one GPU twice, as on the RTX 3090 desktop, where a second
+        /// entry has a LUID Vulkan never reports): a GPU whose Vulkan driver is missing or
+        /// broken, which the choice above can't see. Only a log line, never a reason to change
+        /// renderer: DXGI also lists remote, indirect and virtual displays. Microsoft's own
+        /// adapters (Basic Render Driver, WARP) and software ones are left out, and nothing is
+        /// said when a Vulkan device gives no LUID (it might be any of them).
+        public static IEnumerable<string> UnlistedByVulkan(IReadOnlyList<OniMoono.Desktop.Gl.Dxgi.Adapter> dxgi, IReadOnlyList<VkCandidate> vulkan)
+        {
+            if (vulkan.Any(c => !c.Software && c.Luid == 0)) return [];
+            return dxgi.Where(a => !a.Software && a.VendorId != 0x1414 && a.Luid != 0
+                                && !vulkan.Any(c => c.Luid == a.Luid || (c.VendorId == a.VendorId && c.DeviceId == a.DeviceId)))
+                .Select(a => a.Name).ToList();
         }
 
         /// What a device lacks of this device's requirements (null: nothing).

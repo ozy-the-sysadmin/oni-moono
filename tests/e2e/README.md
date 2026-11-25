@@ -216,10 +216,13 @@ tweaks_menu: true                # ours keeps the main menu's Moono Tweaks butto
 game_tweaks: [brain-rate]        # ours runs with these `--game-tweak` values after E2E_GAME_TWEAKS's
 env: {ONI_TWEAK_VERIFY: "1"}     # ours runs with these in its environment (ONI_TWEAK_SETTINGS: "1":
                                  # no --game-tweak at all, the tweaks as a player has them)
-ours_needs: {libOniMoonoNative.so: "FMOD's quarantine allocator"}   # ours is skipped, with this
-                                 # reason, when the file is not beside our release host
+ours_needs: {"OniMoono:moono_fmod_alloc": "FMOD's quarantine allocator"}   # ours is skipped, with
+                                 # this reason, when the file is not beside our release host
+                                 # (FILE:TEXT: or does not hold TEXT)
 scaled_screen: true              # the game may render smaller than the display (below)
 display_dpi: 144                 # the lane's Xvfb runs with -dpi 144 (the X screen's mm size)
+window_manager: true             # the lane runs scripts/e2e-wm.py: a 76-pixel panel, undecorated windows
+                                 # kept above it, EWMH fullscreen over it (issue-108-fullscreen-over-panel.yaml)
 blocked_plugins: {libSimDLL.so: missing}   # each player runs a copy of its install (out/e2e/.blocked-LANE)
                                  # with these native plugins `missing` or `unreadable` (mode 000)
 stray_plugins: [x86_64/SimDLL.dll]   # and these paths under Plugins added, empty (`DIR/` a folder),
@@ -500,6 +503,7 @@ step. The original run itself records it and passes.
 setup:
   - driver: {seed: 12345}                            # before a random screen opens
   - driver: {setup.call: {type: "BlueprintsV2.Store", method: "Seed", args: ["e2e"]}}   # setup only
+  - driver: {setup.set: {target: "DevToolManager.Instance", member: showImGui, value: true}}   # setup only
   - driver: {camera.set: {pos: [128.5, 210.5], ortho: 20}}
   - driver: {count: {methods: ["Brain:UpdateBrain"]}}  # its calls from now on: E2eDriver.Counting.Of("Brain:UpdateBrain")
 steps:
@@ -512,7 +516,7 @@ whose research or materials setup just provided: until PlanScreen re-checks that
 cached state is the old one, so picking it opens the prebuild tool, and when the check comes
 depends on the frame rate (the original on llvmpipe draws a few frames a game second).
 
-`setup.call` (reflection) is allowed only in `setup:`. It may prepare a test, never perform the
+`setup.call` and `setup.set` (reflection) are allowed only in `setup:`. It may prepare a test, never perform the
 thing under test: issue #6 was "Played" through reflection while its screens were broken. An
 argument JSON cannot spell is given as a state expression, `{"$": "Db.Get().Techs.Get(\"HVAC\")"}`
 (E2eDriver's README, setup.call).

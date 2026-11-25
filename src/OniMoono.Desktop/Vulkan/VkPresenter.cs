@@ -208,12 +208,25 @@ namespace OniMoono.Desktop.Vulkan
         {
             if (PresentTrace.Enabled)
                 PresentTrace.Log($"frame {Frame}: back buffer {b.Index} allocated {width}x{height} (was {b.Width}x{b.Height}){(b.DrawnThisFrame ? ", discarding what the frame drew into it" : "")}");
+            // Both images are made before the old pair is retired: one that cannot be made (out of
+            // device memory, #114) leaves the buffer as it was, not holding a retired image or
+            // half a pair.
+            var color = VkImageResource.Create(vk, VkFormat.R8G8B8A8UNorm, VkImageViewType._2D, width, height, 1, 1, 1,
+                VkImageUsageFlags.ColorAttachmentBit | VkImageUsageFlags.TransferSrcBit | VkImageUsageFlags.TransferDstBit, name: "back buffer", kind: "presenter");
+            VkImageResource depth;
+            try
+            {
+                depth = VkImageResource.Create(vk, depthFormat, VkImageViewType._2D, width, height, 1, 1, 1,
+                    VkImageUsageFlags.DepthStencilAttachmentBit, name: "back buffer depth", kind: "presenter");
+            }
+            catch
+            {
+                color.Destroy(vk);
+                throw;
+            }
             var (oldColor, oldDepth) = (b.Color, b.Depth);
             if (oldColor != null) frames.Retire(() => { oldColor.Destroy(vk); oldDepth.Destroy(vk); });
-            b.Color = VkImageResource.Create(vk, VkFormat.R8G8B8A8UNorm, VkImageViewType._2D, width, height, 1, 1, 1,
-                VkImageUsageFlags.ColorAttachmentBit | VkImageUsageFlags.TransferSrcBit | VkImageUsageFlags.TransferDstBit, name: "back buffer", kind: "presenter");
-            b.Depth = VkImageResource.Create(vk, depthFormat, VkImageViewType._2D, width, height, 1, 1, 1,
-                VkImageUsageFlags.DepthStencilAttachmentBit, name: "back buffer depth", kind: "presenter");
+            (b.Color, b.Depth) = (color, depth);
             b.Width = width;
             b.Height = height;
             b.DrawnSinceAllocation = false;
@@ -734,11 +747,42 @@ namespace OniMoono.Desktop.Vulkan
             AfterLoading(s);
             if (!dxgi.Show(interval))
             {
+                // No picture has ever come through: the keyed mutex's handover from Vulkan to
+                // D3D11 does not work on this device (Intel UHD on driver 101.7092 timed out on
+                // every one of ten starts, one D3D11CreateDevice between them failing with
+                // DXGI_ERROR_DEVICE_REMOVED, before the session froze; #107). Restarting only
+                // repeats that.
+                if (dxgi.HandoverTimedOut) EngineLog.Engine(HandoverReport(s) + MadeUp);
+                bool neverWorked = dxgi.HandoverTimedOut && !dxgiRestarts.EverPresented;
+                if (neverWorked) dxgiRestarts.GiveUp();
                 DxgiFailed();
+                if (neverWorked)
+                    EngineLog.Engine("present: DXGI has not presented a picture from Vulkan (the keyed mutex's first handover timed out): no restarts, Vulkan's swapchain from here on");
                 return;
             }
             lastWait = dxgi.LastWait;
             dxgiRestarts.Presented(GlTimings.Now);
+        }
+
+        /// D3D11's AcquireSync(1) timed out on the picture slot `s` submitted (#107): whether that
+        /// batch, which releases key 1, had completed on the GPU then (its fence), and if not
+        /// whether it does within VkDxgiSupport.LateWaitMilliseconds; then which key is free and
+        /// D3D11's device-removed reason. One line per timeout.
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        string HandoverReport(int s)
+        {
+            var device = vk.Device.Handle;
+            var fence = fences[s];
+            var atTimeout = vk.Device.PInvoke.vkGetFenceStatus.Invoke(device, fence);
+            var later = atTimeout == VkResult.NotReady
+                ? vk.Device.PInvoke.vkWaitForFences.Invoke(device, 1, &fence, true, (nint)VkDxgiSupport.LateWaitMilliseconds * 1_000_000)
+                : atTimeout;
+            var (key1, key0, removed) = dxgi.ProbeAfterTimeout();
+            uint t = VkDxgiTarget.MutexTimeout;
+            return $"present: DXGI handover timed out (picture {dxgi.Acquires} of this swap chain{(dxgiRestarts.EverPresented ? "" : ", none presented yet")}): "
+                   + $"Vulkan's batch (acquire key 0 within {t} ms, release key 1; vkQueueSubmit2 VK_SUCCESS) fence {atTimeout} at D3D11's AcquireSync(1, {t} ms) timeout, "
+                   + $"{later} after; then key 1 {VkDxgiTarget.KeyResult(key1)}" + (key1 == Dxgi.S_OK ? "" : $", key 0 {VkDxgiTarget.KeyResult(key0)}")
+                   + $"; D3D11 device removed reason {(removed == Dxgi.S_OK ? "S_OK (not removed)" : Dxgi.Hr(removed))}: {VkDxgiSupport.Verdict(atTimeout, later, key1, key0)}";
         }
 
         /// DXGI failed while running: everything it held is released, and it is restarted, or

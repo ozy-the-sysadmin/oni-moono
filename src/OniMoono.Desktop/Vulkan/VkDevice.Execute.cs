@@ -28,6 +28,9 @@ namespace OniMoono.Desktop.Vulkan
         /// The target's rows are stored top first (the back buffer, a ScreenRows render
         /// texture): rectangles from the bottom left are turned over.
         bool topFirst;
+        /// A camera's passes to the back buffer, drawn with a render texture's projection
+        /// (BoundTarget.CameraPasses): the viewport is turned over to put them the right way up.
+        bool turnedViewport;
         UnityEngine.Rect viewport = new(0, 0, 1, 1);
         Rect? scissor;
         long draws, pipelineBinds, renderPasses, uploadBreaks;
@@ -50,7 +53,14 @@ namespace OniMoono.Desktop.Vulkan
             frames.Main.EndRendering();
             rendering = false;
             ready.PassEnded();
+            if (frames.Profile != null) frames.ProfileMark(passTarget + " " + (passProgram ?? "clears only"));
         }
+
+        /// --gpu-profile: the pass's target and the program of its first draw (VkGpuProfile).
+        string passTarget, passProgram;
+
+        static string Describe(VkImageResource image, int colours, VkImageResource depth) =>
+            $"{image.Width}x{image.Height} {image.Format}{(colours > 1 ? $" +{colours - 1} more" : "")}{(depth != null ? " with " + depth.Format : "")}{(image.Samples > 1 ? $" {image.Samples}x MSAA" : "")}";
 
         /// The rendering command buffer outside any pass, for a copy that must come at this
         /// point of the frame.
@@ -73,7 +83,7 @@ namespace OniMoono.Desktop.Vulkan
             Span<VkRenderingAttachmentInfo> colors = stackalloc VkRenderingAttachmentInfo[8];
             Span<VkFormat> formats = stackalloc VkFormat[8];
             int count = 0;
-            VkImageResource depth = null;
+            VkImageResource depth = null, firstColor = null;
             int width = int.MaxValue, height = int.MaxValue, samples = 1;
             void Size(VkImageResource image)
             {
@@ -83,11 +93,13 @@ namespace OniMoono.Desktop.Vulkan
             }
             toBackBuffer = t.Colors == null;
             topFirst = toBackBuffer || t.ScreenRows;
+            turnedViewport = toBackBuffer && t.CameraPasses;
             if (toBackBuffer)
             {
                 var bb = presenter.BackBuffer(t.BackBufferWidth, t.BackBufferHeight, frames);
                 bb.Color.ForAttachment(cb);
                 colors[0] = Attachment(bb.Color, clearColor);
+                firstColor = bb.Color;
                 formats[0] = bb.Color.Format;
                 count = 1;
                 depth = bb.Depth;
@@ -115,6 +127,7 @@ namespace OniMoono.Desktop.Vulkan
                         vt.Dirty = true;
                         vt.LastUsedBatch = frames.Batch;
                         colors[count] = Attachment(image, clearColor);
+                        firstColor ??= image;
                         formats[count++] = image.Format;
                         Size(image);
                     }
@@ -147,6 +160,13 @@ namespace OniMoono.Desktop.Vulkan
             renderHeight = height;
             bool stencil = depth != null && VkImageResource.HasStencil(depth.Format);
             targetFormats = VkTargetFormats.Of(formats[..count], depth?.Format ?? VkFormat.Undefined, stencil ? depth.Format : VkFormat.Undefined, samples, flipped: !topFirst);
+            if (frames.Profile != null)
+            {
+                frames.ProfileMark("outside passes");
+                passTarget = (toBackBuffer ? "back buffer " : "")
+                             + (firstColor != null ? Describe(firstColor, count, depth) : depth != null ? $"{depth.Width}x{depth.Height} {depth.Format} (depth only)" : "no attachment");
+                passProgram = null;
+            }
             fixed (VkRenderingAttachmentInfo* c = colors)
             {
                 var info = new VkRenderingInfo
@@ -182,7 +202,10 @@ namespace OniMoono.Desktop.Vulkan
         }
 
         /// The viewport (from the bottom left): the same rectangle in a render texture, turned
-        /// over in the back buffer.
+        /// over in the back buffer. A camera's passes there (turnedViewport) are projected as
+        /// into a render texture, upside down for the back buffer, so their viewport runs from
+        /// the rectangle's bottom row up (a negative height, core since Vulkan 1.1): the same
+        /// pixels, and the same front faces, as the back buffer's projection gives.
         void ApplyViewport()
         {
             int h = Math.Max(1, (int)viewport.height);
@@ -191,6 +214,7 @@ namespace OniMoono.Desktop.Vulkan
                 X = (int)viewport.x, Y = topFirst ? renderHeight - (int)viewport.y - h : (int)viewport.y,
                 Width = Math.Max(1, (int)viewport.width), Height = h, MaxDepth = 1f,
             };
+            if (turnedViewport) (v.Y, v.Height) = (v.Y + h, -h);
             frames.Main.SetViewport(0, new ReadOnlySpan<VkViewport>(&v, 1));
         }
 
@@ -407,6 +431,7 @@ namespace OniMoono.Desktop.Vulkan
                 boundPipeline = pipeline;
                 pipelineBinds++;
             }
+            if (frames.Profile != null) passProgram ??= program.Name;
             var textureSet = BindTextures(r, program, cb);
             BindUniforms(r, program, cb, textureSet);
             return true;

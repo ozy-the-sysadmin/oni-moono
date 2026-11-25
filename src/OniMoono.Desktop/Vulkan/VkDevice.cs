@@ -169,10 +169,38 @@ namespace OniMoono.Desktop.Vulkan
             for (int i = 0; i < memory.MemoryHeapCount; i++)
                 if ((memory.MemoryHeaps[i].Flags & VkMemoryHeapFlags.DeviceLocalBit) != 0) deviceLocal = Math.Max(deviceLocal, (long)memory.MemoryHeaps[i].Size.Value);
             caps.MemoryMB = (int)(deviceLocal >> 20);
+            // The heaps and the types in each, which tell where the game's textures can go when
+            // the device runs out of memory (#114).
+            var heaps = new System.Text.StringBuilder();
+            for (int i = 0; i < memory.MemoryHeapCount; i++)
+            {
+                var types = new List<string>();
+                for (int t = 0; t < memory.MemoryTypeCount; t++)
+                    if (memory.MemoryTypes[t].HeapIndex == i) types.Add($"{t} ({memory.MemoryTypes[t].PropertyFlags})");
+                heaps.Append(i == 0 ? "" : "; ").Append($"heap {i} {(long)memory.MemoryHeaps[i].Size.Value / 1_000_000} MB {memory.MemoryHeaps[i].Flags}, types ")
+                     .Append(string.Join(", ", types));
+            }
+            EngineLog.Engine($"vulkan: memory: {heaps}; {ResizableBar(memory)}");
             maxAnisotropy = vk.SamplerAnisotropy ? p.Limits.MaxSamplerAnisotropy : 1f;
+            anisotropyAsTrilinear = vk.Identity.DriverId == NvidiaProprietary;
             maxLodBias = p.Limits.MaxSamplerLodBias;
             depthFormat = (caps.Features(VkFormat.D24UNormS8UInt) & VkFormatFeatureFlags.DepthStencilAttachmentBit) != 0 ? VkFormat.D24UNormS8UInt : VkFormat.D32SFloatS8UInt;
             VkFormats.Sampled = f => (caps.Features(f) & (VkFormatFeatureFlags.SampledImageBit | VkFormatFeatureFlags.TransferDstBit)) == (VkFormatFeatureFlags.SampledImageBit | VkFormatFeatureFlags.TransferDstBit);
+        }
+
+        /// Whether the CPU can map all of the device's memory (resizable BAR) or a 256 MB window
+        /// of it (#115): the largest heap with a device-local, host-visible type.
+        static string ResizableBar(in VkPhysicalDeviceMemoryProperties memory)
+        {
+            long mappable = 0;
+            for (int t = 0; t < memory.MemoryTypeCount; t++)
+            {
+                var f = memory.MemoryTypes[t].PropertyFlags;
+                if ((f & VkMemoryPropertyFlags.DeviceLocalBit) != 0 && (f & VkMemoryPropertyFlags.HostVisibleBit) != 0)
+                    mappable = Math.Max(mappable, (long)memory.MemoryHeaps[(int)memory.MemoryTypes[t].HeapIndex].Size.Value);
+            }
+            if (mappable == 0) return "no device memory the CPU can map";
+            return $"resizable BAR {(mappable > 300_000_000 ? "on" : "off")} ({mappable / 1_000_000} MB of device memory the CPU can map)";
         }
 
         public override GraphicsCaps Caps => caps;
@@ -190,6 +218,7 @@ namespace OniMoono.Desktop.Vulkan
         readonly HashSet<string> failuresLogged = new();
 
         long failedCommands;
+        bool outOfMemoryNoted;
 
         /// Commands that failed (CommandFailed), a lost device's included: a capture that saw
         /// one writes nothing (FrameRenderer.Capture).
@@ -208,6 +237,16 @@ namespace OniMoono.Desktop.Vulkan
                 return;
             }
             if (failuresLogged.Add($"{e.GetType().FullName}: {e.Message}")) Debug.LogException(e);
+            // VMA has tried every memory type the resource allows: the game cannot keep its
+            // textures in this device's memory (#114: a 1.9 GB heap). The next start under auto
+            // uses OpenGL, whose driver places and moves allocations itself.
+            if (!outOfMemoryNoted && (e is VkResultError { Result: VkResult.ErrorOutOfDeviceMemory } || e.InnerException is VkResultError { Result: VkResult.ErrorOutOfDeviceMemory }))
+            {
+                outOfMemoryNoted = true;
+                guard?.RanOutOfMemory();
+                EngineLog.Engine($"vulkan: out of video memory ({caps.Name}, {vk.DriverInfo}): {e.Message}; {HeapUsage()}; "
+                                 + (guard != null ? "the next start under the auto renderer uses OpenGL" : "start with --renderer opengl if it keeps happening"));
+            }
             if (rendering && frames.MainOpen)
             {
                 try
@@ -272,7 +311,7 @@ namespace OniMoono.Desktop.Vulkan
 
         // ----- Targets, viewport, clears (main thread records) -----
 
-        sealed record BoundTarget(DeviceTexture[] Colors, DeviceTexture Depth, int BackBufferWidth, int BackBufferHeight, bool ScreenRows = false);
+        sealed record BoundTarget(DeviceTexture[] Colors, DeviceTexture Depth, int BackBufferWidth, int BackBufferHeight, bool ScreenRows = false, bool CameraPasses = false);
 
         public override void SetRenderTarget(in RenderTargetBinding binding)
         {
@@ -285,10 +324,14 @@ namespace OniMoono.Desktop.Vulkan
                 if (binding.Depth != null) depth = binding.Depth == binding.Colors[0] ? colors[0] : GlTextures.Prepare(worker, binding.Depth);
             }
             // Unity's Vulkan programs render into render textures upside down (RenderConventions),
-            // but for one rendered as the back buffer is (ScreenRows).
+            // but for one rendered as the back buffer is (ScreenRows). A camera's passes to the
+            // back buffer take a render texture's projection, as the original renders them into a
+            // render texture (RenderTargetBinding.CameraBackBuffer); the viewport turns them
+            // over again (ApplyViewport), so the pixels land where the back buffer's would.
             bool screenRows = colors != null && binding.Colors[0].ScreenRows;
-            var bound = new BoundTarget(colors, depth, platform.FramebufferWidth, platform.FramebufferHeight, screenRows);
-            recorder.Conventions = new RenderConventions(Vulkan: true, Flipped: colors != null && !screenRows);
+            bool cameraPasses = colors == null && binding.Camera;
+            var bound = new BoundTarget(colors, depth, platform.FramebufferWidth, platform.FramebufferHeight, screenRows, cameraPasses);
+            recorder.Conventions = new RenderConventions(Vulkan: true, Flipped: (colors != null && !screenRows) || cameraPasses);
             worker.Post(worker.Arena.Command(setTarget ??= SetTarget, bound));
         }
 
@@ -619,9 +662,11 @@ namespace OniMoono.Desktop.Vulkan
             if (deviceLost && !quitRequested)
             {
                 quitRequested = true;
-                Debug.LogError($"Vulkan stopped working: the graphics device {lostWhat}, so the game quits. If this keeps happening, choose OpenGL "
-                               + $"under Renderer in Moono Tweaks, or start the game with --renderer opengl. The log is {EngineLog.FilePath ?? Application.consoleLogPath}.");
-                PlayerLoop.RequestQuit(1);
+                string error = $"Vulkan stopped working: the graphics device {lostWhat}, so the game quits. If this keeps happening, choose OpenGL "
+                               + $"under Renderer in Moono Tweaks, or start the game with --renderer opengl. The log is {EngineLog.FilePath ?? Application.consoleLogPath}.";
+                Debug.LogError(error);
+                // On screen until the player closes it, once the window has gone (Player).
+                PlayerLoop.RequestQuit(1, error);
             }
             int interval = OniMoono.Engine.VSync.Interval;
             // The window's size: the frame, drawn at the rendering size (smaller in a fullscreen
@@ -645,10 +690,12 @@ namespace OniMoono.Desktop.Vulkan
 
         public override string TakeFrameCounters(int n) => worker.Call(() =>
         {
-            string text = VkTimings.Take(n) + $"; draws {draws / n}, pipeline binds {pipelineBinds / n}, render passes {renderPasses / n}, passes broken by uploads {uploadBreaks / n}, "
+            var profile = frames.Profile?.Take();
+            string text = (profile != null ? profile + "\n" : "") + VkTimings.Take(n) + $"; draws {draws / n}, pipeline binds {pipelineBinds / n}, render passes {renderPasses / n}, passes broken by uploads {uploadBreaks / n}, "
                 + $"submits {frames.Submits / (double)n:F1}, programs built {programs.Built}, pipelines made {pipelines.Created} ({pipelines.CreateTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F0} ms), "
                 + $"texture uploads {textureUploads / (double)n:F1} ({textureUploadBytes / n / 1024} KiB), unchanged {unchangedUploads / (double)n:F1}, staging waits {stagingWaits}, "
-                + $"descriptor sets made {descriptorCache.Made / (double)n:F1}, found {descriptorCache.Found / n}, kept {descriptorCache.Count}; "
+                + $"descriptor sets made {descriptorCache.Made / (double)n:F1}, found {descriptorCache.Found / n}, kept {descriptorCache.Count}, "
+                + $"image barriers {System.Threading.Interlocked.Exchange(ref VkImageResource.Barriers, 0) / n} ({System.Threading.Interlocked.Exchange(ref VkImageResource.FromUndefined, 0) / (double)n:F1} from UNDEFINED); "
                 + OniMoono.Desktop.Gl.PresenterTimings.Take() + VkDrawAlternation.EndWindow();
             draws = pipelineBinds = renderPasses = uploadBreaks = 0;
             frames.Submits = 0;
@@ -665,6 +712,28 @@ namespace OniMoono.Desktop.Vulkan
             return ms;
         });
 
+        /// Every heap's use and budget as VMA counts them, and on Windows the process's video
+        /// memory on the adapter as Windows counts it (device thread).
+        string HeapUsage()
+        {
+            try
+            {
+                var memory = vk.Physical.GetMemoryProperties();
+                Span<Brutal.VulkanApi.Vma.VmaBudget> budgets = new Brutal.VulkanApi.Vma.VmaBudget[memory.MemoryHeapCount];
+                vk.Allocator.GetHeapBudgets(budgets);
+                var text = new System.Text.StringBuilder();
+                for (int i = 0; i < budgets.Length; i++)
+                    text.Append(i == 0 ? "" : ", ").Append($"heap {i} {(long)budgets[i].Usage.Value / 1_000_000} MB used of {(long)budgets[i].Budget.Value / 1_000_000} MB budget");
+                if (OperatingSystem.IsWindows() && vk.DxgiInterop && vk.Luid != 0 && OniMoono.Desktop.Gl.Dxgi.ProcessVideoMemory(vk.Luid) is var (local, nonLocal, budget))
+                    text.Append($", process {local / 1_000_000} MB local (budget {budget / 1_000_000} MB), {nonLocal / 1_000_000} MB non-local");
+                return text.ToString();
+            }
+            catch (Exception e)
+            {
+                return $"heap use unknown ({e.GetType().Name})";
+            }
+        }
+
         public override string MemoryCounters() => worker.Call(() =>
         {
             var memory = vk.Physical.GetMemoryProperties();
@@ -675,11 +744,14 @@ namespace OniMoono.Desktop.Vulkan
             {
                 if ((memory.MemoryHeaps[i].Flags & VkMemoryHeapFlags.DeviceLocalBit) == 0) continue;
                 text.Append(text.Length == 0 ? "" : "; ").Append($"heap {i}: {(long)budgets[i].Usage.Value >> 20} MiB used of {(long)budgets[i].Budget.Value >> 20} MiB budget");
+                // VK_EXT_memory_budget: the driver's figures, the whole process's use. Over
+                // the budget, Windows may move memory out of video memory (#115).
+                if (vk.MemoryBudget) text.Append(budgets[i].Usage.Value > budgets[i].Budget.Value ? " (the driver's; over it)" : " (the driver's)");
             }
             // Windows: the process's own video memory on the device's adapter (all of it,
             // DXGI's swap chain and shared texture too), as Windows counts it.
-            if (OperatingSystem.IsWindows() && vk.DxgiInterop && vk.Luid != 0 && OniMoono.Desktop.Gl.Dxgi.ProcessVideoMemory(vk.Luid) is var (local, nonLocal))
-                text.Append(text.Length == 0 ? "" : "; ").Append($"process {local >> 20} MiB local, {nonLocal >> 20} MiB non-local");
+            if (OperatingSystem.IsWindows() && vk.DxgiInterop && vk.Luid != 0 && OniMoono.Desktop.Gl.Dxgi.ProcessVideoMemory(vk.Luid) is var (local, nonLocal, budget))
+                text.Append(text.Length == 0 ? "" : "; ").Append($"process {local >> 20} MiB local (budget {budget >> 20} MiB), {nonLocal >> 20} MiB non-local");
             text.Append(text.Length == 0 ? "" : "; ").Append($"textures {liveTextures.Count}, meshes {liveMeshes.Count}");
             // The allocations by kind (staging and stream chunks are in host-visible memory), and
             // the CPU memory uploads go through: readable textures' copies and all texel memory.

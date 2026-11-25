@@ -88,6 +88,8 @@ start with `--frame-stats`. Player.log then gets:
   - The CPU memory uploads go through (pooled texel copies, texels read ahead of background
     uploads, all texel memory).
   - The engine's live textures.
+  - On Windows, the process's local and non-local video memory as Windows counts it, and its
+    local budget: past the budget, Windows moves allocations into system memory.
 
 The 600-frame lines, all in ms a frame over the window unless they say otherwise:
 
@@ -749,7 +751,7 @@ That gives the CPU side's direction, not player-facing frame rates.
 | `fast-particle-collision`<br>a radbolt skips the collider gather when no other radbolt is nearby | radbolts 0.27–0.31 → 0.07–0.09 ms | exact |
 | `fast-offset-tables`<br>fetch updates recheck only items whose work spots can have changed | Duplicant brains 3.19–3.38 → 2.85–3.04 ms | exact |
 | `fast-anim-cleanup`<br>the sweep for destroyed animations skips chunks that can't hold any | animation updates (`Global.LateUpdate`, the sweep inside) 1.86–2.19 → 1.78–1.83 ms | exact |
-| `fast-partitioner-cleanup`<br>the spatial index's cleanup looks only at removed entries | the spatial index's cleanup 0.25–0.29 → 0.06 ms | exact |
+| `fast-partitioner-cleanup`<br>the spatial index's cleanup looks only at removed entries | the spatial index's cleanup 0.25–0.29 → 0.06 ms<br>Windows, 2026-11-21: its first scan after a load took 1.4 s on a late-game Spaced Out colony and 0.56 s on another (the first frames after unpausing, #105), each dropped handle checked against all dropped before it; 0.15 and 0.11 s since | exact |
 | `fast-symbol-overrides`<br>unchanged symbol-override blocks aren't uploaded again | animation batch uploads (`World.LateUpdate`) 1.48–1.52 → 0.90–0.98 ms<br>frame 40.9–44.8 → 32.8–36.1 ms | exact |
 | `fast-anim-batches`<br>animation batches are written on worker threads | `World.LateUpdate` 0.96–1.01 → 0.90–0.98 ms | exact |
 | `fast-conveyor-paths`<br>the conveyor network's rebuild finds its paths from an index | the load, from the menu to the colony, 28.3–29.0 → 25.4–27.6 s | exact |
@@ -1264,8 +1266,24 @@ itself, from the menu's load to the colony, is 18.1–18.3 s, and the garbage co
 2.8–3.3 s of the whole. The earlier 35–36 s were first launches, which also rewrite the game's
 assemblies once (see Start-up). Profiled on Linux,
 about two thirds of it is the game's own work (reading the save and setting up each object), and about a quarter is the engine
-creating those objects. Unloading unused assets during the load takes another 1.2 s. The JIT
-isn't the bottleneck: compiling ahead of time (ReadyToRun) saved nothing measurable.
+creating those objects. Unloading unused assets during the load takes another 1.2 s.
+Compiling ahead of time (ReadyToRun) saved nothing measurable, so the JIT's compile time isn't
+the bottleneck. The speed of the code it runs during a load was: with the runtime's default
+tiering, nothing tiers up while a load compiles, so the load ran unoptimised tier-0 code.
+
+Since 2026-11-21 Moono sets tiered compilation's call-counting delay to 0
+([research/tiered-compilation.md](research/tiered-compilation.md)), so hot code is optimised
+after its 30th call. Medians of four second launches each on Windows (U60 764025, from
+"Loading save file" to the end of the colony's third frame):
+
+| Save | Load before | Load with delay 0 | Slow load frame before | With delay 0 | Main menu before | With delay 0 |
+|---|---|---|---|---|---|---|
+| The late-game colony above | 20.9 s | 15.5 s | 2.0 s | 0.73 s | 17.3 s | 14.1 s |
+| A large ice colony (issue #105's) | 15.3 s | 8.7 s | 1.4 s | 0.27 s | 16.4 s | 14.0 s |
+
+These launches ran a timing probe and start-up stats, so their menu times are longer than the
+start-up figures below. The late-game colony's frame rate at speed 3 did not drop (91.1 fps before, 94.8 after,
+medians of four launches; p99 33.7 and 29.5 ms).
 
 ## Start-up
 
